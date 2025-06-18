@@ -1,25 +1,25 @@
 {
-  "the_stranger_1942.txt": {
+  "the_stranger_1942": {
     "title": "The Stranger",
     "year": 1942,
     "type": "novel",
     "theme": ["absurdity", "alienation"]
   },
-  "1935_1942_notebooks.bt": {
+  "1935_1942_notebooks": {
     "title": "Notebooks",
-    "year": "1935–1942",
+    "year": 1935–1942,
     "type": "notebook",
     "theme": []
   },
-  "1937_1939_1954_1958_short_essays.txt": {
+  "1937_1939_1954_1958_short_essays": {
     "title": "Short Essays",
-    "year": "1937–1958",
+    "year": 1937–1958,
     "type": "essay",
     "theme": []
   },
-  "1937_1957_lyrical_and_critical_essays.bit": {
+  "1937_1957_lyrical_and_critical_essays": {
     "title": "Lyrical and Critical Essays",
-    "year": "1937–1957",
+    "year": 1937–1957,
     "type": "essay",
     "theme": []
   },
@@ -29,133 +29,133 @@
     "type": "novel",
     "theme": ["absurdity", "alienation"]
   },
-  "1946_1949_americanJournals.txt": {
+  "1946_1949_americanJournals": {
     "title": "American Journals",
-    "year": "1946–1949",
+    "year": 1946–1949,
     "type": "journal",
     "theme": []
   },
-  "1951_theRebel_booktxt": {
+  "1951_theRebel_book": {
     "title": "The Rebel",
     "year": 1951,
     "type": "essay",
     "theme": ["revolt", "freedom"]
   },
-  "1971_aHappyDeath_bookbt": {
+  "1971_aHappyDeath_book": {
     "title": "A Happy Death",
     "year": 1971,
     "type": "novel",
     "theme": ["mortality", "freedom"]
   },
-  "camusLiteraryEthics_GraceWhistler.bxt": {
+  "camusLiteraryEthics_GraceWhistler": {
     "title": "Camus' Literary Ethics (Grace Whistler)",
     "year": null,
     "type": "criticism",
     "theme": []
   },
-  "1939_1958_algerianChronicles.witing.tr": {
+  "1939_1958_algerianChronicles.writing": {
     "title": "Algerian Chronicles",
-    "year": "1939–1958",
+    "year": 1939–1958,
     "type": "essay",
     "theme": ["colonialism", "justice"]
   },
-  "1942_1951_notebooks.bxt": {
+  "1942_1951_notebooks": {
     "title": "Notebooks",
-    "year": "1942–1951",
+    "year": 1942–1951,
     "type": "notebook",
     "theme": []
   },
-  "1942_theMythOfSisyphus_novel.txt": {
+  "1942_theMythOfSisyphus_novel": {
     "title": "The Myth of Sisyphus",
     "year": 1942,
     "type": "philosophy",
     "theme": ["absurdity", "meaning"]
   },
-  "1943_1944_1948_1949_plays.tt": {
+  "1943_1944_1948_1949_plays": {
     "title": "Collected Plays",
-    "year": "1943–1949",
+    "year": 1943–1949,
     "type": "play",
     "theme": []
   },
-  "1944_1947_camusAtCombat_joumal.txt": {
+  "1944_1947_camusAtCombat_joumal": {
     "title": "Camus at Combat",
-    "year": "1944–1947",
+    "year": 1944–1947,
     "type": "journal",
     "theme": []
   },
-  "1945_1951_1959_interviews.txt": {
+  "1945_1951_1959_interviews": {
     "title": "Collected Interviews",
-    "year": "1945–1959",
+    "year": 1945–1959,
     "type": "interview",
     "theme": []
   },
-  "1947_thePlague_bookbxt": {
+  "1947_thePlague_book": {
     "title": "The Plague",
     "year": 1947,
     "type": "novel",
     "theme": ["suffering", "solidarity"]
   },
-  "1949_theJustAssassins_play.bxt": {
+  "1949_theJustAssassins_play": {
     "title": "The Just Assassins",
     "year": 1949,
     "type": "play",
     "theme": ["justice", "violence"]
   },
-  "1951_1959_notebooks.txt": {
+  "1951_1959_notebooks": {
     "title": "Notebooks",
-    "year": "1951–1959",
+    "year": 1951–1959,
     "type": "notebook",
     "theme": []
   },
-  "1956_theFall_booktxt": {
+  "1956_theFall_book: {
     "title": "The Fall",
     "year": 1956,
     "type": "novel",
     "theme": ["guilt", "judgment"]
   },
-  "1957_exileAndTheKingdom_short_stories.bt": {
+  "1957_exileAndTheKingdom_short_stories": {
     "title": "Exile and the Kingdom",
     "year": 1957,
     "type": "short stories",
     "theme": ["exile", "freedom"]
   },
-  "1958_thelnvincibleSummer_booktxt": {
+  "1958_thelnvincibleSummer_book": {
     "title": "The Invincible Summer",
     "year": 1958,
     "type": "essay",
     "theme": ["resilience", "identity"]
   },
-  "1994_theFirstMan_novel.txt": {
+  "1994_theFirstMan_novel": {
     "title": "The First Man",
     "year": 1994,
     "type": "novel",
     "theme": ["childhood", "colonial Algeria"]
   },
-  "cambridgeCompanionToCamus.bxt": {
+  "cambridgeCompanionToCamus": {
     "title": "Cambridge Companion to Camus",
     "year": null,
     "type": "criticism",
     "theme": []
   },
-  "camusACriticalExamination_DavidSprintzen.bxt": {
+  "camusACriticalExamination_DavidSprintzen": {
     "title": "Camus: A Critical Examination",
     "year": null,
     "type": "criticism",
     "theme": []
   },
-  "camusSartre_Jetters.txt": {
+  "camusSartre_Jetters": {
     "title": "Camus–Sartre Letters",
     "year": null,
     "type": "correspondence",
     "theme": []
   },
-  "elementsOfALife_RobertZaretsky.bxt": {
+  "elementsOfALife_RobertZaretsky": {
     "title": "Elements of a Life",
     "year": null,
     "type": "biography",
     "theme": []
   },
-  "lectures_speeches_letters.bxt": {
+  "lectures_speeches_letters": {
     "title": "Lectures, Speeches, and Letters",
     "year": null,
     "type": "misc",
