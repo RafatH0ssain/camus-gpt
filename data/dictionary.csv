@@ -1,0 +1,164 @@
+{
+  "the_stranger_1942.txt": {
+    "title": "The Stranger",
+    "year": 1942,
+    "type": "novel",
+    "theme": ["absurdity", "alienation"]
+  },
+  "1935_1942_notebooks.bt": {
+    "title": "Notebooks",
+    "year": "1935–1942",
+    "type": "notebook",
+    "theme": []
+  },
+  "1937_1939_1954_1958_short_essays.txt": {
+    "title": "Short Essays",
+    "year": "1937–1958",
+    "type": "essay",
+    "theme": []
+  },
+  "1937_1957_lyrical_and_critical_essays.bit": {
+    "title": "Lyrical and Critical Essays",
+    "year": "1937–1957",
+    "type": "essay",
+    "theme": []
+  },
+  "1942_theStranger_bookbxt": {
+    "title": "The Stranger",
+    "year": 1942,
+    "type": "novel",
+    "theme": ["absurdity", "alienation"]
+  },
+  "1946_1949_americanJournals.txt": {
+    "title": "American Journals",
+    "year": "1946–1949",
+    "type": "journal",
+    "theme": []
+  },
+  "1951_theRebel_booktxt": {
+    "title": "The Rebel",
+    "year": 1951,
+    "type": "essay",
+    "theme": ["revolt", "freedom"]
+  },
+  "1971_aHappyDeath_bookbt": {
+    "title": "A Happy Death",
+    "year": 1971,
+    "type": "novel",
+    "theme": ["mortality", "freedom"]
+  },
+  "camusLiteraryEthics_GraceWhistler.bxt": {
+    "title": "Camus' Literary Ethics (Grace Whistler)",
+    "year": null,
+    "type": "criticism",
+    "theme": []
+  },
+  "1939_1958_algerianChronicles.witing.tr": {
+    "title": "Algerian Chronicles",
+    "year": "1939–1958",
+    "type": "essay",
+    "theme": ["colonialism", "justice"]
+  },
+  "1942_1951_notebooks.bxt": {
+    "title": "Notebooks",
+    "year": "1942–1951",
+    "type": "notebook",
+    "theme": []
+  },
+  "1942_theMythOfSisyphus_novel.txt": {
+    "title": "The Myth of Sisyphus",
+    "year": 1942,
+    "type": "philosophy",
+    "theme": ["absurdity", "meaning"]
+  },
+  "1943_1944_1948_1949_plays.tt": {
+    "title": "Collected Plays",
+    "year": "1943–1949",
+    "type": "play",
+    "theme": []
+  },
+  "1944_1947_camusAtCombat_joumal.txt": {
+    "title": "Camus at Combat",
+    "year": "1944–1947",
+    "type": "journal",
+    "theme": []
+  },
+  "1945_1951_1959_interviews.txt": {
+    "title": "Collected Interviews",
+    "year": "1945–1959",
+    "type": "interview",
+    "theme": []
+  },
+  "1947_thePlague_bookbxt": {
+    "title": "The Plague",
+    "year": 1947,
+    "type": "novel",
+    "theme": ["suffering", "solidarity"]
+  },
+  "1949_theJustAssassins_play.bxt": {
+    "title": "The Just Assassins",
+    "year": 1949,
+    "type": "play",
+    "theme": ["justice", "violence"]
+  },
+  "1951_1959_notebooks.txt": {
+    "title": "Notebooks",
+    "year": "1951–1959",
+    "type": "notebook",
+    "theme": []
+  },
+  "1956_theFall_booktxt": {
+    "title": "The Fall",
+    "year": 1956,
+    "type": "novel",
+    "theme": ["guilt", "judgment"]
+  },
+  "1957_exileAndTheKingdom_short_stories.bt": {
+    "title": "Exile and the Kingdom",
+    "year": 1957,
+    "type": "short stories",
+    "theme": ["exile", "freedom"]
+  },
+  "1958_thelnvincibleSummer_booktxt": {
+    "title": "The Invincible Summer",
+    "year": 1958,
+    "type": "essay",
+    "theme": ["resilience", "identity"]
+  },
+  "1994_theFirstMan_novel.txt": {
+    "title": "The First Man",
+    "year": 1994,
+    "type": "novel",
+    "theme": ["childhood", "colonial Algeria"]
+  },
+  "cambridgeCompanionToCamus.bxt": {
+    "title": "Cambridge Companion to Camus",
+    "year": null,
+    "type": "criticism",
+    "theme": []
+  },
+  "camusACriticalExamination_DavidSprintzen.bxt": {
+    "title": "Camus: A Critical Examination",
+    "year": null,
+    "type": "criticism",
+    "theme": []
+  },
+  "camusSartre_Jetters.txt": {
+    "title": "Camus–Sartre Letters",
+    "year": null,
+    "type": "correspondence",
+    "theme": []
+  },
+  "elementsOfALife_RobertZaretsky.bxt": {
+    "title": "Elements of a Life",
+    "year": null,
+    "type": "biography",
+    "theme": []
+  },
+  "lectures_speeches_letters.bxt": {
+    "title": "Lectures, Speeches, and Letters",
+    "year": null,
+    "type": "misc",
+    "theme": []
+  }
+}

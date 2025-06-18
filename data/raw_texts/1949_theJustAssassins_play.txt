@@ -1,0 +1,1092 @@
+The Just
+(Les Justes)
+
+written by Albert Camus
+translated from the French by Suzanne M. Saunders
+
+Translator's Introduction Author's Introduction Act 1
+Act 2 Act 3 Act 4 Act 5
+Translator's Introduction
+
+I first read this play in my junior year of high school, in a third-year International Baccalaureate French class. My teacher admitted to us that it was chosen for us to read because it was the shortest thing on the list of works in French approved by the IB for their French-as-a-second-language classes. Also, being a play, it does not make much use of the complicated French literary verb tenses.
+
+Despite this evidence that it could have been much more difficult, my classmates were never much for this play. That's really the standard American reaction to having to read something in another language, and also possibly to the content; you can see why a play about the ethics and emotions of a group of socialist terrorists would not gain much popularity in the United States. Even though Camus was once characterized by my friend Rob as "the Friendly Existentialist" (certainly so, compared to reading Sartre) and The Stranger is standard fare in literature classes.
+
+Nonetheless, the play moved me to tears when I first read it; the only other literary work to accomplish that was Romeo and Juliet (from which the beginning epigraph of The Just comes, oddly enough). It's so beautiful in French, but I never could find an English translation that did it justice. For example, the one in the University of South Florida library, translated by Stuart Gilbert, renders the play's title as The Just Assassins, despite the main character's cry in Act 4, "Je vous interdis d'employer ce mot" (I forbid you to use that word) when what he has done is referred to as "l'assassinat" (the assassination).
+
+So I translated it myself. The first version was done during the summers of 1991 and 1992, not long after the two years of going over it in French class. But I did some editing before putting it up to smooth out my old tendency to translate literally at the expense of smooth flow in English.
+
+I hope someone likes it, and that this sadly overlooked play becomes more well-known. I think understanding what drives people to extremes for the sake of a cause is even more vital now than it was when the play was written in 1949.
+
+
+
+
+The Just Ones (Les Justes) Author's Introduction
+
+In February 1905, in Moscow, a group of terrorists who were part of the revolutionary socialist party organized an attempt on the life of the Grand Duke Serge, uncle of the Tsar. This attempt, and the unusual circumstances leading up to and following it, are the subject of The Just. No matter how extraordinary some of the situations in this play may seem, they are the truth. This is not to say that The Just is a historical play. But all the characters did actually exist, and behaved as I have written. I only tried to make realistic the things which really happened.
+
+I kept the real name of the hero, Kaliayev. I didn't do this from lack of imagination, but out of respect and admiration for those men and women who, in the most contemptible of efforts, were still not able to get rid of their own hearts. Progress has been made since then, it is true, and the hate which weighed down those exceptional souls into intolerable suffering has now become a comfortable system. But that is even more reason to bring back these great ghosts and the story of their justified revolt, their difficult brotherhood, and the unmeasurable efforts they made to put themselves in tune with murder -- and thus to show where their true faith lay.
+
+-- Albert Camus, 1949
+
+
+O love! O life! Not life but love in death.
+Romeo and Juliet, Act IV, Scene 5
+
+
+Dramatis Personae
+
+Dora Doublebov
+Boris "Boria" Annenkov Stepan Fedorov
+Alexis Voinov
+Ivan "Yanek" Kaliayev The guard
+Foka Skouratov
+The Grand Duchess
+
+
+
+
+
+
+
+The Just Act I
+
+(The terrorists' apartment. Morning. The curtain goes up in silence. Dora and Annenkov are onstage without moving. There is a single knock at the door. Anenkov gestures to silence Dora, who seems to want to speak. Two more knocks.)
+
+Annenkov: It's him. (He leaves the stage. Dora waits, still without moving. Annenkov returns with Stepan, who he takes by the shoulders.) It's him! Stepan's back.
+
+Dora (going to Stepan and taking his hand) It's great to see you again, Stepan! Stepan: Hello, Dora.
+Dora (looking at him): It's been three years already.
+Stepan: Yep, three years. The day they arrested me, I was coming back to join you.
+
+Dora: We were waiting for you then. It got later and later, and my heart beat faster and faster. We were so scared we couldn't look each other in the face.
+
+Annenkov: We had to change apartments again. Stepan: I know.
+Dora: And there, Stepan?
+
+Stepan: Where?
+Dora: In prison?
+
+Stepan: You can escape from prison.
+
+Annenkov: Yes. We were very happy when we learned that you had gotten to Switzerland. Stepan: Switzerland was just another prison, Boria.
+Annenkov: What do you mean? At least they're free there.
+
+Stepan: Liberty is still a prison long as there is still anyone in chains on earth. When I was free, I could not stop thinking of Russia and all its slaves. (Silence.)
+
+Annenkov: I'm glad the party sent you here.
+
+Stepan: It was necessary. I'm finally ready to act. (Looking at Annenkov) We're going to kill him, right? Annenkov: I'm certain of it.
+Stepan: We will kill that murderer. You're the leader, Boria, and I will obey you. Annenkov: I don't need any promises, Stepan. We're all brothers here.
+Stepan: We need discipline. I started to understand that in prison. The revolutionary socialist party needs discipline. With that discipline, we will kill the Grand Duke and we will destroy this tyranny.
+
+Dora (going towards him): Sit down, Stepan. You must be tired after that long trip. Stepan: I'm never tired. (Silence. Dora goes to sit down.) Is everything ready, Boria?
+Annenkov, changing his tone: For a month, two of our people have been watching the Grand Duke's movements. And Dora's gathered together everything we'll need.
+
+Stepan: Is the proclamation ready?
+
+Annenkov: Yes. All of Russia will know that the Grand Duke was executed by a bomb from the combat division of the revolutionary socialist party, to hurry the liberation of the Russian people. The imperial palace will know that we've decided to keep up the terror until the land is given back to the people. Yes, Stepan, yes, everything is ready. The moment is coming.
+
+Stepan: What must I do?
+Annenkov: For now, you can help Dora. Schweitzer, who you're replacing, worked with her. Stepan: He died?
+Annenkov: Yeah.
+Stepan: How?
+
+Dora: An accident. (Stepan looks at Dora, who looks away.)
+
+Stepan: Then?
+
+Annenkov: After that we'll see. You must be ready to replace us, in case of an emergency, and maintain the liaison with the Central Committee.
+
+Stepan: Who else is here?
+
+Annenkov: You met Voinov in Switzerland. I have a lot of confidence in him, even though he's young. You don't know Yanek.
+
+Stepan: Yanek?
+
+Annenkov: Kaliayev. We also call him the Poet. Stepan: That's a dumb name for a terrorist.
+Annenkov (laughing): Yanek wouldn't say so. He says that poetry is revolutionary. Stepan: Only bombs are revolutionary. (Silence.) Dora, do you think I can help you? Dora: Yes, you just have to be careful not to break the tubes.
+Stepan: And if they break?
+Dora: That's how Schweitzer died. (A short time.) Why are you smiling, Stepan? Stepan: Am I smiling?
+Dora: Yes.
+
+Stepan: That happens to me sometimes. (A short time. Stepan seems to be thinking.) Dora, would one bomb blow up this whole building?
+
+Dora: Just one, no. But it would be in bad condition inside. Stepan: How many to blow up Moscow?
+Annenkov: You're crazy! What do you mean?
+
+Stepan: Oh, nothing. (A knock. Everyone waits. Two more knocks. Annenkov goes into the antechamber and comes back with Voinov.)
+
+Voinov: Stepan!
+
+Stepan: Hello. (They shake hands. Voinov goes to Dora and hugs her.)
+
+Annenkov: Everything went well, Alexis? Voinov: Yes.
+Annenkov: You studied the route to the theater?
+
+Voinov: I can draw it. Look. (He draws.) Turns, retraced roads, obstacles...the carriage will go under our window. Annenkov: What are these x's?
+Voinov: A little place where the horses go around, and the theater where they stop. In my opinion, those are the best places. Stepan: The informers?
+Voinov, hesitantly: We've got a bunch. Stepan: Do they worry you?
+Voinov: I'm not comfortable.
+
+Annenkov: No one's comfortable around them. Don't worry. Voinov: I'm not afraid of anything. I'm not used to lying, that's all. Stepan: Everybody lies. All you need is to lie well.
+Voinov: That's not easy. When I was a college student, my friends made fun of me because I couldn't. I said what I thought. Finally, they threw me out of the university.
+
+Stepan: Why?
+
+Voinov: In history class, the professor asked me how Peter the Great had built St. Petersburg. Stepan: Good question.
+Voinov: With blood and whips, I said. I was kicked out of the place. Stepan: And then?
+Voinov: I understood that it wasn't enough to speak against injustice. You have to give your life to fight it. Now, I'm happy. Stepan: And now, you lie?
+Voinov: I lie. But I won't be lying anymore the day I throw the bomb. (Two knocks, then one more. Dora hurries to the door.)
+
+Annenkov: It's Yanek.
+
+Stepan: That wasn't the same signal.
+
+Annenkov: Yanek likes to mess with it. He has his own personal signal. (Stepan shrugs. Dora's voice is heard in the antechamber. Enter Dora and Kaliayev, holding hands, Kaliayev laughing.)
+
+Dora: Yanek, this is Stepan, the one who's replacing Schweitzer. Kaliayev: Welcome, brother.
+Stepan: Thank you. (Dora and Kaliayev go sit down, facing the others.)
+
+Annenkov: Yanek, are you sure you'll recognize the carriage?
+
+Kaliayev: Yes, I went over it twice. I could pick it out of a thousand. I noted all the details. For instance, one pane of glass on the left lantern is broken.
+
+Voinov: And the informers?
+
+Kaliayev: Plenty of 'em. But we're old friends. They buy me cigarettes. (He laughs.)
+
+Annenkov: Did Pavel confirm what we've got?
+
+Kaliayev: The Grand Duke will go to the theater this week. Soon, Pavel will know the exact day and will leave a message with the doorman. (He turns toward Dora and laughs.) We are lucky, Dora.
+
+Dora, looking at him: You aren't a vendor anymore? Now you're a great lord. You look so good. Don't you regret giving up your disguise?
+
+Kaliayev (laughing): It's true I was very proud of it. (To Stepan and Annenkov.) I spent two months observing the vendors, and more than a month practicing in my room. The rest of them never had a clue. "A great salesman," they said. "He could sell horses to the tsar." And they all tried to copy me.
+
+Dora: Naturally, you laugh.
+Kaliayev: You know I can't help it. This disguise, this new life, everything amuses me.
+
+Dora: I don't like disguises. (She shows off her dress.) This fancy outfit! Boria could have gotten me something else. My heart is simple.
+
+Kaliayev, laughing: You look beautiful in that dress.
+
+Dora: Beautiful! I am happy to be. But we don't need to think about it.
+
+Kaliayev: Why not? Your eyes are always sad, Dora. You need to be happy, you need to be proud. Beauty exists, joy exists! "In the tranquil places where my heart wishes you..."
+
+Dora (smiling): "...I breathe in an eternal summer..."
+
+Kaliayev: Oh! Dora, you remember that verse. And you smile? I am so happy.
+
+Stepan, cutting them off: We're losing time. Boria, I suppose we'll need to warn the doorman? (Kaliayev looks at him, astonished.)
+
+Annenkov: Yes. Dora, would you go do it? Don't forget the tip. Then Voinov will help you get everything together in the bedroom. (They leave. Stepan walks toward Annenkov with a determined step.)
+
+Stepan: I want to throw the bomb.
+
+Annenkov: No, Stepan. I've already decided who'll do it. Stepan: I'm begging you. You know what this means to me.
+Annenkov: No. Rules are rules. (A silence.) I won't be throwing it either; I have to wait here. The rules are hard on everyone. Stepan: Who is throwing the first bomb?
+Kaliayev: Me. Voinov is throwing the second. Stepan: You?
+Kaliayev: That surprises you? Don't you have confidence in me? Stepan: You need experience.
+Kaliayev: Experience? You know very well that you only throw it once and then...No one has ever thrown two bombs. Stepan: You must have a firm hand.
+Kaliayev (showing his hands): Look. Do you think they'll shake? (Stepan turns away.) They never shake. What? I will have that tyrant in front of me, do you think I will hesitate? How can you believe that? And even if my hands did shake, I know another way to kill the Grand Duke.
+Annenkov: How?
+
+Kaliayev: Throw myself under the horses' feet. (Stepan hunches his shoulders and goes to sit down in the back.) Annenkov: No, that's not necessary. You must try to survive. The Organization needs you, you must preserve yourself. Kaliayev: I will obey, Boria! What an honor, what an honor for me! Oh, I will be worthy of it.
+
+Annenkov: Stepan, you'll be in the street while Yanek and Alexis go for the carriage. You will pass beneath our windows and we'll have a signal. Dora and I will wait here until time to release the proclamation. With any luck, the Grand Duke will be destroyed.
+
+Kaliayev (in exultation): Yes, I will destroy him! How great it will be if we succeed! The Grand Duke is nothing. We will strike higher.
+
+Annenkov: First the Grand Duke.
+
+Kaliayev: And if we fail, Boria? We will have to imitate the Japanese. Annenkov: What do you mean?
+Kaliayev: During war, the Japanese don't surrender. They kill themselves. Annenkov: No. Don't think about suicide.
+Kaliayev: Of what then?
+Annenkov: Of the new terror we'll make.
+
+Stepan (speaking from the back): To kill yourself, you must love yourself an awful lot. A true revolutionary cannot love himself.
+
+Kaliayev (turning back to him quickly): A "true" revolutionary? Why are you treating me like this? What have I done to you? Stepan: I don't like people who enter the revolution because they're bored.
+Annenkov: Stepan!
+
+Stepan (getting up and coming over to them): Yes, I'm brutal. But for me, hate is not a game. We are not here to admire ourselves. We are here to succeed.
+
+Kaliayev (softly): Why do I offend you? Who said I was bored?
+
+Stepan: I don't know. You change the signals, you like playing a vendor, you recite poetry, you want to throw yourself under the horses' feet, and now, suicide. (Looking at him) I don't have confidence in you.
+
+Kaliayev: You don't know me, brother. I love life. I am not bored. I entered the revolution because I love life. Stepan: I don't love life; I love justice, which is higher than life.
+Kaliayev (with a visible effort): Each person serves justice however he can. We must accept that we are different. We must love each other, if we can.
+
+Stepan: We can't.
+
+Kaliayev: So what are you doing with us?
+
+Stepan: I came here to kill a man, not to love one or to salute our differences.
+
+Kaliayev (violently): You aren't killing him in the name of nothing. You kill him with us and in the name of the Russian people. That's your justification.
+
+Stepan (in the same manner): I don't need it. I was justified in one night, for always, three years ago, in prison. And I will not support...
+
+Annenkov: Enough! Are you both crazy? Don't you realize who we are? We're brothers, some confused by others, but working toward the execution of tyrants, for the liberation of this country! We kill together, and nothing can separate us.
+
+(Silence. He looks at them.) Come on, Stepan, we need to figure out the signals. (Stepan leaves. To Kaliayev) It's nothing. Stepan's been through a lot. I'll talk to him.
+
+Kaliayev (very pale): He insulted me, Boria. (Enter Dora.)
+
+Dora (seeing Kaliayev): What's wrong?
+
+Kaliayev: We are already fighting. He doesn't like me. (Dora sits down, in silence for a minute.)
+
+Dora: I don't think he likes anybody. When everything is done, he'll be happier. Don't be sad.
+
+Kaliayev: I am sad. I need to be liked by all of you. I gave up everything for this revolution. How can I face it if my brothers turn away from me? Sometimes I get the feeling that they don't understand me. Is it my fault? I am clumsy, I know.
+
+Dora: They like you and they understand you. Stepan is different.
+
+Kaliayev: No. I know what they think. Schweitzer already said it. "Too weird to be a revolutionary." I would like to explain to them that I am not weird. They think I'm crazy, too spontaneous. However, like them, I believe in the idea. Like them, I want to sacrifice myself. Me too, I can be skilled, quiet, lying, hiding myself. But life still seems marvelous to me. I love beauty, happiness! That's why I hate tyranny. How can I explain it to them? The revolution, of course! But a revolution for life, to give people a chance at life, understand?
+Dora: Yes. (More softly) However, we are going to give death.
+
+Kaliayev: Who, us? Oh, you mean...It's not the same thing. Oh no! It's not the same thing. We kill just to build a world where no one will ever have to kill again! We accept our being criminals so that the earth can finally be covered with innocents.
+
+Dora: And if it's never like that?
+
+Kaliayev: Be quiet -- you know that's impossible. Stepan would be right then. It would be slapping beauty in the face.
+
+Dora: I've been in the Organization longer than you; I know that nothing is simple. But you have faith in it. We all need faith.
+
+Kaliayev: Faith? No. Only one person has that.
+
+Dora: You have the force from the soul. And you will leave everything behind to go to the end. Why did you ask to throw the first bomb?
+
+Kaliayev: Can you talk about terrorist action without being part of it? Dora: No.
+Kaliayev: You have to be in the front row.
+
+Dora, who seems to be thinking: Yes. There is the front row and there is that last moment. We must think of that. That's where the courage is, the exultation that we need ... that you need.
+
+Kaliayev: For a year, I have thought of nothing else. That moment is why I've lived until now. And I know now that I want to die then, at the side of the Grand Duke. Lose my nerve until the last moment, or burn all at once, in the flame of the explosion, and leave nothing behind me. Do you understand why I asked to throw the bomb? To die for an idea that's the only way to be truly at the top of the idea. That's the justification.
+
+Dora: I also want that kind of death.
+
+Kaliayev: Yes, it's a goodness that one can envy. At night, I return sometimes to the pallet of a vendor. One thought torments me: they have made assassins out of us. But I think at the same time that I am going to die, and my heart lifts. I smile, you
+
+see, and I go back to sleep like a child.
+
+Dora: It's good that way, Yanek. To kill and then to die. But in my opinion, there is an even greater goodness. (A silence. Kaliayev looks at her. She lowers her eyes.) The scaffold.
+
+Kaliayev, with fever: I have thought of it. To die at the moment of the assassination leaves something unachieved. Between the assassination and the scaffold, on the other hand, there is an eternity, the only one, perhaps, for a man.
+
+Dora, in an urgent voice, taking his hands: That's the thought that will help you. We pay more than we owe. Kaliayev: What do you mean?
+Dora: We are obliged to kill, right? We deliberately sacrifice one life and only one? Kaliayev: Yes.
+Dora: But first to go to the assassination and then to the gallows, is to give your life twice. We pay more than we owe.
+
+Kaliayev: Yes, that is to die twice. Thank you, Dora. No one can criticize us. Now, I am sure of myself. (Silence.) What, Dora? Nothing else to say?
+
+Dora: I still want to help you. Only... Kaliayev: Only what?
+Dora: No, I'm crazy. Kaliayev: You don't trust me?
+Dora: No, dear, I don't trust myself. Since Schweitzer died I've had the strangest ideas. And it's not for me to tell you what will be difficult.
+
+Kaliayev: I like difficult things. If you respect me, talk.
+
+Dora, looking at him: I know. You're brave. That is what worries me. You laugh, you glory in this, you walk toward your sacrifice wholeheartedly. But in a few hours, you will have to leave this dream, and act. Maybe it would be better to talk about it in advance to avoid a surprise, a weakness.
+
+Kaliayev: I won't have any weakness. Say what you think.
+
+Dora: Well, the assassination, the gallows, to die twice, that's all easier. Your heart is enough for that. But at the front...(She is quiet, looking at him and seeming to hesitate.) At the front, you will see him.
+
+Kaliayev: Who?
+Dora: The Grand Duke.
+Kaliayev: Just for a second.
+
+Dora: One second for you to look at him! Oh! Yanek, you must know, you should be warned. A man is a man. The Grand Duke may have compassionate eyes. You might see him blink, or smile happily. Who knows, he might have a little razor cut. And if he looks at you right then...
+
+Kaliayev: It's not him I'm killing. It's despotism.
+
+Dora: Of course, of course. We must kill despotism. I've prepared the bombs and while handling the tubes, you know, the hardest part, when your nerves are stretched -- I was strangely happy in my heart. But I don't know the Grand Duke and it would have been a lot harder if, while I was doing that, he was sitting right in front of me. You will see him close up. Very close up.
+
+Kaliayev (violently): I will not see him. Dora: How? Will you close your eyes?
+Kaliayev: No. But with God's help, hate will come to me at the right time and it will blind me. (A knock. They are still. Enter Stepan and Voinov. A voice in the antechamber. Enter Annenkov.)
+
+Annenkov: That was the doorman. The Grand Duke is going to the theater tomorrow. (He looks at them.) Everything must be ready, Dora.
+
+Dora (sourly): All right. (She leaves slowly)
+
+Kaliayev (watching her leave and then turning toward Stepan): I will kill him. With joy!
+
+
+
+
+
+
+Act Two
+
+The next evening. The same place. Annenkov is at tho window and Dora at the table.
+
+Annenkov: They're in place. Stepan just lighted his cigarette. Dora: When is the Grand Duke supposed to go by?
+Annenkov: In just a minute. Listen. Isn't that a carriage? No. Dora: Sit down. Be patient.
+Annenkov: And the bombs?
+Dora: Sit down. We can't do anything else. Annenkov: Yes we can. Envy them.
+Dora: You're the leader; your place is here.
+
+Annenkov: I am the leader. But Yanek is better than me, because it's him who might. . . Dora: The risk is the same for all of us, those who throw the bombs and those who don't.
+Annenkov: The risk is the same in the end, but right now Yanek and Alexis are in the line of fire. I know I can't be with them. However, sometimes I'm afraid of agreeing too easily to my role. It's convenient, after all, to be forced not to throw the bomb.
+
+Dora: And when would that be? What's essential is that you do what you must, until the end. Annenkov: How can you be so calm?!
+Dora: I'm not calm; I'm scared. I've been with you for three years, making bombs for two. I've done everything and I don't think I've forgotten anything.
+
+Annenkov: Of course not, Dora.
+
+Dora: So, it's three years that I've been afraid, with this fear that recedes a little when you sleep, but you get back it fresh in the morning. So I've had to get used to it. I've learned to be calm when I am really the most petrified. It's nothing to be proud
+
+of.
+
+Annenkov: On the contrary, be very proud! Me, I never mastered it. Do you know I regret the old days, with that brilliant life and the women. Oh, I loved the women, the wine, those endless nights.
+
+Dora: I don't doubt it, Boria. That's why I like you so much. Your heart isn't dead. Even if it still dreams of those pleasures, that's better than that silence which takes their place.
+
+Annenkov: What do you mean? You? That's impossible.
+
+Dora: Listen. (She looks up brusquely. the noise of a carriage.) No. it's not him. My heart is pounding. You see, I haven't learned anything.
+
+Annenkov (going to the window: Wait. Stepan's making the signal. It's him. (A rolling noise in the background, which comes under the windows and then fades. A long silence.) In a few seconds. (They listen.) It's so long! (Dora makes a gesture. A long silence, then bells are heard,in the distance.) This is impossible. Yanek should have thrown the bomb by now. The carriage must have already reached the theater! And Alexis? Look! Stepan is turning back and running towards the theater.
+Dora, (throwing herself on him): Yanek's been arrested! He must have been. We must do something! Annenkov: Wait. (listening) No. It's finished.
+Dora: How has this happened? Yanek, arrested without having done anything! He was ready for everything, I know. He wanted prison and the trial. But after having killed the Grand Duke! Not this way, no, not this way!
+
+Annenkov (looking outside): Voinov! Quick! (Dora goes to let him in. Enter Voinov, with an unsettled expression.) Alexis, quick, tell us!
+
+Voinov: I don't know anything. I was waiting for the first bomb. I saw the carriage turn and nothing happened. I lost my head. I thought that at the last minute you had changed the plan; I hesitated. Then I ran here.
+
+Annenkov: And Yanek? Voinov: I didn't see him. Dora: He's been arrested!
+Annenkov, still looking outside: There he is! (Dora goes to let him in. Enter Kaliayev, in tears.)
+
+Kaliayev: Brothers, forgive me. I couldn't. (Dora, goes toward him and takes his hand.)
+
+Dora: It's nothing.
+Annenkov: What happened?
+Dora, to Kaliayev: It's nothing. Sometimes at the last minute, everything screws up. Annenkov: But this is impossible.
+Dora: Let him be. You're not the only one, Yanek. Schweitzer couldn't the first time either. Annenkov: Yanek, were you afraid?
+Kaliayev (jumping on him): Fear, no. You don't have the right! (The usual signal. Voinov leaves on a sign from Annenkov. Kaliayev throws himself down on the couch. Enter Stepan.)
+
+Annenkov: Well?
+
+Stepan: There were children in the carriage.
+
+Annenkov: Children?
+Stepan: The Grand Duke's niece and nephew.
+Annenkov: The Grand Duke was supposed to be alone, according to Orlov.
+
+Stepan: The Grand Duchess was also there. I suppose that was too big a crowd for our poet. Fortunately, the informers did not see anything. (Annenkov speaks softly to Stepan. Everyone looks at Kaliayev who looks up toward Stepan.)
+
+Kaliayev: I could not predict this...Children, those children especially. Have you ever looked at little kids? That serious look they have sometimes...I couldn't stand that look...A minute before, however, in the corner of the little square, I was happy.
+When the lamps of the carriage started to shine in the distance, my heart started thumping with joy, I swear it. It beat harder and harder as the carriage rolling got louder. It made so much noise inside me. I think I was laughing. And I was saying, "yes, yes." Do you understand? (He stops looking at Stepan and resumes his previous position.) I ran toward the carriage.
+Then I saw them. They weren't laughing. They held themselves all straight and looked out at nothing. They looked so sad! Lost in their parade poses, hands folded, the doors on either side. I didn't see the Grand Duchess; I only saw them. If they had looked at me, I think I would have thrown the bomb. To at least extinguish that sad look. But they looked straight ahead. (He raises his eyes toward the others. More softly.) Oh, I don't know what happened. My arms became weak. My legs shook. One second after that, it was too late. (Silence. He looks at the floor.) Dora, was I dreaming, I thought I heard bells ringing right then?
+
+Dora: No, Yanek, you weren't dreaming. (She puts her hand on his arm. Kaliayev lifts his head up and sees them all turned toward him. He stands up.)
+
+Kaliayev: Look at me, brothers, look at me, Boria, I am not a coward, I didn't chicken out. I was not waiting for them. Everything happened too fast. Those two little serious faces and in my hand, that terrible weight. It's at them that I would have been throwing it. No! I couldn't. (He looks from one to the other.) In the old days, when I drove the car at our place in the Ukraine, I flew like the wind, afraid of nothing. Nothing in the world, except of running over a child. I imagined the shock, that fragile head hitting the road... (He is quiet.) Help me... (Silence) I want to kill myself. I came back because I thought I owed you an explanation, that you would be my only judges, that you would tell me if I was right or wrong, that you could not lie to yourselves. But you aren't saying anything. (Dora comes over to touch him. He looks at everyone and speaks in a low voice.) This is what I propose. If you decide that we must kill the children, I'll wait for them to come out of the theater and I'll throw the bomb at the carriage. I know I won't miss the target. Decide, and I'll obey the Organization.
+Stepan: The Organization told you to kill the Grand Duke. Kaliayev: That's true. But it didn't ask me to murder children. Annenkov: Yanek is right. We didn't predict this.
+Stepan: He should have obeyed orders.
+
+Annenkov: I'm responsible for this. Every possibility should have been planned for, and then no one would have hesitated over what to do. Now we just need to decide whether to give up this try or tell Yanek to wait until they leave the theater. Alexis?
+
+Voinov: I don't know. I think I would have done the same as Yanek. But I'm not sure of myself. (Softly) My hands are shaking.
+
+Annenkov: Dora?
+Dora, violently: I would have stopped, like Yanek. How can I ask others to do things I couldn't do myself?
+
+Stepan: Do all of you realize what this decision means? Two months of shadowing, of all the risks we've run and evaded, two months lost, for nothing. Egor arrested for nothing. Rikov hanged for nothing. And we have to start over? More long weeks of night watches and ruses, unending tension, before another chance? Are you crazy?
+
+Annenkov: You know that in two days the Grand Duke will go to the theater again.
+
+Stepan: Two more days that we risk being caught; you said so yourself. Kaliayev: I'm leaving.
+Dora: Wait! (To Stepan.) Could you, Stepan, with your eyes open, throw a bomb at a child? Stepan: I could if the Organization commanded.
+Dora: Why are your eyes closed? Stepan: Are they?
+Dora: Yes.
+Stepan: Just to imagine the situation better, and respond with knowledge of the facts.
+
+Dora: Open your eyes, and understand that the Organization would lose all its power and influence if it were to condone for a second children being hurt by our bombs.
+
+Stepan: I can't take any more of this garbage. When we decide to forget about children, that day we'll be masters of the world and the revolution will triumph.
+
+Dora: That day, the revolution will be hated by all of humanity.
+
+Stepan: What does the whole world matter if we're strong enough to impose ourselves on them, and save them from themselves and from their slavery?
+
+Dora: And if all of humanity rejects the revolution? And if all the people who you fight for refuse to have their children killed? Will we have to force them?
+
+Stepan: Yes, if necessary, until they understand. I too, I love the people. Dora: Love does not look like that.
+Stepan: Who says so?
+Dora: Me, Dora.
+
+Stepan: You're a woman and you have the wrong idea about what love is. Dora, violently: But I have the right idea about what shame is.
+Stepan: I have been ashamed of myself just once, and it was the fault of others. When they whipped me. Because they whipped me. The whip, do you know what that is?! Vera was beside me and she killed herself in protest. Me, I lived. What should I be ashamed of now?
+
+Annenkov: Stepan, everyone here loves you and respects you. But no matter what your reasons are, I cannot let you say that everything is allowed. Hundreds of our brothers have died so that we know that not everything is allowed.
+
+Stepan: Nothing is prohibited which could help our cause.
+Annenkov, angrily: Is it all right to join the police and play on both sides, like Evno suggested? Would you do that? Stepan: Yes, if we needed to.
+Annenkov, getting up: Stepan, we will forget what you just said, in consideration of all you have done for us and with us. Just remember this. He wants to know if, in a few hours, we will be throwing bombs at those two children.
+
+Stepan: Children! That's all you can say. Don't you understand anything? Because Yanek did not kill those two, millions of Russian children will die of starvation in the next few years. Have I you ever seen children starve to death? I have, and death by a bomb is a breeze next to that death. But Yanek did not see them. He only saw the two intelligent dogs of the Grand Duke. Aren't you human? Do you only live right now in the present? Then choose charity and fix today's evil, instead of the revolution which will cure all evils, present and yet to come.
+
+Dora: Yanek accepts killing the Grand Duke, because his death can bring the time when Russian children won't die of starvation anymore. That by itself is not easy. But the death of the niece and nephew of the Grand Duke will not prevent one child from dying. Even in destruction, there is order, and there are limits.
+
+Stepan, violently: There are no limits. The truth is that you all don't believe in the revolution. (Everyone rises quickly, except Yanek.) You don't believe in it. If you believed in it totally, if you were sure that by our sacrifices and our victories we will build a Russia free from tyranny, a land of freedom which would eventually cover the whole world, and if you don't doubt that then man, freed from his masters and his prejudices, will bring himself up towards the sky to face the real gods, what would the death of two children weigh against that? You remember everything, all those rights, you hear me. And if this death stops you, it's because you are not completely sure of being right. You do not believe in the revolution. (Silence.
+Kaliayev gets up.)
+
+Kaliayev: Stepan, I am ashamed of myself. However, I cannot let you continue. I accepted killing someone to destroy this dictatorship. But after what you have said, I see a new tyranny coming, which, if it was ever installed, would make me into an assassin when I am trying to be a maker of justice.
+
+Stepan: What would it matter if you were not a "maker of justice," if justice was done, even by assassins? You and I are nothing.
+
+Kaliayev: We are something and you know it well, because it's in the name of your pride that you were speaking earlier today.
+
+Stepan: My pride only looks at me. But the pride of men, their revolution, the injustice under which they live, that is the business of all of us.
+
+Kaliayev: Men do not live by justice alone.
+Stepan: When someone steals their bread, what else will they live on but justice? Kaliayev: On justice and innocence.
+Stepan: Innocence? Maybe I know what that is. But I chose to ignore it, and have it be ignored by millions of men, so that one day it can take on a bigger meaning.
+
+Kaliayev: It is necessary to be very sure that day will come to destroy everything that makes a man consent to keep on living.
+
+Stepan: I am sure of it.
+
+Kaliayev: You can't be. To know who, me or you, is right, you'd need the sacrifice of maybe three generations and several wars, terrible revolutions. When that rain of blood has dried on the earth, you and I would have been mixed with the dust for a long time.
+
+Stepan: Others would come then, and I salute them as my brothers.
+
+Kaliayev, crying out: Others ... yes! But I love those who live today on the same earth as I do, and they're the ones I salute; I'm fighting for them and for them I'm willing to die. And for a far-off future city that I am not sure of, I will not slap the faces of my brothers. I will not add to the living injustices for a dead justice. (Softer, but firmly.) Brothers, I want to speak frankly and at least tell you what tne simplest of peasants could say: to kill children is to be without honor. And if someday while I live, the revolution separates itself from honor, I will turn away from it. If you decide that, I will go to the exit of the theater, but I will throw myself under the horses.
+
+Stepan: Honor is a luxury reserved for people who can afford carriages.
+
+Kaliayev: No. It is the last possession of the poor. You know it well, and you also know that there is honor within the revolution. It's that for which we accept death. It's that which placed you under the whip one day, and that which made you speak earlier today.
+
+Stepan, in a cry: Shut up. I forbid you to talk about that.
+
+Kaliayev: Why should I shut up? I let you say that I don't believe in the revolution; that is to say, that I was capable of killing the Grand Duke for nothing, that I am an assassin. I let you say that and I didn't hit you.
+
+Annenkov: Yanek!
+
+Stepan: It is better to kill for nothing sometimes than not to kill enough. Annonkov: Stepan, no one here agrees with you. The decision is made.
+Stepan: So I'll go along. But I repeat that terror does not mold itself to the way delicate people like it. We are murdrerers and we have chosen to be.
+
+Kaliayev: No. I've chosen to die so that murder will not triumph. I have chosen to be innocent.
+
+Annenkov: Yanek and Stepan, enough! The Organization has decided that the murder of children is useless. We will start again; we'll have to be ready in two days.
+
+Stepan: And if the children are still there? Annenkov: We'll wait for another chance.
+Stepan: And if the Grand Duchess accompanies the Grand Duke? Kaliayev: I won't spare her.
+Annenkov: Listen. (The noise of a carriage. Kaliayev is pulled irresistibly toward the window. The others wait. The carriage approaches, passes under the window, and disappears.)
+
+Voinov, looking at Dora, who comes toward him: Starting over, Dora...
+Stepan, with mistrust: Yes, Alexis, starting over. But this is what happens when you do something for honor!
+
+
+Act Three
+
+(The same place, the same time of day two days later.)
+
+Stepan: Where's Voinov? He should be here.
+
+Annenkov: He needed some sleep. We still have half an hour. Stepan: I can go find out the news.
+Annenkov: No. We have to lie low, limit the risks. (Silence.) Yanek, why are you so quiet? Kaliayev: I have nothing to say. Don't worry. (A knock.) There. (Enter Voinov.)
+Annenkov: Did you get any sleep?
+
+Voinov: A little, yes.
+Annenkov: Did you sleep the whole night through? Voinov: No.
+Annenkov: You should have. There are ways. Voinov: I tried. I was too tired.
+Annenkov: Your hands are shaking.
+Voinov: No. (Everyone looks at him.) Why are you looking at me? Can't I be tired? Annenkov: You can be tired.. We're thinking of your own good.
+Voinov, with sudden violence: You should have thought of that the day before yesterday. If the bomb had been thrown two days ago, we wouldn't be tired any more.
+
+Kaliayev: Forgive me, Alexis. I know I made things more difficult.
+Voinov, more softly: Who said that? Why more difficult? I'm tired, that's all. Dora: Everything will go faster now. In an hour it will be over.
+Voinov: Yes, it'll be over. In an hour...(He looks out into space. Dora goes to him and takes his hand. He lets go and then pulls away violently.) Boria, I need to talk to you.
+
+Annenkov: Alone?
+Voinov: Yes, alone. (They look at one another. The other three leave.)
+Annenkov: What is it? (Voinov is quiet.) Tell me, please.
+Voinov: I'm ashamed, Boria. (Silence.) I'm ashamed. I have to tell you the truth. Annenkov: You don't want to throw the bomb?
+Voinov: I can't throw it.
+Annenkov: Are you afraid? Is that it? That's nothing to be ashamed of. Voinov: I am afraid, and I'm ashamed of being afraid.
+Annenkov: But the day before yesterday, you were cheerful and strong. Right when you left, your eyes were shining.
+
+Voinov: I've always been afraid. The day before yesterday I had marshaled my courage, that's all. When I heard the carriage rolling in the distance, I said to myself, "Let's go! Just one more minute." I ground my teeth. All my muscles were tense. I was going to throw the bomb with so much force that the shock alone would have killed the Grand Duke. I waited for the first explosion, to blow away all this energy accumulated in me. And then, nothing. The carriage went past me. It was so fast! I finally understood that Yanek hadn't thrown the bomb. And at that moment, a terrible chill seized me. Suddenly I felt as weak as a baby.
+Annenkov: That was nothing, Alexis. Life will come back to you.
+
+Voinov: It's been two days now, and it hasn't come back. I lied to you a minute ago, I didn't sleep at all last night. My heart was beating too loud. Oh, Boria, I'm hopeless.
+
+Annenkov: You don't have to be. We've all gone through this. So you won't throw the bomb now. A month of rest in Finland, and you will come back to us.
+
+Voinov: No. That's another thing. If I don't throw the bomb today, I will never throw it. Annenkov: Why not?
+Voinov: I am not made for terror. I know that now. It will be better if I just leave this group. I will work with the others, in propaganda.
+
+Annenkov: The risks are the same.
+
+Voinov: Yes, but there you can work with your eyes closed. You don't know about anything. Annenkov: What do you mean?
+Voinov, feverishly: There you don't know what's going on. It's easy to have meetings, to discuss the situation, and even to pass on the order for an execution. You risk your life that way, sure, but in the end, without having seen anything. Whereas to stand, while the night is falling over the city, in the middle of the crowd of workers hurrying home for their hot soup, the children, the warmth of a woman, to stand tall and mute with the weight of a bomb beneath your arm, and to know that in three minutes, in two minutes, in a few seconds, you will throw that in front of a moving carriage, that is terror. And, now I know that I cannot start doing that again without feeling emptied of all my blood. Yes, I am ashamed. I set my sights too high. Now I should work in my proper place. A very small place. The only one I am worthy of.
+Annenkov: There are no small places. The prison and the gallows are the end for everyone.
+
+Voinov: But you don't have to see them the way you see the people you are going to kill. You have to imagine them. Luckily, I have no imagination. (He laughs nervously.) I never really believed in the secret police. Bizarre, for a terrorist, huh? At the first foot on my chest, then I'll believe in them. Not before.
+
+Annenkov: And once you're in prison? There, you know, and you see. There is no way to forget.
+
+Voinov: There, there are no decisions to make. Yes, that makes it easy, to not have to make any more decisions! Not to have to say, "Let's go, it's your turn, it is necessary, you yourself decide the second when you are going to throw." I'm sure now that if I were arrested, I would not try to escape. To escape, you need inventiveness, you have to take the initiative. If you don't try to escape, the others are the ones with the initiative. They have to do all the work.
+Annenkov: They are working to hang you, sometimes.
+
+Voinov, with despair: Sometimes. But it will be less difficult for me to die than to carry my own life and that of someone else under my arm and to decide when to throw those two lives into the flames. No, Boria, the only way I can redeem myself is to accept what I am. (Annenkov is quiet.) But cowards can still serve the revolution. As long as they find their place.
+
+Annenkov: Then we are all cowards. But we don't always have the opportunity to test it. Do what you like. Voinov: I would rather leave right now. I don't think I can look everyone in the face. But you can talk to them. Annenkov: I'll talk to them. (He steps toward Voinov.)
+Voinov: Tell Yanek that it's not his fault. And that I love him, like I love all of you. (Silence. Annenkov hugs him.)
+
+Annenkov: Goodbye, brother. Mother Russia will be happy.
+
+Voinov: Oh, yes. She will be happy! So happy! (He leaves. Annenkov goes to the door.)
+
+Annenkov: Come in. (Everyone enters with Dora.)
+
+Stepan: What happened?
+
+Annenkov: Voinov isn't going to throw the bomb. He's exhausted. It wouldn't be certain. Kaliayev: It's my fault, isn't it, Boria?
+Annenkov: He said to tell you that he loves you. Kaliayev: Will he come back to us?
+Annenkov: Maybe. But for now, he's leaving. Stepan: Why?
+Annenkov: He'll be more useful in propaganda. Stepan: Did he ask to be moved? Was he afraid? Annenkov: No. I decided it all.
+Stepan: One hour before the beginning, you make us a man short?
+
+Annenkov: One hour before the beginning, I had to make a decision by myself. It's too late to discuss it. I will take Voinov's place.
+
+Stepan: That should go to me, by right.
+
+Kaliayov, to Annenkov: You're the leader. Your job is to stay here.
+
+Annenkov: Sometimes the leader's job is to be a coward. But on the condition that he prove himself when it's needed. The decision is made. Stepan, you will replace me for the time I'm gone. Come on, you have to know the instructions. (They leave. Kaliayev sits down. Dora goes to him and takes his hand. But she then changes her mind.)
+
+Dora: It's not your fault.
+
+Kaliayev: I hurt him, hurt him so much. Do you know what he told me the other day? Dora: He never stopped saying that he was happy.
+Kaliayev: Yes, but he told me there was no happiness for him outside of our group. "There is us, the Organization," he said. "And then there's nothing. It's a knighthood." What a pity, Dora!
+
+Dora: He'll come back.
+
+Kaliayev: No. I can imagine what I would feel in his place. I'd be hopeless. Dora: And you're not now?
+Kaliayev, sadly: Now? I'm with all of you and I am happy, like he was. Dora, slowly: That's a great satisfaction.
+Kaliayev: It's a very great satisfaction. Don't you agree?
+
+Dora: I think like you do. So why are you sad? Two days ago your face was lit up. You looked like you were going to a celebration. Today...
+
+Kaliayev, getting up, with much agitation: Today, I know what I didn't know then. You were right, it's not that simple. I thought it would be easy to kill, that the idea would be enough, that and courage. But I am not that great and I know now that there is no goodness in hate. All this evil, all this evil, in me and in the others. Murder and cowardice and injustice. Oh, it's necessary, I have to kill him...But I will go to the end! Farther than hate!
+
+Dora: Farther than hate? There is nothing farther. Kaliayev: There is love.
+Dora: Love? No, that's not what you need.
+Kaliayev: Oh, Dora, how can you say that? You--I know your heart.
+
+Dora: There's too much blood, too much violence. People who truly love justice don't have the right to love. They are stuck like I am, their heads raised, their eyes fixed in one direction. What could love do in these proud hearts? Love curves people's necks softly, Yanek. Us, our necks are stiff.
+
+Kaliayev: But we love the people.
+
+Dora: We love them, that's true. We love them from a vast love without a particular focus, with an unhappy love. We live far from them, closed up in our rooms, lost in our thoughts. And the people, do they love us? Do they even know we love them? The people are quiet. What a silence that is, what a silence.
+
+Kaliayev: But that's love, giving everything, sacrificing all without hope of return.
+
+Dora: Maybe. That's absolute love, pure and solitary joy, it's what burns inside me. However, sometimes, I ask myself if love isn't something else, if it can stop being a monologue, sometimes. I imagine it, you see: the sun shines, the necks are curved softly, the heart lets go of its pride, and the arms open up. AH, Yanek, if we could forget, just for one hour, the miserable suffering of the world, and let ourselves go at last. One small hour of selfishness, can you imagine that?
+Kaliayev: Yes, Dora, that'd be called tenderness.
+
+Dora: You figure everything out, dear, that's called tenderness. But do you really know about it? Do you love justice with any tenderness? (Kaliayev is silent.) Do you love the people with that kind of abandon and sweetness, or instead with the flame of vengeance and rebellion? (Kaliayev is still silent.) You see. (She goes to him, and in a very soft voice.) And me, do you love me with tenderness? (He looks at her.)
+Kaliayev, after a pause: No one has ever loved you like I love you. Dora: I know. But wouldn't it be better to love like the rest of the world? Kaliayev: I'm not everyone else. I love you like the person I am.
+Dora: You love me more than justice, more than the Organization? Kaliayev: I don't separate them,you, the Organization, and justice.
+Dora: Yes, but answer me, I'm begging you, would you love me if I weren't in the Organization? Kaliayev: Where would you be then?
+Dora: I remember back when I was a student. I laughed. I was pretty then. I spent hours walking and dreaming. Would you love me light-hearted and carefree?
+
+Kaliayev, hesitating and very softly: I am dying to tell you yes.
+
+Dora, in a cry: Then say yes, dear, if you think it and it is true. Yes, face to face with justice, in front of all the misery and people in slavery. Yes, yes, I beg you, in spite of the agonies children suffer, in spite of the people that they hang and those that they whip to death...
+
+Kaliayev: Shut up, Dora.
+
+Dora: No, we have let our hearts talk at least once. I've waited for you to put me, me, Dora, above this whole world poisoned by injustice.
+
+Kaliayev, brutally: Shut up. My heart talks about nothing but you. But in a few minutes, I can't be trembling.
+
+Dora, suddenly aware of having wandered: A few minutes? Oh, I'd forgotten...(she laughs like she is crying.) No, this is good, my dear. Don't be angry, I wasn't being reasonable. It's the fatigue. I couldn't have said it either. I love you with the same steady love, in justice and in prison. Summer, Yanek, you remember? No, it's always winter. We are not part of this world; we are the just ones. There is a kind of heat which is not for us. (Turning away.) Ah! Pity the just ones!
+
+Kaliayev, looking at her despairingly: Yes, that's our position; love is impossible. But I will kill the Grand Duke, and then there'll be some peace, for you just like for me.
+
+Dora: Peace! When will we have that?
+
+Kaliayev, violently: The day after. (Enter Annenkov and Stepan. Dora and Kaliayev shy violently away from each other.)
+
+Annenkov: Yanek!
+
+Kaliayev: Just a minute. (He breathes deeply.) Finally, finally... Stepan, coming toward him: Goodbye, brother; I'm with you.
+Kaliayev: Goodbye, Stepan. (He turns toward Dora.) Goodbye, Dora. She goes to him. They are very close to each other but do not touch.)
+
+Dora: No, not goodbye. See you later, I will see you later, dear. We'll meet again. (He looks at her. Silence.)
+
+Kaliayev: See you later. I...Russia will be beautiful.
+
+Dora, in tears: Russia will be beautiful. (Kaliayev crosses himself in front of the icon. He leaves with Annenkov. Stepan stands at the window. Dora does not move, continuing to stare after them at the door.)
+
+Stepan: How confidently he goes out. I was wrong, you know, not to trust Yanek. I just didn't like his enthusiasm. He crossed himself, did you see? Is he a believer?
+
+Dora: He doesn't practice a faith.
+
+Stepan: He has a religious soul, though. That's what separates us two. I'm more ruthless than he is, I know. For those of us who don't believe in God, total justice is necessary or we just despair.
+
+Dora: For him, justice itself is desperate.
+
+Stepan: Yes, a weak soul. But his hands are strong. He'll do better than his soul. He'll kill the Grand Duke, that's for sure. Which is good, very good. Destroy, that's what we have to do. But you don't have anything to say? (He examines her.) Do you love him?
+
+Dora: You have to have time to love. We barely have enough time for justice.
+
+Stepan: True. There's too much to do; we have to break down the world from top to bottom...and then...(at the window) I don't see them anymore; they're in place.
+
+Dora: And then...
+
+Stepan: Then we'll love one another. Dora: If we're there.
+Stepan: Other people will love each other. That will stay the same. Dora: Stepan, say "the hate."
+
+Stepan: What?
+Dora: Those two words, "the hate," say them. Stepan: The hate.
+Dora: That's good. Yanek says them very badly.
+
+Stepan, after a pause, and walking toward her: Oh, I see. You don't trust me. Are you really sure that you're right, though? (A tense silence.) You are all willing to sell out what we do in the name of wretched love. But me, I don't love anything and I hate, oh, I hate my fellow creatures! What do I have to do with their love? I knew it in prison, three years ago. And for those three years, I've carried it with me. Did you want me to have waited and to hold the bomb like a cross? No! I've gone too far; I know too many things...Look...(He takes off his shirt. Dora has stepped toward him, but flinches before the whip marks.) These are the scars! The scars of their love! Do you trust me now? (She goes to him and hugs him brusquely.)
+Dora: Who can distrust such pain? I love you too.
+
+Stepan, looking at her and softly: Pardon me, Dora. (A pause. He turns away.) Maybe it's the fatigue. All these years of fighting, of agony, traitors, prison...and to cap it off, this. (He shows his marks.) Where would I find the energy to love? I barely have enough to hate. That's better than not feeling anything.
+
+Dora: Yes, it is better. (He looks at her. Seven o'clock sounds.)
+
+Stepan, turning away brusquely: The Grand Duke is about to go by. (Dora goes to the window and presses herself against the glass. A long silence. Then, in the distance, the carriage. It approaches and passes.) If he's alone... (The carriage fades away. A terrible explosion. Dora hides her head in her hands. A long silence.) Boria didn't throw his bomb! Yanek succeeded! Success! Oh people! Oh yes!
+
+Dora, in tears and throwing herself against him: We've killed him! We've killed him! It was me! Stepan, loudly: Who did we kill? Yanek?
+Dora: The Grand Duke.
+
+
+Act Four
+
+A cell in Pougatchev section of Boutirki Prison. Morning. When the curtain rises, Kaliayev is in his cell and is looking at the door. A guard and a prisoner carrying a bucket enter.
+
+Guard: Clean it. And fast. (He stands by the window. Foka starts cleaning without looking at Kaliayev. Silence.)
+Kaliayev: What's your name, brother? Foka: Foka.
+Kaliayev: You're a prisoner?
+Foka: Sure seems like it.
+Kaliayev: What did you do?
+Foka: Murder.
+
+Kaliayev: Were you hungry?
+
+Guard: Not so loud.
+
+Kaliayev: What?
+Guard: Not so loud. I'm letting you talk even though there's a rule against it. So don't talk so loud. Like the old guy. Kaliayev: Were you hungry?
+Foka: No, I was thirsty. Kaliayev: And then?
+Foka: There was an ax. I smashed everything. Apparently I killed three people. (Kaliayev looks at him.) Oh, so now I'm not your brother anymore, nobleman? You give me the cold shoulder?
+
+Kaliayev: No. I killed someone too. Foka: How many?
+Kaliayev: I'll tell you if you want, brother. But answer me this, you regret what happened, don't you? Foka: Of course. Twenty years, that's a lot. It gives you regrets.
+Kaliayev: Twenty years. I'd come in 23 years old, and I'd leave with gray hair.
+
+Foka: Oh, it might be better for you. Judges have their ups and downs. It depends on if they're married and to who. And you, you're a noble. You won't get the same penalty as for us poor guys. You can relax.
+
+Kaliayev: I don't believe it. And I don't want it that way. I couldn't keep up this shame for twenty years. Foka: Shame? What shame? That's a nobleman's fancy thinking. How many did you kill?
+Kaliayev: Just one.
+Foka: What do you mean? That's nothing. Kaliayev: I killed the Grand Duke Serge.
+Foka: The Grand Duke? Huh! The way you guys go at it. Look at these nobles! Was it serious, tell me? Kaliayev: It was serious. But it was necessary.
+Foka: Why? You lived at court. It was over a woman, right? Handsome as you are... Kaliayev: I am a socialist.
+Guard: Not so loud.
+Kaliayev, louder: I am a revolutionary socialist.
+
+Foka: There's a story there. Why do you need to be like that? You only have to stay where you were and everything would go great. The world is made for you nobles.
+
+Kaliayev: No, it is made for you. There's too much misery and too many crimes. When there is less misery, there will be fewer crimes. If the world were free, you wouldn't be in here.
+
+Foka: Yes and no. In the end, whether you're free or not, it's never good to drink too much.
+
+Kaliayev: No, it's never good. But people only drink because they're humiliated. A time will come when it will no longer be necessary to drink, when no one will be ashamed, neither noble nor poor guy. We'll all be brothers, and justice will make our hearts crystal clear. Do you know what I mean?
+
+Foka: Yes, that's the Kingdom of Heaven. Guard: Not so loud.
+Kaliayev: You don't need to say that, brother. God can't do anything. Justice is our business! (Silence.) Don't you understand? Do you know the legend of Saint Dmitri?
+
+Foka: No.
+
+Kaliayev: He had a meeting on the steppe with God Himself, and he was hurrying to get there when he met a peasant whose wagon was stuck in the mud. So Saint Dmitri helped him. The mud was really thick; they spent almost an hour working.
+When they go it out, Saint Dmitri ran to his meeting. But God wasn't there anymore. Foka: So?
+Kaliayev: So there are always people who arrive late at meetings because there were too many wagons stuck in the mud and too many brothers needing help. (Foka steps back.) What?
+Guard: Not so loud. And you, old guy, hurry up.
+
+Foka: I don't trust this. All this isn't normal. People don't get the idea to go to prison for these stories about saints and wagons. And then, there is the other thing. (The guard laughs.)
+
+Kaliayev, looking at him: What?
+
+Foka: What do they do to people who kill Grand Dukes? Kaliayev: They hang them.
+Foka: Ah! (He recoils, while the guard laughs harder.)
+
+Kaliayev: Wait. What did I do?
+
+Foka: You didn't do anything. Even though you're a noble, though, I don't want you to get the wrong idea. We can gossip, pass the time like this, but if you're going to be hanged, that's not right.
+
+Kaliayev: Why not?
+
+Guard, laughing: Come on, old guy, tell him...
+
+Foka: Because you shouldn't talk to me like a brother. I'm the hangman for the condemned. Kaliayev: But aren't you a prisoner too?
+Foka: Exactly. They proposed to me to do this and for every one hanged, they'd take a year off my sentence. It's a good deal. Kaliayev: They give you a pardon for your crimes by having you commit more?
+Foka: Oh, it's not a crime if you're told to do it. And for them it's all the same. If you want my opinion, they aren't good Christians.
+
+Kaliayev: And how many times have you done this?
+
+Foka: Twice. (Kaliayev recoils. The others approach the door, the guard pushing Foka.)
+
+Kaliayev: So then you're an executioner?
+
+Foka, at the door: Well, Mr. High-class, what about you? (He leaves. Steps and commands are heard outside. Enter Skouratov, very elegant, with the guard.)
+
+Skouratov: Leave us by ourselves. Hello. You don't know who I am? I know you already. (He laughs.) You're already famous, huh? (Looking at him.) Nothing to say. I understand. Solitary, huh? It's hard, eight days in solitary. Today, we took you out of solitary and you're going to have some visitors. I'm here for that, you see. I've already sent you Foka.
+Remarkable, isn't he? I thought you'd be interested in him. Are you doing all right? It's good to see some faces after eight days, isn't it?
+Kaliayev: It depends on the face.
+
+Skouratov: Good comeback, well said. You know what you want. (A pause.) So if I get you right, my face doesn't please you?
+
+Kaliayev: Yep.
+
+Skouratov: I'm disappointed. But it's just a misunderstanding. The lighting is bad at first. In a basement, no one seems nice. And also, you don't know me. Sometimes the face puts people off at first. But when you know the heart...
+
+Kaliayev: Enough. Who are you?
+Skouratov: Skouratov, director of the department of police. Kaliayev: A lackey.
+Skouratov: At your service. But in your place, I wouldn't show so much pride. You may get to that. You start by wanting justice and end up organizing the police. As for the rest, the truth doesn't offend me. I'll be frank with you. You interest me and I want to offer you a way to be pardoned.
+
+Kaliayev: What pardon?
+
+Skouratov: What do you mean, what pardon? I'm offering you your life. Kaliayev: Who asked you for it?
+Skouratov: You don't ask for a pardon; it's given to you. Haven't you ever forgiven someone? (A pause). Think about it. Kaliayev: I'm rejecting your pardons, now and forever.
+Skouratov: At least listen. I'm not your enemy, in spite of how it looks. I admit it, you're right in how you think. Except for the assassination...
+
+Kaliayev: I forbid you to use that word.
+
+Skouratov, looking at him: Ah! Your nerves are sensitive, huh? (A pause.) Sincerely, I want to help you.
+
+Kaliayev: Help me? I'm ready to pay the price. But I won't put up with this chumminess you're trying to have with me. Go away.
+
+Skouratov: The accusation against you... Kaliayev: Correction.
+Skouratov: Excuse me?
+
+Kaliayev: Correction. I am a prisoner of war, not an accused criminal.
+
+Skouratov: If you like. Nevertheless, there was some damage, wasn't there? Leave the Grand Duke and politics aside for now. At the very least, there is the death of a man. And what a death!
+
+Kaliayev: I threw a bomb at your tyranny, not at a man.
+
+Skouratov: Undoubtedly. But it was a man who bore the brunt of it. And that didn't make him any more organized. You saw, didn't you, that when they found the body, the head was missing? Disappeared, that head! They found all the rest, except for an arm and part of a leg.
+
+Kaliayev: I carried out a verdict.
+
+Skouratov: Maybe, maybe. We are not criticizing you for that. What is a verdict? It's a word you could talk about all night. We are accusing you...no, you don't like that word...let's just say some amateur work, a little disorganized, and the results are disgusting. The whole world got to see them. Ask the Grand Duchess. There was blood, you see, a lot of blood.
+
+Kaliayev: Shut up.
+
+Skouratov: OK. I just mean that if you insist on talking about verdicts, saying it was the party and it only that made the judgement and performed the execution, then you don't need a pardon. But suppose, instead that we come back to the evidence. Suppose it was you who blew off the Grand Duke's head, then everything changes, doesn't it? You'd need to be pardoned then. I want to help you. Just out of sympathy to you, believe me. (He smiles.) Whatever you want, I myself am interested in people, not ideas.
+
+Kaliayev: My person, my self is above you and your masters. You can keep me here, but you can't judge me. I know where you're trying to go. You're searching for a weak point and you're trying to break me down into shame, tears, and repentence. You won't get anything. What I am doesn't concern you. What concerns you is our hate, mine and that of all my brothers. It's at your service.
+
+Skouratov: Hate? That's just another idea. What's not just an idea is murder. And its consequences, of course. I'd like to say repentance and punishment. For that, we're right in the middle. It's for you that I became a policeman. To be at in the middle of things. But you don't like me to tell you these things. (A pause. Skouratov advances slowly toward Kaliayev.) All I mean to say is that you shouldn't pretend to have forgotten about the Grand Duke's head. If you think about that, it won't make you feel good about yourself. You'll be ashamed, for example, instead of being proud of what you've done. And from the moment when you become ashamed, you will want to live and make amends. And the most important thing is that you decide you want to live.
+Kaliayev: And if I did decide that?
+
+Skouratov: Pardons for you and your comrades. Kaliayev: Have you arrested them?
+Skouratov: Not yet. But if you decide to live, we'll arrest them. Kaliayev: Did I understand you right?
+Skouratov: Certainly. Don't be angry anymore. Think about it. From the idealistic point of view, you cannot turn them in. From the point of view of the evidence, on the other hand, you would be doing them a favor. You're keeping them out of new trouble and at the same time, saving them from the gallows. Above all else, you get peace of mind. (Kaliayev is silent.) So?
+
+Kaliayev: My brothers will answer you in a little while.
+
+Skouratov: Another crime! Really, it's a career. Oh well, my work is finished. My heart is broken, but I see that you're holding on to your ideas. I can't separate you from them.
+
+Kaliayev: You can't separate me from my brothers.
+
+Skouratov: Goodbye. (He acts as if leaving, but then comes back.) Why, in that case, did you spare the Grand Duchess and her nephew and niece?
+
+Kaliayev: Who told you that?
+
+Skouratov: Your informer works for us too. At least partly... But why did you spare them? Kaliayev: That's none of your business.
+Skouratov: You don't think so? I'll tell you why it does. You've discovered that an idea can lead to the death of a Grand Duke, but it isn't worth killing children for. So the question is left to ask: If the idea isn't worth killing children for, does it really merit the death of a Grand Duke? (Kaliayev makes a gesture.) Oh, don't answer me at all if you don't want to! You'll have to answer the Grand Duchess.
+Kaliayev: The Grand Duchess?
+
+Skouratov: Yes, she wants to see you. And I came most of all to make sure that this conversation would be possible. Which it is. She wants to try to change your mind. The Grand Duchess is a Christian. The soul is her specialty, you see. (He laughs.)
+
+Kaliayev: I don't want to see her.
+
+Skouratov: I'm sorry, but she insists. And after all, you owe her a few explanations. They also say that since the death of her husband she hasn't been quite right in the head. We didn't want to contradict her. (At the door.) If you change your mind, don't forget my offer. I'll be back. (A pause. He listens.) There she is. After the police, a representative of religion! Really, we're spoiling you. But everything follows. Imagine God without the prisons. What solitude! (He leaves. Voices are heard and commands. Enter the Grand Duchess who stays still and quiet. The door remains open.)
+Kaliayev: What do you want?
+
+The Grand Duchess, uncovering her face: Look at me. (Kaliayev is silent.) A lot of things die with a man. Kaliayev: I know.
+The Grand Duchess, naturally but with a worn-down tinge to her voice: Murderers don't know that. If they did, how could they commit murder? (Silence.)
+
+Kaliayev: I've seen you. Now I'd like to be alone.
+
+The Grand Duchess: No. I still need to look at you. (He recoils. She sits down as if exhausted.) I can't stay by myself any more. After all, if I must suffer, he should see my pain. It would be OK then. Now...no, I can't stand being alone anymore, and staying quiet...But who can I talk to? The others don't understand. They pretend they're sad. They were for an hour or two. But then they could eat and sleep. Sleep, especially...I thought you must be like me. You can't sleep, I'm sure. And to whom better to speak of crime than a murderer?
+Kaliayev: What crime? All I remember is an act of justice.
+
+The Grand Duchess: That same voice! You talk just like him. All men take that same tone when they talk about justice. He would say, "This is fair!" and everyone else had to be quiet. He lied to himself sometimes, as you're lying to yourself...
+
+Kaliayev: He was the incarnation of the ultimate injustice, the one that's ground down the Russian people for centuries. And he got his privileges for doing it. If I've deluded myself, prison and death are the price I pay.
+
+The Grand Duchess: Yes, you're suffering. But him, you've killed him. Kaliayev: It was a complete surprise to him. That kind of death is nothing.
+The Grand Duchess: Nothing? (More softly.) That's true. They found you right afterward. Apparently you were making speeches in the middle of the crowd of policemen. I understand. That must have helped you. I got there a few seconds later. I saw it all. I put as much of my husband as I could find onto a stretcher. There was so much blood! (A pause.) I had on a white dress...
+Kaliayev: Be quiet.
+
+The Grand Duchess: Why? I'm telling you the truth. Do you know what he was doing two hours before his death? He was sleeping. In an armchair, with his feet up on another chair. He was sleeping, and you, you were waiting, in the unyielding evening...(She is crying.) Help me now. (He recoils, stiffening.) You are young, you can't be all bad.
+
+Kaliayev: I've never had time to be young.
+
+The Grand Duchess: Why are you rigid like that? Haven't you had a moment of self-pity? Kaliayev: No.
+The Grand Duchess: You should. It relieves things. Me, I don't have any more self-pity. (A pause.) I'm in such pain. You should have killed me with him instead of sparing me.
+
+Kaliayev: It wasn't you I was sparing; it was the children with you.
+
+The Grand Duchess: I know. I don't like them very much. (A pause.) They're the niece and nephew of the Grand Duke. Aren't they as guilty as their uncle?
+
+Kaliayev: No.
+
+The Grand Duchess: Do you know them? My niece has a spiteful heart. She refuses to give her alms to the poor. She doesn't want them to touch her. Is she being fair? He at least liked the peasants. He drank with them. And you killed him. Certainly you are unjust too. The earth is a desert.
+
+Kaliayev: It's useles. You're trying to take away my beliefs and make me despair. You'll never get anywhere. Go away. The Grand Duchess: Won't you pray with me and repent?...We wouldn't be alone anymore.
+Kaliayev: Leave me so I can prepare myself to die. If I don't die, then I'll be a murderer.
+
+The Grand Duchess: Die? You want to die? No. (She goes to Kaliayev in great agitation.) You must live and agree that you are a murderer. After all, you did kill him. Only God will justify you.
+
+Kaliayev: Which God, yours or mine?
+
+The Grand Duchess: The one of the church. Kaliayev: The church has nothing to do around here.
+The Grand Duchess: It serves a master who has also known the prisons.
+
+Kaliayev: Times have changed. And the church has chosen the heritage of its master. The Grand Duchess: Chosen? What do you mean?
+Kaliayev: It keeps all the pardons for itself and leaves us the burden of performing charity. The Grand Duchess: Who is "us"?
+Kaliayev, crying out: All the people that you hang. The Grand Duchess, sweetly: I am not your enemy.
+Kaliayev, with despair: Yes you are, like all of those of your breed and your clan. There is something even lower than being a criminal, and that is forcing people into crime who aren't meant for it. Look at me. I assure you that I wasn't made to kill.
+
+The Grand Duchess: Don't talk to me like an enemy. Look. (She goes to shut the door.) I'm leaving it up to you. (She cries.)
+Blood separates us. But you can rejoin me in God with regard to this evil. At least pray with me.
+
+Kaliayev: I must refuse. (He goes to her.) I feel nothing but compassion for you, and you have just touched my heart. Now you can understand me, because I'm not hiding anything. I don't count on any meetings with God. But, when I die, I will be at the same meeting that I've already had with the people I love, my brothers who are thinking of me right now. Praying would be betraying them.
+
+The Grand Duchess: What do you mean?
+
+Kaliayev, with exultation: Nothing, except that I will be happy. I have a long fight to keep up, and I will keep it up. But when the verdict is announced and the execution is neeear, then, at the foot of the scaffold, I will turn away from you and this hideous world, and I will let myself go toward the love which fills me. Do you understand?
+
+The Grand Duchess: There is no love away from God. Kaliayev: Yes, there is. The love of living creatures.
+The Grand Duchess: Living creatures are low. What can you do except destroy them or forgive them? Kaliayev: Die with them.
+The Grand Duchess: Everyone dies alone. He died alone.
+
+Kaliayev, with despair: Die with them! Those who love today must die together if they want to be reunited. Injustice separates them, and shame, and sorrow, and the evil that's done to others, and crime, they all tear people apart. Living is torture when it's living apart.
+
+The Grand Duchess: God reunites.
+
+Kaliayev: Not on this earth, and my meetings are all on this earth.
+
+The Grand Duchess: Those are meetings like dogs, nose to the ground, always sniffing, and always disappointed.
+
+Kaliayev, turning away to the window: But can't you imagine that two beings might renounce all joy, and love each other in sorrow, without being able to give themselves other meetings than sorrowful ones? (He looks at her.) Can't you imagine that the same rope would then unite these two?
+
+The Grand Duchess: What kind of terrible love is this? Kaliayev: You and your kind never let us have any other kind. The Grand Duchess: I also loved the man who you have killed.
+Kaliayev: I understand that. That is why I forgive you the evil you and your people have done to me. (A pause.) Now, leave me alone. (Silence.)
+
+The Grand Duchess: I will leave now. But I came here to bring you back to God, I know that now. You want to judge yourself and save yourself, all alone. You can't do that, though. God can, you live. I am going to ask for your pardon.
+
+Kaliayev: I beg you, don't do it. Leave me to die or I will hate you with a deadly hate. The Grand Duchess, at the door: I will ask for your pardon, from men and from God.
+Kaliayev: No, no, I forbid you. (He runs to the door and suddenly finds Skouratov. Kaliayev flinches and closes his eyes. Silence. He looks at Skouratov again.) I needed you.
+
+Skouratov: I'm happy to hear that. Why? Kaliayev: I needed to despise someone again. Skouratov: Too bad. I came to get your answer.
+
+Kaliayev: You have it already.
+
+Skouratov, changing his tone: No, I don't have it yet. Listen. I arranged this meeting with the Grand Duchess so I could publish it in the paper tomorrow. The transcript will be exact, except on one point. It will say that you did repent. Your comrades will think you have betrayed them.
+
+Kaliayev, calmly: They won't believe it.
+
+Skouratov: I won't stop the article unless you make a confession. You have overnight to decide. (He goes toward the door.)
+
+Kaliayev, more loudly: They won't believe it.
+
+Skouratov, turning back: Why? Have they never done wrong? Kaliayev: You don't know their love.
+Skouratov: No. But I do know that you can't believe in brotherhood all night without a small moment of weakness. I'm waiting for that weakness. (He closes the door, still in the cell.) Don't hurry. I'm patient. (They remain face to face.)
+
+
+Act Five
+
+Another apartment of the same style. A week later. Night. Silence. Dora paces back and forth.
+Annenkov: Rest a little, Dora.
+Dora: I'm cold.
+
+Annenkov: Come sit down over here. Get under the cover.
+
+Dora, continuing to walk: This night is so long. I'm so cold, Boria. (A knock, then two more. Annenkov goes to open the door. Enter Stepan and Voinov, who goes to Dora and hugs her. She holds him to her.) Alexis!
+
+Stepan: Orlov said it would be OK for this one night. All the under-officers who aren't working are at the meeting. So he could be here.
+
+Annenkov: Where are you going to meet him?
+
+Stepan: He'll meet us, Voinov and me, in that restaurant on Sophiskaia Ro ad. Dora, who has sat down, exhausted: It's for tonight, Boria.
+Annenkov: Nothing's lost; the decision depends on the tsar.
+
+Stepan: The decision depends on the tsar, if Yanek asked for a pardon. Dora: He didn't ask.
+Stepan: So why did he see the Grand Duchess if it wasn't to ask for a pardon? She had it printed everywhere that he had repented. How are we supposed to know the truth?
+
+Dora: We know what he said when he was in court and what he wrote to us. Didn't Yanek say he regretted having only one life he could use to hurl defiance at this autocracy? Could the man who said that beg for a pardon, could he repent? No, he wanted it, he wants to die. The things he's had to do don't fit him.
+Stepan: He was wrong to talk to the Grand Duchess.
+
+Dora: He's the only judge of that.
+Stepan: According to our rules, he shouldn't have let her visit.
+Dora: Our rules are to kill and that's all. Now he's free from them, he's finally free. Stepan: Not yet.
+Dora: He is free. He has the right to do what he wants before his death. Because he is about to die, be happy! Annenkov: Dora!
+Dora: But yes. If he were pardoned, what a triumph! That would be the proof, wouldn't it, that the Grand Duchess was telling the truth, that he repented and betrayed us. On the contrary, if he dies, you will believe him, and you will be able to love him again. (She looks at them.) Your love costs a lot.
+
+Voinov, coming toward her: No, Dora. We never doubted him.
+
+Dora, pacing back and forth: Yes...Maybe...Excuse me. But it doesn't matter, after all! We'll know, tonight...Ah! Poor Alexis, what did you come here for?
+
+Voinov: To replace him. I cried, I was so proud when I read his speech from the trial. When I read, "My death will be the ultimate protest against this world of tears and blood..." I started to shake like a leaf.
+
+Dora: A world of tears and blood...he said that, that's right.
+
+Voinov: He said that...Oh, Dora, such courage! And at the end, his shout: "If I've reached the summit of human resistance to violence, then may death crown my works by proving the purity of my belief." Then I decided to come.
+
+Dora, hiding her head in her hands: He really wanted that kind of purity. But what a horrible crown!
+
+Voinov: Don't cry, Dora. He asked for people not to cry at his death. Oh, I understand it all so well now. I can't doubt him. I suffered because I was a coward; and then, I threw the bomb in Tiflis. Now I'm no different from Yanek. When I learned he was doomed, I could only think of one thing: to take his place, since I couldn't be by his side.
+
+Dora: No one can take his place tonight! He will be all alone, Alexis.
+
+Voinov: We must support him with our pride, the way he supported us with his example. Don't cry. Dora: Look, my eyes are dry. But as for being proud, I can't ever be proud again.
+Stepan: Dora, don't judge me as bad. I wish Yanek could live; we need more men like him. Dora: Don't wish that. We should wish that he dies.
+Annenkov: You're crazy.
+
+Dora: We ought to want it that way. I know what's in his heart. This way he will be at peace. Oh yes, he must die! (More softly.) But I hope it will be quick.
+
+Stepan: I have to go, Boria. Come on, Alexis. Orlov is waiting for us.
+
+Annenkov: Yes, and hurry back. (Stepan and Voinov go to the door. Stepan looks to one side of Dora.)
+
+Stepan: We'll find out. Keep an eye on her. (Dora is at the window. Annenkov looks at her.)
+Dora: Death! The gallows! Death again! Oh, Boria! Annenkov: Yes, little sister. But there's no other solution.
+
+Dora: Don't say that. If the only solution is death, then we're not on the right track. The right way is one that leads to life, to the sun. It can't be cold forever...
+
+Annenkov: This way leads toward life. To life for other people. Russia will live and our grandchildren will live. Remember what Yanek said, "Russia will be beautiful."
+
+Dora: Other people, our grandchildren...Yes. But Yanek is in prison and the rope around his neck is cold. He's going to die. He might already have died so other people could live. Oh! Boria, and what if the other people don't live either? What if he died for nothing?
+
+Annenkov: Don't talk that way. (Silence.)
+
+Dora: I'm so cold I feel like I'm already dead. (A pause.) All of this makes us age so fast. We're not children anymore, Boria. The first time you murder, your childhood disappears. I throw a bomb and in just a second a whole life crumbles. Yes, we can die anytime now. We've already gone through the cycle of life.
+
+Annenkov: Then we die fighting, like real men.
+
+Dora: We've gone too fast. We're not human anymore.
+
+Annenkov: The evil and misery are going pretty fast too. There's no place left for patience and slow growth in this world. Russia is in a hurry.
+
+Dora: I know. We've taken the evil of the world upon ourselves. So did he. What courage! But sometimes I say to myself that we'll be punished for this work.
+
+Annenkov: It's work we're giving our lives for. No one can go any farther than that. We have a right to this job.
+
+Dora: Are we really sure that no one can go any farther? Sometimes, when I listen to Stepan, I'm so scared. Maybe other people will come along who'll use our example to allow themselves to kill without paying with their lives.
+
+Annenkov: That would be cowardly, Dora.
+Dora: Who knows? Maybe that's justice. And no one would dare to look it in the face anymore. Annenkov: Dora! (She is quiet.) Are you doubting yourself? I barely recognize you.
+Dora: I'm cold. I'm thinking of the man who had to refuse to tremble so he wouldn't seem afraid. Annenkov: So aren't you with us anymore?
+Dora, throwing herself at him: Oh, Boria, of course I'm with you! I will keep on till the end. I hate tyranny and I know we can change things. But it was with a happy heart that I chose this at first, and now with a mournful heart that I'm continuing. That's the difference. We're prisoners.
+
+Annenkov: All of Russia is in prison. We're trying to blow up the country's walls.
+
+Dora: Just give me a bomb to throw and you'll see. I'll march to the middle of the battle and my steps will be equal to anybody's. It's easy, it's so much easier to die of your contradictions than to live with them. Have you ever been in love, loved that person alone, Boria?
+
+Annenkov: I was in love once, but it's been a long time since I've thought about it. Dora: How long?
+Annenkov: Four years.
+
+Dora: And how long have you supervised the Organization?
+
+Annenkov: Four years. (A pause.) Now I love the Organization.
+
+Dora, walking toward the window: To love, yes, but to be loved...No, we have to march. Everyone wishes they could stop. March! March! We would like to stretch out our arms and let ourselves go. But the dirt of injustice sticks to us like glue.
+March! You see that we're condemned to be greater than we really are. The people, the faces, those are who we would like to love. Love over justice! No, we have to march! March, Dora! Forward, Yanek! (She is crying.) But for him, the end is near.
+
+Annenkov, taking her in his arms: He will be pardoned.
+
+Dora, looking at him: You know very well that he won't. You know that we need for him not to be pardoned. (He turns away his eyes.) Maybe he's already gone out into the hall. The whole crowd suddenly goes quiet, as soon as he appears. As long as he isn't cold. Boria, do you know how they hang someone?
+
+Annenkov: At the end of a rope. Enough, Dora!
+Dora, blindly: The executioner jumps up and pushes down on his shoulders. His neck just cracks. Isn't that terrible? Annenkov: Yes, in a sense. In another sense it's good.
+Dora: Good?
+
+Annenkov: To feel the touch of a person before dying. (Dora throws herself into an armchair. Silence.) Dora, we'll have to leave soon. We should rest a little.
+
+Dora, her mind having wandered: Leave? Who with? Annenkov: With me, Dora.
+Dora, looking at him: Leave! (She turns away, toward the window.) There's the sunrise. Yanek is already dead, I'm sure. Annenkov: I am your brother.
+Dora: Yes, you are my brother, and you are all my brothers who I love. (Rain is heard. The sun is coming up. Dora speaks in a soft voice.) But brotherhood has such terrible taste sometimes! (A knock. Enter Voinov and Stepan. Everyone stays still.
+Dora totters but regains control of herself with a visible effort.)
+
+Stepan: Yanek did not betray us. Annenkov: Orlov got to watch? Stepan: Yes.
+Dora, advancing firmly: Sit down. Tell us. Stepan: What good will that do?
+Dora: Tell us. I have the right to know. I want you to tell us in detail.
+Stepan: I won't know all the things you ask about. And anyway, it's time to leave. Dora: No, you're going to talk. When did they tell him?
+Stepan: Ten at night.
+
+Dora: When did they actually hang him? Stepan: Two in the morning.
+Dora: So he waited for four hours?
+
+Stepan: Yes, without saying a word. And then everything went quickly. Now it's over.
+Dora: Four hours without saying anything. Wait a minute. What was he wearing? Did he have his overcoat? Stepan: No. He was all in black, without anything over it. And he had a black felt hat.
+Dora: What was it like out?
+Stepan: A dark night, and the snow was already dirty. Then the rain made it into a sticky mud. Dora: Did he tremble?
+Stepan: No.
+
+Dora: Could Orlov catch his eye? Stepan: No.
+Dora: What was he looking at?
+
+Stepan: All around, Orlov said, without really seeing anything. Dora: After that, after that?
+Stepan: Leave it, Dora.
+
+Dora: No, I want to know. At least his death is mine. Stepan: Then they read him the sentence.
+Dora: What was he doing during that?
+
+Stepan: Nothing, except one time, he lifted one leg to wipe off a little bit of mud that was sticking to his shoe. Dora, her head in her hands: A little bit of mud!
+Annenkov, brusquely: How do you know all this? (Stepan is silent.) You asked Orlov about all this? Why? Stepan, turing his face away: There was something between Yanek and me.
+Annenkov: What was that?
+Stepan: I envied him.
+
+Dora: What next, Stepan, what next?
+
+Stepan: Father Florenski came up to give him the crucifix. He refused to kiss it. And he said, "I've already told you that I'm finished with life and I'm at peace with death."
+
+Dora: How did he sound?
+
+Stepan: His voice was normal, but without the fever and impatience we always heard from him. Dora: Did he seem happy?
+Annenkov: Are you crazy?
+
+Dora: Yes, yes, I'm sure that he seemed happy. Because it would be too unfair, after he refused to be happy in life so he'd be prepared for this sacrifice, if he weren't happy when he was going to die. He was happy, and he walked calmly to the
+
+gallows, right?
+
+Stepan: He walked. Someone was singing downstream on the river, with an accordion. Some dogs were barking right then too.
+
+Dora: And then he went up the steps...
+
+Stepan: He went up. He sank into the dark. You could vaguely see the shroud that the executioner covered him up with. Dora: And then, and then...
+Stepan: Some soft noises. Yanek! And then... (Stepan is silent.) And then, I tell you. (Stepan is still quiet.) Talk, Alexis. Then?
+
+Voinov: A horrible sound.
+
+Dora: Aah. (She throws herself against the wall. Stepan turns his head away. Annenkov, without expression, cries. Dora turns back around, and looks at them, against the wall. In a changed, lost voice) Don't cry. No, no, do not cry. You all see very well that this is the day of justification. It all led up to this hour, which is our testimony to all the other revolutionaries. Yanek isn't a murderer anymore. A horrible sound! It only took that sound, and now he's gone back to the joy of his childhood. You remember his laugh? He laughed for no reason all the time. He was so young! He's got to be laughing now. He's got to be laughing, with his face against the ground. (She goes toward Annenkov.) Boria, you are my brother? You said you would help me?
+Annenkov: Yes.
+Dora: Then do this for me. Give me a bomb. (Annenkov looks at her.) The next time. I want to be the next to throw one. Annenkov: You know we don't want women on the front lines.
+Dora, in a cry: Am I even a woman, now? (They look at her. Silence.)
+
+Voinov, softly: Let her, Boria.
+
+Stepan: Yes, let her.
+
+Annenkov: It's your turn, Stepan.
+
+Stepan, looking at Dora: Let her. She's just like me, now.
+
+Dora: You'll give me one, right? I'll throw it. And later, on some cold night... Annenkov: Yes, Dora.
+Dora, crying: Yanek! A cold night, and the same rope! It will all be so much easier now.
