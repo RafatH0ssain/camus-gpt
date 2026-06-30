@@ -1,0 +1,10 @@
+# ZeroGPU base image already provides a CUDA-matched torch + the spaces runtime,
+# so DO NOT pin torch here. llama-cpp-python is CPU-only (nomic query embeddings):
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+--prefer-binary
+spaces
+transformers
+accelerate
+llama-cpp-python
+numpy
+huggingface_hub

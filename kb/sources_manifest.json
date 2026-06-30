@@ -1,0 +1,12 @@
+{
+  "_comment": "Map each PDF to a stream + metadata. stream='fact' -> biographies/criticism, mined for atomic facts only. stream='voice' -> Camus's OWN words, mined for his views/positions. date is a rough hint (year or range) used to tag entries; '' if mixed.",
+  "sources": [
+    {"file": "todd_a_life.pdf",            "stream": "fact",  "source": "Todd, Albert Camus: A Life",        "date": ""},
+    {"file": "lottman_biography.pdf",       "stream": "fact",  "source": "Lottman, Albert Camus: A Biography", "date": ""},
+    {"file": "notebooks_1933_1959.pdf",     "stream": "voice", "source": "Notebooks (1933-1959)",  "date": "1933-1959"},
+    {"file": "resistance_rebellion_death.pdf","stream": "voice","source": "Resistance, Rebellion, and Death", "date": "1944-1958"},
+    {"file": "lyrical_critical_essays.pdf", "stream": "voice", "source": "Lyrical and Critical Essays", "date": "1937-1958"},
+    {"file": "camus_at_combat.pdf",         "stream": "voice", "source": "Camus at Combat (1944-1947)", "date": "1944-1947"},
+    {"file": "algerian_chronicles.pdf",     "stream": "voice", "source": "Algerian Chronicles",       "date": "1939-1958"}
+  ]
+}

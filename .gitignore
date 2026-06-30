@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Model artifacts — live on the HF Hub / Drive, never in git
+*.gguf
+*.safetensors
+*.npy
+camus-*-merged/
+camus_sft_merged/
+camus_final_hf/
+*.BACKUP.*
+*.partial.*
+
+# LoRA adapter weights (keep the folder's README, ignore the binaries)
+adapters/*
+!adapters/README.md
+
+# KB artifacts: derived / large / from copyrighted sources
+/camus_kb*.jsonl
+data/source_chunks.jsonl
+data/kb_extracted.jsonl
+*.pdf
+
+# NOTE: the six training-corpus files (data/camus_*.jsonl) ARE tracked on purpose.
+# If you'd rather not publish the corpus, add this line:  # data/camus_*.jsonl
+
+# OS / editor
+.DS_Store
+.ipynb_checkpoints/
