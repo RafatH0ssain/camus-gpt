@@ -14,8 +14,8 @@ import requests
 OLLAMA      = "http://localhost:11434"
 GEN_MODEL   = "camus"
 EMBED_MODEL = "nomic-embed-text"
-KB_PATH     = "./camus_kb_full.jsonl"
-VEC_PATH    = "./camus_kb_vectors.npy"
+KB_PATH     = "./data/camus_kb_full.jsonl"
+VEC_PATH    = "./data/camus_kb_vectors.npy"
 CONFIDENT     = 0.66          # raw top >= this -> "Facts about your life"
 RELEVANT      = 0.62          # raw top >= this -> "possibly related"; below -> "probably ignore"
 CURATED_BOOST = 0.06          # ranking-only nudge for hand-verified curated facts
@@ -51,6 +51,13 @@ TASK_CUES = ("analyze","analyse","deduce","interpret","critique","what can you",
  
 def is_task(msg):
     return len(msg) > 280 or any(c in msg.lower() for c in TASK_CUES)
+
+FOLLOWUP_CUES = ("and ","what about","how about","why","also ","but ","it ","that ",
+                 "he ","she ","they ","was it","did he","did it","so ")
+
+def is_followup(text):
+    t = (text or "").strip().lower()
+    return len(t) < 40 or any(t.startswith(c) for c in FOLLOWUP_CUES)
 
 def embed(text, prefix="search_query: "):
     r = requests.post(f"{OLLAMA}/api/embed",
@@ -139,7 +146,7 @@ def main():
         while True:
             user = input("you: ").strip()
             if not user: continue
-            rquery = (recent_user(history, 1) + " " + user).strip()
+            rquery = (recent_user(history, 1) + " " + user).strip() if is_followup(user) else user
             hits = [] if is_task(user) else retrieve(rquery, facts, vecs, debug=args.debug)
             messages = [{"role":"system","content":build_system(hits)}] + history[-HIST_WINDOW:] + [{"role":"user","content":user}]
             reply = stream_chat(messages)
