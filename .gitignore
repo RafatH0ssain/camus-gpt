@@ -31,3 +31,8 @@ data/kb_extracted.jsonl
 # OS / editor
 .DS_Store
 .ipynb_checkpoints/
+
+# Docs
+
+data/camus_kb_full.jsonl
+data/camus_kb_vectors.npy

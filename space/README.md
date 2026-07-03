@@ -6,24 +6,29 @@ colorTo: blue
 sdk: gradio
 app_file: app.py
 pinned: false
+hf_oauth: true
 short_description: A fictional, RAG-grounded AI persona of Albert Camus.
 ---
 
 # CamusGPT (Space)
 
-A fine-tuned Llama-3.1-8B persona of Albert Camus, served on **ZeroGPU** via transformers,
-grounded in his life and writing by a retrieval (RAG) layer that runs on CPU.
+A fine-tuned Llama-3.1-8B persona of Albert Camus, served on **ZeroGPU** via transformers and
+grounded in his life and writing by a CPU-side retrieval (RAG) layer.
 
-**This is a fictional AI persona for education and conversation — not the real Albert Camus,
-and not professional advice.** If you are in crisis, call or text **988** (US & Canada) or
-find a local helpline at **findahelpline.com**.
+**Fictional AI persona for education and conversation — not the real Albert Camus, and not
+professional advice.** In crisis? Call or text **988** (US & Canada) or visit **findahelpline.com**.
+Conversations and basic metadata may be logged for safety and to improve the project.
 
 ## Configuration
 - **Hardware:** ZeroGPU, size `large`.
-- **Variables** (Settings → Variables): `MODEL_REPO` (safetensors model repo),
-  `KB_REPO` (dataset repo with `camus_kb_full.jsonl` + `camus_kb_vectors.npy`).
-  Optional tuning: `CURATED_BOOST`, `TOP_K`, `MAX_TOKENS`, `MAX_TURNS`, `CONFIDENT`, `RELEVANT`.
-- The index (`camus_kb_vectors.npy`) must be built with the **llama.cpp** nomic embedder
-  (`kb/embed_kb_llamacpp.py`) so it matches the query embedder used here.
-
-See the project repository's `docs/` for the full pipeline and deployment write-ups.
+- **`hf_oauth: true`** (above) enables the "Sign in with Hugging Face" button so the app can
+  tell signed-in from anonymous visitors and tailor the GPU-quota message. Remove it to drop
+  the button (everyone then sees the anonymous message).
+- **Variables:** `MODEL_REPO`, `KB_REPO`. Optional tuning: `CURATED_BOOST`, `TOP_K`,
+  `MAX_TOKENS`, `MAX_TURNS`, `CONFIDENT`, `RELEVANT`, `QUOTA_MSG_IN`, `QUOTA_MSG_OUT`.
+- **Logging (optional) — Secrets:** `LOG_SHEET_ID` (the Google Sheet's id from its URL) and
+  `GCP_SERVICE_ACCOUNT` (the full service-account JSON). Optional: `LOG_HASH_IP=1` to store a
+  salted hash instead of the raw IP, `LOG_IP_SALT`. Share the Sheet with the service account's
+  email (Editor). Logging is skipped entirely if these aren't set.
+- The index (`camus_kb_vectors.npy`) must be built with the **llama.cpp** nomic embedder so it
+  matches the query embedder used here.
