@@ -36,3 +36,7 @@ data/kb_extracted.jsonl
 
 data/camus_kb_full.jsonl
 data/camus_kb_vectors.npy
+
+docs/ROADMAP.md
+
+eval/
