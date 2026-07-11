@@ -1,3 +1,5 @@
+# ZeroGPU provides a CUDA-matched torch + the spaces runtime — do NOT pin torch.
+# llama-cpp-python is CPU-only here (nomic query embeddings):
 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 --prefer-binary
 spaces
@@ -7,5 +9,9 @@ llama-cpp-python
 numpy
 huggingface_hub
 gradio
+# per-message logging to a Google Sheet (optional; only used if LOG_SHEET_ID + creds are set)
 gspread
 google-auth
+# Phase 2 hybrid retrieval: BM25 channel + cross-encoder reranker (CPU)
+rank-bm25
+sentence-transformers

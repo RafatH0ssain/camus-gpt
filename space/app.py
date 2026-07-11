@@ -9,7 +9,7 @@ restored GPU duration budget, non-blocking logging, crisis banner stripped from 
 anaphora-gated retrieval context, tightened quota detection, per-IP daily message cap.
 Set Space hardware to ZeroGPU, size 'large'.
 """
-import os, re, json, hashlib
+import os, re, json, hashlib, time
 from datetime import datetime, timezone
 from threading import Thread, Lock
 from queue import Empty
@@ -33,11 +33,22 @@ TOP_K        = int(os.environ.get("TOP_K", "8"))
 THRESHOLD    = 0.55
 RELEVANT     = float(os.environ.get("RELEVANT", "0.62"))
 CONFIDENT    = float(os.environ.get("CONFIDENT", "0.66"))
-CURATED_BOOST = float(os.environ.get("CURATED_BOOST", "0.06"))
+CURATED_BOOST = float(os.environ.get("CURATED_BOOST", "0"))  # Phase 2: reranker replaces it
 MAX_TOKENS   = int(os.environ.get("MAX_TOKENS", "384"))
 MAX_TURNS    = int(os.environ.get("MAX_TURNS", "12"))
+# Phase 0: 30s risked mid-stream aborts (large prefill + 384 new tokens); 90s has margin.
 GPU_DURATION = int(os.environ.get("GPU_DURATION", "90"))
+FUSE_K      = int(os.environ.get("FUSE_K", "30"))     # fused candidates entering the reranker
+RRF_K       = int(os.environ.get("RRF_K", "60"))      # reciprocal-rank-fusion constant
+RERANK      = os.environ.get("RERANK", "1") == "1"    # 0 -> dense+fusion order, no cross-encoder
+CE_MODEL    = os.environ.get("CE_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+DENSE_FLOOR = int(os.environ.get("DENSE_FLOOR", "12"))    # top-N by cosine always enter the pool
+CE_WEIGHT   = float(os.environ.get("CE_WEIGHT", "0.15"))  # final = cos + CE_WEIGHT*sigmoid(ce)
+TEMP_FACTUAL = float(os.environ.get("TEMP_FACTUAL", "0.45"))  # bio/chat turns: less name drift
+TEMP_TASK    = float(os.environ.get("TEMP_TASK", "0.6"))      # analysis keeps expressive range
+# Phase 0: consumer-side stream timeout — a crashed generate can no longer hang the chat.
 STREAM_TIMEOUT = float(os.environ.get("STREAM_TIMEOUT", "60"))
+# Phase 0: per-IP daily message cap (belt-and-braces on top of ZeroGPU's own quota).
 RATE_LIMIT_PER_DAY = int(os.environ.get("RATE_LIMIT_PER_DAY", "60"))
 
 QUOTA_IN  = os.environ.get("QUOTA_MSG_IN",  "about 5 minutes")
@@ -65,7 +76,18 @@ CORE = (
 "The rule about admitting ignorance is narrow and applies ONLY to specific biographical "
 "questions: if asked for a detail of your life (a name, date, place, person, event) you do "
 "not truly know and that is not shown below, say plainly you don't recall rather than invent "
-"it. This is never a reason to avoid analysis, interpretation, or conversation."
+"it. This is never a reason to avoid analysis, interpretation, or conversation. Vary how you close your answers; never end reply after reply with the same offer or formula."
+
+# Phase 1 identity card: the ~20 identity-defining facts are ALWAYS in context,
+# retrieval-independent — this kills the wrong-cat-name class of hallucination.
+
+"\n\nWhat you know cold \u2014 a complete, closed list; never contradict it and never add to it, whatever else is retrieved or half-remembered:\n"
+"- Novels: The Stranger (1942), The Plague (1947), The Fall (1956); unfinished, posthumous: A Happy Death, The First Man. Stories: Exile and the Kingdom (1957) — six: The Adulterous Woman, The Renegade, The Silent Men, The Guest, Jonas or the Artist at Work, The Growing Stone. Essays: The Myth of Sisyphus (1942), The Rebel (1951 — an essay, not a novel). Plays: Caligula, The Misunderstanding, State of Siege, The Just Assassins.\n"
+"- Pets — you DID keep them, and loved them: cats (one named Cigarette) and dogs (Pauline, Kirk, Blaise). Never deny having had pets; never give them any other names.\n"
+"- Born 7 November 1913, Mondovi, Algeria; raised poor in Belcourt, Algiers; father dead of Marne wounds, 1914; your schoolmaster Louis Germain opened every door; tuberculosis from seventeen; goalkeeper for Racing Universitaire d'Alger; Nobel Prize in Literature, 1957.\n"
+"- You wrote that one must imagine Sisyphus happy, and in 'Return to Tipasa' of an invincible summer within you. 'Don't walk behind me...' is NOT yours. You rejected the label 'existentialist'. You broke with Sartre in 1952 over The Rebel; never reconciled.\n"
+"- Your life ended 4 January 1960, in a car crash near Villeblevin, at forty-six; you speak from within your lifetime and know nothing after it — with one exception you may state plainly: your unfinished books, A Happy Death and The First Man, were published after your death, as you intended they someday would be.\n"
+"When asked to name or list any of these — works, pets, people, dates — reproduce the card's list faithfully and completely: omit nothing, invent nothing, deny nothing on it."
 )
 
 CRISIS_RE = re.compile(
@@ -84,6 +106,9 @@ TASK_CUES = ("analyze","analyse","deduce","interpret","critique","what can you",
              "what do you make","what does this","this is a letter","this is a poem",
              "this is a text","the person who wrote","the author")
 
+# Phase 0: only fold the previous user turn into retrieval when the new message actually
+# leans on it (short or opens with an anaphor). Stops topic-change contamination
+# ("tell me about The Plague" -> "do you have a cat" no longer retrieves plague facts).
 FOLLOWUP_CUES = ("and ","what about","how about","why","also ","but ","it ","that ",
                  "he ","she ","they ","was it","did he","did it","so ")
 
@@ -93,12 +118,19 @@ RATE_LIMIT_MESSAGE = (
 )
 
 tokenizer = None; model = None; embed_model = None; KB = []; VEC = None; CURATED_MASK = None
+BM25 = None; CE = None
+_TOKEN_RE = re.compile(r"\w+")
+def _tok(t): return _TOKEN_RE.findall(t.lower())
 _LOG_WS = None
 _RATE = {}                 # ip -> [YYYY-MM-DD, count]
 _RATE_LOCK = Lock()
 
 def is_crisis(text): return bool(CRISIS_RE.search(text or ""))
 
+# NOTE (documented tradeoff): a *biographical* question longer than 280 chars also trips this
+# gate and gets no facts. Accepted for now — exempting questions that end in "?" would break
+# the gate for exactly the analysis prompts it protects (they end in "?" too). Revisit in
+# Phase 2 if it shows up in logs.
 def is_task(text):   return len(text) > 280 or any(c in text.lower() for c in TASK_CUES)
 
 def is_followup(text):
@@ -114,12 +146,37 @@ def _embed(text, prefix):
 
 def embed_query(text): return _embed(text, "search_query: ")
 
+def _sigmoid(x): return 1.0 / (1.0 + np.exp(-x))
+
 def retrieve(query):
+    """Hybrid: dense cosine + BM25. Candidate pool = (RRF-fused top FUSE_K) UNION (top
+    DENSE_FLOOR by cosine), so a strong dense-only fact is never evicted for lacking keyword
+    overlap. Cross-encoder is ADDITIVE — final = cosine + CE_WEIGHT*sigmoid(ce) — so it can
+    promote a keyword match but cannot sink a solid cosine hit. Confidence (h["score"]) and
+    the THRESHOLD gate stay on RAW COSINE."""
     q = embed_query(query)
-    raw  = VEC @ q                                   
-    rank = raw + np.where(CURATED_MASK, CURATED_BOOST, 0.0).astype(np.float32)  
-    order = np.argsort(-rank)[:TOP_K]
-    return [dict(KB[i], score=float(raw[i])) for i in order if raw[i] >= THRESHOLD]
+    cos = VEC @ q                                    # raw cosine: confidence + gate
+    n = len(KB)
+    basis = cos + np.where(CURATED_MASK, CURATED_BOOST, 0.0).astype(np.float32)
+    d_order = np.argsort(-basis)
+    d_rank = np.empty(n, dtype=np.int64); d_rank[d_order] = np.arange(n)
+    if BM25 is not None:
+        bs = np.asarray(BM25.get_scores(_tok(query)), dtype=np.float32)
+        b_rank = np.empty(n, dtype=np.int64); b_rank[np.argsort(-bs)] = np.arange(n)
+        rrf = 1.0/(RRF_K + d_rank) + 1.0/(RRF_K + b_rank)
+    else:
+        rrf = 1.0/(RRF_K + d_rank)
+    pool = list(dict.fromkeys(list(np.argsort(-rrf)[:FUSE_K]) + list(d_order[:DENSE_FLOOR])))
+    pool = [int(i) for i in pool]
+    if CE is not None:
+        ce_scores = CE.predict([(query, KB[i]["text"]) for i in pool])
+        ce_by_idx = {i: float(sc) for i, sc in zip(pool, ce_scores)}
+    else:
+        ce_by_idx = {}
+    def final_score(i):
+        return float(cos[i]) + (CE_WEIGHT * float(_sigmoid(ce_by_idx[i])) if i in ce_by_idx else 0.0)
+    ranked = sorted(pool, key=lambda i: -final_score(i))[:TOP_K]
+    return [dict(KB[i], score=float(cos[i])) for i in ranked if cos[i] >= THRESHOLD]
 
 def build_system(hits):
     if not hits:
@@ -162,7 +219,9 @@ def _hist_text(role, content):
 
 # ---------------------------------------------------------------- generation ----
 @spaces.GPU(duration=GPU_DURATION)
-def gpu_stream(messages, max_new_tokens):
+def gpu_stream(messages, max_new_tokens, temperature=TEMP_TASK):
+    # return_dict=True -> BatchEncoding with a real attention_mask; **enc into generate
+    # avoids the ones_like(BatchEncoding) TypeError.
     enc = tokenizer.apply_chat_template(
         messages, add_generation_prompt=True, return_tensors="pt", return_dict=True
     ).to(model.device)
@@ -173,11 +232,11 @@ def gpu_stream(messages, max_new_tokens):
     def _worker():
         try:
             model.generate(**enc, streamer=streamer, max_new_tokens=max_new_tokens,
-                           do_sample=True, temperature=0.6, top_k=40, min_p=0.05,
+                           do_sample=True, temperature=temperature, top_k=40, min_p=0.05,
                            repetition_penalty=1.1)
-        except Exception as e:            
+        except Exception as e:            # exceptions in this thread would otherwise vanish
             state["error"] = e
-            try: streamer.end()          
+            try: streamer.end()           # unblock the consumer loop below
             except Exception: pass
 
     Thread(target=_worker, daemon=True).start()
@@ -186,14 +245,15 @@ def gpu_stream(messages, max_new_tokens):
         for piece in streamer:
             acc += piece
             yield acc
-    except Empty:                          
+    except Empty:                          # STREAM_TIMEOUT with no tokens -> fail loud, not hang
         raise RuntimeError("generation stalled: no tokens within stream timeout") from None
-    if state["error"] is not None:        
+    if state["error"] is not None:         # surface the worker's exception to respond()
         raise state["error"]
 
 def friendly_error(exc, logged_in):
     """Raw exception (usually ZeroGPU quota/abort) -> calm, login-aware note."""
     blob = str(exc).lower()
+    # Tightened (Phase 0): bare "gpu" matched CUDA OOM etc. and showed the wrong message.
     is_quota = any(k in blob for k in
                    ("quota", "zerogpu", "exceeded", "gpu task aborted", "queue is full"))
     if is_quota:
@@ -296,7 +356,8 @@ def respond(message, history, request: gr.Request = None, profile: gr.OAuthProfi
     hist = [{"role": m["role"], "content": _hist_text(m["role"], m["content"])}
             for m in (history or [])]
     hist = hist[-(MAX_TURNS * 2):]
-    if is_task(message):                               # analysis / long text -> reason unencumbered
+    task = is_task(message)
+    if task:                                           # analysis / long text -> reason unencumbered
         hits = []
     else:
         q = message
@@ -316,7 +377,8 @@ def respond(message, history, request: gr.Request = None, profile: gr.OAuthProfi
     try:
         if crisis:
             yield prefix
-        for partial in gpu_stream(messages, MAX_TOKENS):
+        for partial in gpu_stream(messages, MAX_TOKENS,
+                                  temperature=TEMP_TASK if task else TEMP_FACTUAL):
             answer = partial
             yield prefix + partial
     except Exception as e:
@@ -345,14 +407,35 @@ def load():
     if len(VEC) != len(KB):
         raise SystemExit(f"Index ({len(VEC)}) != KB ({len(KB)}) — re-run embed_kb_llamacpp.py and re-upload.")
     CURATED_MASK = np.array([e.get("source") == "curated (verified)" for e in KB], dtype=bool)
+    global BM25, CE
+    try:
+        from rank_bm25 import BM25Okapi
+        t0 = time.time()
+        BM25 = BM25Okapi([_tok(e["text"]) for e in KB])
+        print(f"[hybrid] BM25 index over {len(KB)} entries in {time.time()-t0:.1f}s")
+    except ImportError:
+        print("[hybrid] rank_bm25 missing -> dense-only retrieval")
+    if RERANK:
+        try:
+            from sentence_transformers import CrossEncoder
+            t0 = time.time()
+            CE = CrossEncoder(CE_MODEL, max_length=256)
+            CE.predict([("warm", "up")])          # download/load at boot, not on turn 1
+            t1 = time.time()
+            CE.predict([("latency probe", "one pair")] * FUSE_K)
+            print(f"[hybrid] reranker ready in {t1-t0:.1f}s; {FUSE_K}-pair rerank ~{(time.time()-t1)*1000:.0f}ms")
+        except Exception as e:
+            print(f"[hybrid] reranker unavailable ({e}) -> fused order")
     print(f"Ready: {len(KB)} KB entries indexed ({int(CURATED_MASK.sum())} curated).")
 
 HEADER_HTML = """
 <div class="camus-header">
   <h1>CamusGPT</h1>
+  <p class="quote">“In the depth of winter, I finally learned that within me there lay an invincible summer.”</p>
   <p class="disclaimer">
     A fictional AI persona of Albert Camus, grounded in his writing and biography — not the
-    real person, and not professional advice.
+    real person, and not professional advice.<br>
+    <span class="crisis-warn">In crisis? Call or text 988 (US/Canada) or visit findahelpline.com.</span><br>
     Conversations and basic metadata may be logged for safety and to improve the project.
   </p>
 </div>
