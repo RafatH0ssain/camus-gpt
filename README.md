@@ -1,8 +1,7 @@
 # CamusGPT
 
 A fine-tuned **Llama-3.1-8B** persona of Albert Camus — dry, lucid, first-person — grounded
-in his real life and writing by a **RAG** layer. It runs two ways from one brain: locally via
-**Ollama**, and publicly on a **Hugging Face ZeroGPU** Space.
+in his real life and writing by a **RAG** layer. It runs locally via **Ollama**.
 
 > **This is a fictional AI persona for education and conversation — not the real Albert Camus,
 > and not professional advice.** If you are in crisis, call or text **988** (US & Canada) or
