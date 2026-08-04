@@ -3,6 +3,8 @@
 A fine-tuned **Llama-3.1-8B** persona of Albert Camus — dry, lucid, first-person — grounded
 in his real life and writing by a **RAG** layer. It runs locally via **Ollama**.
 
+Note: This project is no longer hosted on HF Spaces. Send me a message if you have any queries!
+
 > **This is a fictional AI persona for education and conversation — not the real Albert Camus,
 > and not professional advice.** If you are in crisis, call or text **988** (US & Canada) or
 > find a local helpline at **findahelpline.com**.
