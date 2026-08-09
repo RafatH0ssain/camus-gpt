@@ -1,0 +1,13 @@
+# Keeps the free CPU Space warm (no 48h sleep -> no cold-start for visitors).
+# Set Space URL below. Runs every 12h; also runnable manually.
+name: keep-alive
+on:
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the Space
+        run: curl -sS -o /dev/null -w "%{http_code}\n" "https://YOUR-USERNAME-camusgpt.hf.space/"
