@@ -26,7 +26,10 @@ import argparse, csv, json, os, re, subprocess, sys, time
 from datetime import datetime, timezone
 
 import requests
+from dotenv import load_dotenv
 
+# Load environment variables from the .env file in the current directory
+load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import camus_rag as cr
 
@@ -196,6 +199,7 @@ def parse_judge(text):
 
 def judge_anthropic(model, probe, convo, answer):
     key = os.environ.get("ANTHROPIC_API_KEY")
+    
     if not key:
         raise SystemExit("ANTHROPIC_API_KEY not set (or use --judge ollama / --judge none)")
     r = requests.post("https://api.anthropic.com/v1/messages",
