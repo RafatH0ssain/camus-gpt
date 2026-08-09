@@ -1,42 +1,74 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Tracked vs. local. Source, configs, datasets small enough to review, and the
+# evaluation baseline are tracked. Model weights, the knowledge base, its
+# vectors, and archived run history are local-only: they move via the Hugging
+# Face repos, never through git. See docs/WORKSPACE.md.
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
-.env
+pipeline/__pycache__/
 
-# Model artifacts — live on the HF Hub / Drive, never in git
+# Secrets. The glob is deliberately wide: editors and shells write sidecars
+# (.env.save, .env.local, .env.bak) that would otherwise land outside .env.
+.env
+.env*
+
+# Tooling state
+.claude/settings.local.json
+.cache/
+
+# Model artifacts — published on the Hub, never committed
 *.gguf
 *.safetensors
-*.npy
 camus-*-merged/
 camus_sft_merged/
 camus_final_hf/
 *.BACKUP.*
 *.partial.*
 
-# LoRA adapter weights (keep the folder's README, ignore the binaries)
+# LoRA adapter weights (keep the folder's README + configs, ignore the binaries)
 adapters/*
 !adapters/README.md
+!adapters/adapter_config.json
+!adapters/tokenizer_config.json
+!adapters/chat_template.jinja
 
-# KB artifacts: derived / large / from copyrighted sources
+# Knowledge base + embedding vectors: derived, large, and built from
+# copyrighted sources. Both live untracked at the repo root.
+*.npy
 /camus_kb*.jsonl
+/camus_kb_vectors*.npy
+*.ollama.npy
+data/camus_kb_full.jsonl
+data/camus_kb_vectors.npy
 data/source_chunks.jsonl
 data/kb_extracted.jsonl
 *.pdf
 
+# A second vector file in the llama.cpp embedding family is kept beside the
+# live one for reference by the hosted Space. The local stack must never load
+# it; covered by *.npy above, named here so the intent is explicit.
+camus_kb_vectors.llamacpp.npy
+
 # NOTE: the six training-corpus files (data/camus_*.jsonl) ARE tracked on purpose.
 # If you'd rather not publish the corpus, add this line:  # data/camus_*.jsonl
+
+# Local reference material and superseded run history — never published.
+archive/
+eval/archive/
+data/archive/
+
+# Inbound transfer bundles must never be committed.
+mac_transfer*
+*.zip
+
+# Local-only working notes.
+MISSING.md
 
 # OS / editor
 .DS_Store
 .ipynb_checkpoints/
-
-# Docs
-
-data/camus_kb_full.jsonl
-data/camus_kb_vectors.npy
-
-docs/ROADMAP.md
-
-eval/
