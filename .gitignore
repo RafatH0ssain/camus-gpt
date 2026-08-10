@@ -61,9 +61,15 @@ camus_kb_vectors.llamacpp.npy
 build/
 
 # Local reference material and superseded run history — never published.
-archive/
-eval/archive/
+# Anchored to the root: an unanchored "archive/" also matches eval/archive/ and
+# data/archive/ at any depth, which blocks the negation below.
+/archive/
 data/archive/
+
+# Superseded eval runs stay local, except the base-model selection evidence,
+# which is the record behind a design decision and is kept in the history.
+eval/archive/*
+!eval/archive/base_selection/
 
 # Inbound transfer bundles must never be committed.
 mac_transfer*
