@@ -68,12 +68,20 @@ def have_model(tag):
         return False
 
 def build_persona(base, alias):
-    """Create <alias> = FROM <base> with the CORE system prompt baked in."""
-    modelfile = f'FROM {base}\nSYSTEM """{CORE}"""\n'
-    p = subprocess.run(["ollama", "create", alias, "-f", "-"], input=modelfile,
-                       text=True, capture_output=True)
-    if p.returncode != 0:
-        raise SystemExit(f"ollama create failed for {base}:\n{p.stderr}")
+    """Create <alias> = FROM <base> with the CORE system prompt baked in.
+    Writes the Modelfile to a temp file — current Ollama's `create` needs a real path,
+    not stdin (`-f -` was removed)."""
+    import os, tempfile
+    fd, path = tempfile.mkstemp(prefix=f"{alias}_", suffix=".Modelfile", text=True)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(f'FROM {base}\nSYSTEM """{CORE}"""\n')
+        p = subprocess.run(["ollama", "create", alias, "-f", path],
+                           text=True, capture_output=True)
+        if p.returncode != 0:
+            raise SystemExit(f"ollama create failed for {base}:\n{p.stderr}")
+    finally:
+        os.unlink(path)
 
 import re
 _THINK = re.compile(r"<think>.*?</think>", re.S)
