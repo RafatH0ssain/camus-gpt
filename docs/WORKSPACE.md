@@ -59,6 +59,24 @@ project's Hugging Face repositories, never through git. Git carries source,
 configuration, the training corpora, and the evaluation baseline. Anything
 large enough to need Git LFS belongs on the Hub instead.
 
+## The commit guard
+
+`pipeline/hooks/pre-commit` refuses any commit that stages:
+
+- a file larger than **5 MB**,
+- anything under `archive/`,
+- `*.npy`, `*.gguf`, or `*.safetensors`,
+- any `*.jsonl` other than `data/camus_*.jsonl`.
+
+It prints what it blocked and why. Override deliberately with
+`git commit --no-verify`.
+
+Install it in each clone — **git does not version-control hooks**, so cloning
+the repository does not bring it along:
+
+    cp pipeline/hooks/pre-commit .git/hooks/pre-commit
+    chmod +x .git/hooks/pre-commit
+
 ## The invariant
 
 `git status` should be clean at all times. Anything untracked is either about
