@@ -57,6 +57,9 @@ camus_kb_vectors.llamacpp.npy
 # NOTE: the six training-corpus files (data/camus_*.jsonl) ARE tracked on purpose.
 # If you'd rather not publish the corpus, add this line:  # data/camus_*.jsonl
 
+# Staged upload bundles — assembled from tracked sources, never committed.
+build/
+
 # Local reference material and superseded run history — never published.
 archive/
 eval/archive/
