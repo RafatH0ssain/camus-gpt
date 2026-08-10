@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+#
+# pre-commit — size and path guards.
+#
+# Blocks a commit that stages anything which belongs on disk or on the Hub
+# rather than in git history. Every rule below exists because something in one
+# of these classes reached a published commit once already.
+#
+# Install:   cp pipeline/hooks/pre-commit .git/hooks/pre-commit
+#            chmod +x .git/hooks/pre-commit
+# Override:  git commit --no-verify
+#
+# Hooks are not version-controlled, so installing this protects one clone only.
+
+set -uo pipefail
+
+MAX_BYTES=$((5 * 1024 * 1024))   # 5 MB
+violations=0
+
+emit() {                          # emit <rule> <path> <detail>
+    if [ "$violations" -eq 0 ]; then
+        printf '\n\033[1;31mpre-commit: refusing to commit\033[0m\n\n'
+    fi
+    violations=$((violations + 1))
+    printf '  [%s] %s\n' "$1" "$2"
+    [ -n "${3:-}" ] && printf '        %s\n' "$3"
+    return 0
+}
+
+# Staged, added/copied/modified/renamed only — deletions can't introduce blobs.
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+while IFS= read -r path; do
+    [ -z "$path" ] && continue
+
+    # --- size guard: measure the staged blob, not the worktree file ---------
+    blob=$(git ls-files --stage -- "$path" | awk '{print $2}')
+    if [ -n "$blob" ]; then
+        size=$(git cat-file -s "$blob" 2>/dev/null || echo 0)
+        if [ "$size" -gt "$MAX_BYTES" ]; then
+            emit "size" "$path" \
+                 "$(awk -v b="$size" 'BEGIN{printf "%.1f MB staged, limit 5.0 MB", b/1048576}')"
+        fi
+    fi
+
+    # --- path guards --------------------------------------------------------
+    case "$path" in
+        archive/*|*/archive/*)
+            emit "path" "$path" "local reference material — keep it out of history" ;;
+    esac
+
+    case "$path" in
+        *.npy)         emit "path" "$path" "vectors belong on disk / the Hub" ;;
+        *.gguf)        emit "path" "$path" "model weights belong on the Hub" ;;
+        *.safetensors) emit "path" "$path" "model weights belong on the Hub" ;;
+    esac
+
+    # jsonl is allowed ONLY as data/camus_*.jsonl (the tracked training corpora)
+    case "$path" in
+        *.jsonl)
+            case "$path" in
+                data/camus_*.jsonl) : ;;
+                *) emit "path" "$path" \
+                        "only data/camus_*.jsonl is tracked; derived jsonl stays local" ;;
+            esac ;;
+    esac
+done <<< "$staged"
+
+if [ "$violations" -gt 0 ]; then
+    printf '\n  %d violation(s); a file can trip more than one rule.\n' "$violations"
+    printf '  Unstage them, or override deliberately:  git commit --no-verify\n\n'
+    exit 1
+fi
+
+exit 0
