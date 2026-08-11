@@ -29,7 +29,7 @@ import numpy as np
 import requests
 
 OLLAMA      = "http://localhost:11434"
-GEN_MODEL   = "camus"               # your ollama model name (ollama list)
+GEN_MODEL   = os.environ.get("GEN_MODEL", "camus")   # ollama model name (ollama list)
 EMBED_MODEL = "nomic-embed-text"
 KB_PATH     = "./camus_kb_full.jsonl"
 VEC_PATH    = "./camus_kb_vectors.npy"
