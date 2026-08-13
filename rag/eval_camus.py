@@ -266,12 +266,12 @@ def append_history(rows, out_dir, meta):
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         if new:
-            w.writerow(["timestamp", "commit", "judge", "n", "voice", "factuality",
-                        "engagement", "composite"])
+            w.writerow(["timestamp", "commit", "gen_model", "judge", "n", "voice",
+                        "factuality", "engagement", "composite"])
         v = sum(r["scores"]["voice"] for r in scored) / len(scored)
         fa = sum(r["scores"]["factuality"] for r in scored) / len(scored)
         e = sum(r["scores"]["engagement"] for r in scored) / len(scored)
-        w.writerow([meta["ts"], meta["commit"], meta["judge"], len(scored),
+        w.writerow([meta["ts"], meta["commit"], meta["gen_model"], meta["judge"], len(scored),
                     round(v, 3), round(fa, 3), round(e, 3), round((v + fa + e) / 3, 3)])
 
 # ------------------------------------------------------------------- main --------------
@@ -298,7 +298,8 @@ def main():
     ask.ce = cr.load_reranker()
 
     meta = dict(ts=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-                commit=git_commit(), judge=f"{args.judge}:{jmodel}" if args.judge != "none" else "none")
+                commit=git_commit(), gen_model=cr.GEN_MODEL,
+                judge=f"{args.judge}:{jmodel}" if args.judge != "none" else "none")
     rows = []
     jsonl = open(os.path.join(args.out_dir, "probe_scores.jsonl"), "w", encoding="utf-8")
     for k, p in enumerate(probes, 1):

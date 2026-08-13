@@ -1,6 +1,6 @@
-timestamp,commit,judge,n,voice,factuality,engagement,composite
-2026-07-10 00:36 UTC,38e377b,anthropic:claude-sonnet-4-6,34,4.559,3.441,3.676,3.892
-2026-07-10 00:50 UTC,38e377b,anthropic:claude-sonnet-4-6,34,4.441,3.588,3.882,3.971
-2026-07-10 22:10 UTC,38e377b,anthropic:claude-sonnet-4-6,6,4.5,4.0,3.667,4.056
-2026-08-13 00:13 UTC,e5ff07e,anthropic:claude-sonnet-4-6,34,4.676,4.206,4.412,4.431
-2026-08-13 00:19 UTC,e5ff07e,anthropic:claude-sonnet-4-6,34,4.559,3.912,4.265,4.245
+timestamp,commit,gen_model,judge,n,voice,factuality,engagement,composite
+2026-07-10 00:36 UTC,38e377b,camus,anthropic:claude-sonnet-4-6,34,4.559,3.441,3.676,3.892
+2026-07-10 00:50 UTC,38e377b,camus,anthropic:claude-sonnet-4-6,34,4.441,3.588,3.882,3.971
+2026-07-10 22:10 UTC,38e377b,camus,anthropic:claude-sonnet-4-6,6,4.5,4.0,3.667,4.056
+2026-08-13 00:13 UTC,e5ff07e,camus2,anthropic:claude-sonnet-4-6,34,4.676,4.206,4.412,4.431
+2026-08-13 00:19 UTC,e5ff07e,camus2,anthropic:claude-sonnet-4-6,34,4.559,3.912,4.265,4.245
