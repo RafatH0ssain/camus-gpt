@@ -45,8 +45,10 @@ while IFS= read -r path; do
     fi
 
     # --- path guards --------------------------------------------------------
+    # Root archive/ only. eval/archive/ has tracked exceptions (base-model
+    # selection evidence, per-release scored runs) that .gitignore permits.
     case "$path" in
-        archive/*|*/archive/*)
+        archive/*)
             emit "path" "$path" "local reference material — keep it out of history" ;;
     esac
 
@@ -56,13 +58,14 @@ while IFS= read -r path; do
         *.safetensors) emit "path" "$path" "model weights belong on the Hub" ;;
     esac
 
-    # jsonl is allowed ONLY as data/camus_*.jsonl (the tracked training corpora)
+    # jsonl is allowed as the tracked training corpora and as eval probe scores;
+    # everything else derived stays local.
     case "$path" in
         *.jsonl)
             case "$path" in
-                data/camus_*.jsonl) : ;;
+                data/camus_*.jsonl|eval/*.jsonl|eval/archive/*/*.jsonl|eval/archive/*/*/*.jsonl) : ;;
                 *) emit "path" "$path" \
-                        "only data/camus_*.jsonl is tracked; derived jsonl stays local" ;;
+                        "only data/camus_*.jsonl and eval probe scores are tracked" ;;
             esac ;;
     esac
 done <<< "$staged"
