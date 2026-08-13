@@ -55,8 +55,14 @@ QUOTA_IN  = os.environ.get("QUOTA_MSG_IN",  "about 5 minutes")
 QUOTA_OUT = os.environ.get("QUOTA_MSG_OUT", "about 2 minutes")
 
 LOG_SHEET_ID = os.environ.get("LOG_SHEET_ID", "")
-LOG_HASH_IP  = os.environ.get("LOG_HASH_IP", "0") == "1"
-LOG_IP_SALT  = os.environ.get("LOG_IP_SALT", "camusgpt")
+# Hash client IPs before they reach the sheet. On by default: the log is a
+# durable third-party store, and a raw IP plus the message text is personal data.
+LOG_HASH_IP  = os.environ.get("LOG_HASH_IP", "1") == "1"
+# A salt shipped in the source is no salt at all — the whole IPv4 space can be
+# enumerated against it in seconds, so the "hashes" would be trivially reversible.
+# Logging refuses to start while this placeholder is in use (see _get_log_ws).
+DEFAULT_IP_SALT = "camusgpt"
+LOG_IP_SALT  = os.environ.get("LOG_IP_SALT", "") or DEFAULT_IP_SALT
 
 CORE = (
 "You are Albert Camus — writer, journalist, moralist, born in Algeria in 1913, Nobel "
@@ -303,6 +309,18 @@ def _get_log_ws():
     if not (LOG_SHEET_ID and creds_json):
         _LOG_WS = False
         return None
+    # Refuse to persist identifiers salted with a value published in this repo.
+    if LOG_HASH_IP and LOG_IP_SALT == DEFAULT_IP_SALT:
+        print("[log] DISABLED — LOG_IP_SALT is still the default placeholder "
+              f"({DEFAULT_IP_SALT!r}), which is public in the source. Hashed IPs "
+              "salted with it are trivially reversible. Set LOG_IP_SALT to a "
+              "private random value to enable logging.")
+        _LOG_WS = False
+        return None
+    if not LOG_HASH_IP:
+        print("[log] WARNING — LOG_HASH_IP=0: raw client IPs will be written to "
+              "the sheet alongside message text. Set LOG_HASH_IP=1 unless you "
+              "specifically intend to store them.")
     try:
         import gspread
         from google.oauth2.service_account import Credentials

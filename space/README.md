@@ -26,9 +26,16 @@ Conversations and basic metadata may be logged for safety and to improve the pro
   the button (everyone then sees the anonymous message).
 - **Variables:** `MODEL_REPO`, `KB_REPO`. Optional tuning: `CURATED_BOOST`, `TOP_K`,
   `MAX_TOKENS`, `MAX_TURNS`, `CONFIDENT`, `RELEVANT`, `QUOTA_MSG_IN`, `QUOTA_MSG_OUT`.
-- **Logging (optional) — Secrets:** `LOG_SHEET_ID` (the Google Sheet's id from its URL) and
-  `GCP_SERVICE_ACCOUNT` (the full service-account JSON). Optional: `LOG_HASH_IP=1` to store a
-  salted hash instead of the raw IP, `LOG_IP_SALT`. Share the Sheet with the service account's
-  email (Editor). Logging is skipped entirely if these aren't set.
+- **Logging (optional) — Secrets:** `LOG_SHEET_ID` (the Google Sheet's id from its URL),
+  `GCP_SERVICE_ACCOUNT` (the full service-account JSON), and **`LOG_IP_SALT`** (a private
+  random value). Share the Sheet with the service account's email (Editor). Logging is
+  skipped entirely if these aren't set.
+
+  Client IPs are hashed before they reach the sheet (`LOG_HASH_IP` defaults to `1`). The
+  salt has a placeholder default that is public in the source, so **logging refuses to
+  start until `LOG_IP_SALT` is set to a private value** — a hash salted with a published
+  constant is reversible by enumerating the address space. Setting `LOG_HASH_IP=0` stores
+  raw IPs instead and prints a warning. The per-IP daily cap is unaffected either way: it
+  keys on the same value and never leaves memory.
 - The index (`camus_kb_vectors.npy`) must be built with the **llama.cpp** nomic embedder so it
   matches the query embedder used here.
