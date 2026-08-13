@@ -66,10 +66,12 @@ build/
 /archive/
 data/archive/
 
-# Superseded eval runs stay local, except the base-model selection evidence,
-# which is the record behind a design decision and is kept in the history.
+# Superseded eval runs stay local. Two exceptions are kept in the history
+# because they are the record behind a decision: the base-model selection
+# evidence, and the scored runs backing each released model version.
 eval/archive/*
 !eval/archive/base_selection/
+!eval/archive/v2_*/
 
 # Inbound transfer bundles must never be committed.
 mac_transfer*
