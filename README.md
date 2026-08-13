@@ -1,7 +1,16 @@
 # CamusGPT
 
-A fine-tuned **Llama-3.1-8B** persona of Albert Camus — dry, lucid, first-person — grounded
-in his real life and writing by a **RAG** layer. It runs locally via **Ollama**.
+A fine-tuned persona of Albert Camus — dry, lucid, first-person — grounded in his real life
+and writing by a **RAG** layer. It runs locally via **Ollama**.
+
+Two builds exist. `camus2` (current) is a 12B base with a two-pass fine-tune; `camus` (previous)
+is the 8B build, kept installed as a rollback. Select between them with the `GEN_MODEL`
+environment variable — unset uses `camus`:
+
+    GEN_MODEL=camus2 python rag/camus_rag.py
+
+Scores for each build are in `eval/eval_history.csv`, whose `gen_model` column records which
+one produced each row. See `docs/WORKSPACE.md` for the memory cost of the larger build.
 
 Note: This project is no longer hosted on HF Spaces. Send me a message if you have any queries!
 

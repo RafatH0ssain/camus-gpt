@@ -15,6 +15,20 @@ script. Run them from the repository root:
 
 Running them from inside `rag/` or `training/` will not find the knowledge base.
 
+## Selecting the model
+
+`GEN_MODEL` overrides which registered model answers; unset falls back to the
+previous build. The evaluation harness inherits it through its `camus_rag`
+import and records the resolved name in the `gen_model` column of
+`eval/eval_history.csv`.
+
+    GEN_MODEL=camus2 python rag/camus_rag.py
+
+**`rag/eval_camus.py` writes to `eval/` by default and will overwrite the
+tracked baseline.** For any exploratory run, redirect it:
+
+    python rag/eval_camus.py --out-dir /tmp/eval_scratch
+
 ## Untracked artifacts at the repository root
 
 Two files must be present at the root and are never committed:
@@ -42,13 +56,36 @@ by a relative `FROM ./<weights>.gguf`. Register the local model with:
 
 Weights are ignored by extension (`*.gguf`, `*.safetensors`).
 
+## Model memory footprint
+
+The current model is a 12B build and holds **~8 GB resident** in unified memory
+while loaded (the previous 8B build held ~4.9 GB). That memory is GPU-wired and
+cannot be paged out, so on a 24 GB machine with a browser and editor open it is
+enough to push everything else into swap.
+
+The runtime keeps a model loaded after the last request so the next one is fast.
+To release it immediately:
+
+    ollama stop camus2
+
+To shorten the automatic retention, set `OLLAMA_KEEP_ALIVE` (e.g. `2m`) **in the
+environment of the server process** — it is read by `ollama serve`, not by the
+client, so an already-running server keeps its old value until restarted.
+
+Note that `rag/camus_rag.py` separately requests a 15-minute retention for the
+embedding model; that one is small (~370 MB) and not worth shortening.
+
+The previous model is kept installed as a rollback. Do not remove it.
+
 ## `archive/` and `eval/archive/`
 
 `archive/` holds local reference material that is not part of the project's
 history — superseded datasets, earlier vector builds, batch job inputs. Nothing
 in it is required to run or rebuild anything.
 
-`eval/archive/` holds superseded evaluation runs. The current baseline
+`eval/archive/` holds superseded evaluation runs. Two subtrees are tracked
+deliberately — `base_selection/` (evidence behind the base-model choice) and
+`v2_*/` (the scored runs backing a released build); the rest stays local. The current baseline
 (`eval/eval_history.csv`, `eval/probe_scores.jsonl`, `eval/probe_report.md`) is
 tracked; `eval/eval_history.csv` is **append-only** — add rows, never edit them.
 
@@ -64,9 +101,9 @@ large enough to need Git LFS belongs on the Hub instead.
 `pipeline/hooks/pre-commit` refuses any commit that stages:
 
 - a file larger than **5 MB**,
-- anything under `archive/`,
+- anything under the root `archive/`,
 - `*.npy`, `*.gguf`, or `*.safetensors`,
-- any `*.jsonl` other than `data/camus_*.jsonl`.
+- any `*.jsonl` other than `data/camus_*.jsonl` and the tracked eval probe scores.
 
 It prints what it blocked and why. Override deliberately with
 `git commit --no-verify`.
