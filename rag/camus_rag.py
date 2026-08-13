@@ -24,7 +24,8 @@ SETUP   ollama pull nomic-embed-text
 RUN     python rag/camus_rag.py            (chat; assumes index built by kb/build_index.py)
         python rag/camus_rag.py --debug    (show retrieved entries, types, sources, scores)
 """
-import argparse, json, os, re
+import argparse, json, os, re, uuid
+from dataclasses import dataclass, field
 import numpy as np
 import requests
 
@@ -232,8 +233,29 @@ def stream_chat(messages, opts=None):
 def recent_user(history, n=1):
     return " ".join([m["content"] for m in history if m["role"]=="user"][-n:])
 
-def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False):
-    """The one place a turn is assembled. Returns (messages, opts, hits).
+@dataclass
+class MemoryCtx:
+    """Everything the memory layer needs to contribute to a turn. Optional: when
+    this is None, build_turn behaves exactly as it did before memory existed."""
+    store: object                      # memory.MemoryStore
+    profile: str = ""                  # verbatim profile.md text
+    summary: str = ""                  # rolling précis of evicted turns
+
+@dataclass
+class Turn:
+    """What a single assembled turn consists of.
+
+    Replaces the old (messages, opts, hits) tuple: memory adds a fourth element and
+    a 4-tuple stops being readable at call sites. Callers use turn.messages etc.
+    """
+    messages: list
+    opts: dict
+    hits: list
+    memories: list = field(default_factory=list)
+
+def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
+               memory=None):
+    """The one place a turn is assembled. Returns a Turn.
 
     History is a list of {"role","content"} in chronological order, and is sliced
     to HIST_WINDOW here — callers pass the full conversation.
@@ -244,6 +266,11 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False):
       - follow-up fold: the previous user turn joins the retrieval query only when
         the new message leans on it
       - per-turn temperature: TEMP_TASK for tasks, TEMP_FACTUAL otherwise
+
+    `memory` (a MemoryCtx, default None) adds a SEPARATE stream: it appends its own
+    section to the system prompt and touches nothing else. It never joins `hits`,
+    so the KB confidence tiers and the 0.55 gate are computed on KB scores alone.
+    Memory is skipped on the task gate for the same reason facts are.
     """
     task = is_task(user_msg)
     if task:                               # analysis / long text -> reason unencumbered
@@ -253,29 +280,238 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False):
         rquery = ((recent_user(history, 1) + " " + user_msg).strip()
                   if is_followup(user_msg) else user_msg)
         hits = retrieve(rquery, facts, vecs, bm25=bm25, ce=ce, debug=debug)
+
+    system = build_system(hits)            # KB stream: facts + views only
+
+    # ---- memory stream: appended AFTER the KB system prompt, never merged into it ----
+    mems = []
+    if memory is not None and not task:
+        import memory as _mem
+        try:
+            mems = memory.store.retrieve(user_msg) if memory.store is not None else []
+        except Exception as e:
+            print(f"[memory] retrieval failed ({e}) — continuing without memory")
+            mems = []
+        block = _mem.build_memory_block(memory.profile, mems)
+        if block:
+            system += block
+        if debug:
+            print("  [memory]")
+            if mems:
+                for m in mems:
+                    print(f"     score={m['score']:.3f} [{m.get('kind','?'):10s}] {m['text'][:64]}")
+            else:
+                print("     (no memories above threshold)")
+            if memory.profile:
+                print(f"     profile.md injected ({len(memory.profile)} chars)")
+    if memory is not None and memory.summary:
+        system += _memory_summary_block(memory.summary)
+
     opts = dict(GEN_OPTS, temperature=TEMP_TASK if task else TEMP_FACTUAL)
-    messages = ([{"role":"system","content":build_system(hits)}]
+    messages = ([{"role":"system","content":system}]
                 + history[-HIST_WINDOW:]
                 + [{"role":"user","content":user_msg}])
-    return messages, opts, hits
+    return Turn(messages=messages, opts=opts, hits=hits, memories=mems)
+
+def _memory_summary_block(summary):
+    import memory as _mem
+    return _mem.build_summary_block(summary)
+
+# ─────────────────────────────────────────────────────── memory plumbing ────
+SUMMARY_TEMP    = 0.3     # compression, not voice
+EXTRACT_EVERY   = 40      # exchanges: mid-session flush so a crash loses nothing
+MIN_EXCHANGES   = 4       # below this a session holds nothing worth keeping
+
+# Utility calls (summarise / extract) want an instruction-follower, not the persona:
+# the persona model is trained never to break character and answers extraction prompts
+# in voice instead of emitting JSON. Prefer a plain instruct model, but only if it is
+# actually installed — otherwise fall back to the persona model, which still works via
+# chat_extract's JSON-mode constraint.
+UTIL_MODEL_PREF = os.environ.get("MEM_UTIL_MODEL", "gemma3:12b")
+
+def _installed_models():
+    try:
+        r = requests.get(f"{OLLAMA}/api/tags", timeout=5)
+        r.raise_for_status()
+        return {m["name"] for m in r.json().get("models", [])}
+    except Exception:
+        return set()
+
+def resolve_util_model(pref=None, quiet=False):
+    """Return the model to use for utility calls, falling back if pref is absent."""
+    pref = pref or UTIL_MODEL_PREF
+    have = _installed_models()
+    if not have:                       # server unreachable: don't guess, use the persona
+        return GEN_MODEL
+    if pref in have or f"{pref}:latest" in have:
+        return pref
+    if not quiet:
+        print(f"[memory] utility model {pref!r} not installed — falling back to {GEN_MODEL!r}")
+    return GEN_MODEL
+
+UTIL_MODEL = None                      # resolved lazily on first utility call
+
+UTIL_SYS = ("You are a data-extraction utility, not a persona. Follow the output format "
+            "exactly. Never speak in character. Never add commentary.")
+
+def chat_once(messages, temperature=SUMMARY_TEMP, fmt=None, system=None):
+    """Non-streaming single call on the local model — used for summarisation and
+    extraction. Same endpoint as the chat path, lower temperature."""
+    global UTIL_MODEL
+    if UTIL_MODEL is None:
+        UTIL_MODEL = resolve_util_model()
+    msgs = ([{"role": "system", "content": system}] if system else []) + messages
+    body = {"model": UTIL_MODEL, "messages": msgs, "stream": False,
+            "options": dict(GEN_OPTS, temperature=temperature)}
+    if fmt:
+        body["format"] = fmt
+    r = requests.post(f"{OLLAMA}/api/chat", json=body, timeout=300)
+    r.raise_for_status()
+    return r.json()["message"]["content"].strip()
+
+def chat_extract(messages):
+    """chat_fn for memory.extract_memories.
+
+    Two things fight a plain call here. The persona model is trained never to break
+    character, so unconstrained it answers *as Camus* instead of emitting JSON. Ollama's
+    JSON mode fixes that, but it returns a single OBJECT where the prompt asks for an
+    ARRAY, and memory.parse_extraction only accepts an array. So: constrain with JSON
+    mode plus a utility system prompt, then normalise an object (or an object wrapping a
+    list) back into the array the parser expects. memory.py stays untouched.
+    """
+    # An instruction-following model answers this prompt correctly on a PLAIN call and
+    # returns the array (often inside a ```json fence, which parse_extraction handles).
+    # Forcing Ollama's JSON mode actively hurts it: the response collapses to a single
+    # object and the "fact|preference|thread" union gets read as a literal template.
+    # So try plain first, and fall back to JSON mode only when that yields nothing —
+    # which is what happens with the persona model, trained never to break character.
+    raw = chat_once(messages, temperature=SUMMARY_TEMP, system=UTIL_SYS)
+    if _looks_like_memory_array(raw):
+        return raw
+
+    raw = chat_once(messages, temperature=SUMMARY_TEMP, fmt="json", system=UTIL_SYS)
+    try:
+        val = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw                      # let parse_extraction try its regex
+    if isinstance(val, dict):
+        for v in val.values():          # {"memories": [...]} style
+            if isinstance(v, list):
+                return json.dumps(v)
+        val = [val]                     # a bare single memory object
+    return json.dumps(val if isinstance(val, list) else [val])
+
+def _looks_like_memory_array(raw):
+    """True if raw contains a JSON array holding at least one object with a "text"."""
+    m = re.search(r"\[.*\]", raw or "", re.S)
+    if not m:
+        return False
+    try:
+        items = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return False
+    return isinstance(items, list) and any(
+        isinstance(i, dict) and str(i.get("text", "")).strip() for i in items)
+
+def _flush_memories(mem, memctx, history, session_id, reason):
+    """Extract and stage. Best effort: memory must never break the chat."""
+    if memctx is None or len(history) // 2 < MIN_EXCHANGES:
+        return
+    try:
+        cands = mem.extract_memories(history, chat_extract)
+        if not cands:
+            print(f"[memory] {reason}: nothing durable to keep")
+            return
+        summary = memctx.store.stage(cands, session_id)
+        print(f"[memory] {reason}: {summary}")
+        for c in cands:
+            print(f"         [{c['kind']:10s}] {c['text'][:72]}")
+    except Exception as e:
+        print(f"[memory] extraction failed ({e}) — session not saved to memory")
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--debug", action="store_true"); args = ap.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--debug", action="store_true")
+    ap.add_argument("--memory", action="store_true",
+                    help="enable the profile + learned-memory layer (default off)")
+    ap.add_argument("--forget", metavar="SUBSTRING",
+                    help="delete memories containing SUBSTRING, then exit")
+    ap.add_argument("--memories", action="store_true",
+                    help="list stored memories, then exit")
+    ap.add_argument("--reindex-memory", action="store_true",
+                    help="re-embed every stored memory with the current scheme, then exit")
+    args = ap.parse_args()
+
+    # --- memory-only subcommands: no KB load, no chat ---
+    if args.forget or args.memories or args.reindex_memory:
+        import memory as mem
+        store = mem.MemoryStore(embed)
+        if args.reindex_memory:
+            n_cued = sum(1 for r in store.rows if r.get("cue"))
+            n = store.reindex()
+            print(f"re-embedded {n} memor{'y' if n == 1 else 'ies'} "
+                  f"({n_cued} with cues, {n - n_cued} without)")
+        elif args.forget:
+            n = store.forget(args.forget)
+            store.save()
+            print(f"forgot {n} memor{'y' if n == 1 else 'ies'} matching {args.forget!r}")
+        else:
+            if not store.rows:
+                print("no memories stored yet")
+            for r in store.rows:
+                print(f"  [{r.get('kind','?'):10s}] hits={r.get('hits',0):<3d} "
+                      f"last_seen={r.get('last_seen','?')[:10]}  {r['text']}")
+                if r.get("cue"):
+                    print(f"  {'':12s} cue: {r['cue']}")
+                print(f"  {'':12s} id={r.get('id','?')}")
+            print(f"\n{len(store.rows)} memor{'y' if len(store.rows) == 1 else 'ies'}")
+        return
+
     facts, vecs = load_kb()
     bm25 = build_bm25(facts)
     ce = load_reranker()
+
+    memctx, mem, session_id = None, None, None
+    if args.memory:
+        import memory as mem
+        profile = mem.load_profile()
+        memctx = MemoryCtx(store=mem.MemoryStore(embed), profile=profile, summary="")
+        session_id = uuid.uuid4().hex[:8]
+        print(f"[memory] on — {len(memctx.store.rows)} stored, "
+              f"profile.md {'loaded' if profile else 'absent'}, session {session_id}")
+
     history = []
     print("\nCamus is here. Type and press enter; Ctrl-C to leave.\n")
     try:
         while True:
             user = input("you: ").strip()
             if not user: continue
-            messages, opts, hits = build_turn(user, history, facts, vecs,
-                                              bm25=bm25, ce=ce, debug=args.debug)
-            reply = stream_chat(messages, opts)
+            turn = build_turn(user, history, facts, vecs, bm25=bm25, ce=ce,
+                              debug=args.debug, memory=memctx)
+            reply = stream_chat(turn.messages, turn.opts)
             history += [{"role":"user","content":user},{"role":"assistant","content":reply}]
+
+            if memctx is not None:
+                # Turns falling out of HIST_WINDOW are compressed rather than dropped.
+                if len(history) > HIST_WINDOW:
+                    evicted = history[:len(history) - HIST_WINDOW]
+                    history = history[len(history) - HIST_WINDOW:]
+                    try:
+                        memctx.summary = mem.summarise(evicted, memctx.summary, chat_once)
+                        if args.debug:
+                            print(f"  [memory] summary now {len(memctx.summary.split())} words")
+                    except Exception as e:
+                        print(f"[memory] summarisation failed ({e}) — dropping evicted turns")
+                if len(history) // 2 and len(history) // 2 % EXTRACT_EVERY == 0:
+                    _flush_memories(mem, memctx, history, session_id, "mid-session flush")
     except (KeyboardInterrupt, EOFError):
         print("\nUntil next time.")
+        _flush_memories(mem, memctx, history, session_id, "session end")
+        if memctx is not None:
+            try:
+                memctx.store.save()      # persist hits/last_seen bumps from retrieval
+            except Exception as e:
+                print(f"[memory] save failed ({e})")
 
 if __name__ == "__main__":
     main()

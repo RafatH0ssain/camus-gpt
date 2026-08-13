@@ -58,9 +58,10 @@ class CamusClient:
         the same task gate, follow-up fold, and per-turn temperature as the CLI and
         the eval harness. `retrieved` is empty on task-gated turns by design.
         """
-        messages, opts, hits = build_turn(user, self.history, self.facts, self.vecs,
-                                          bm25=self.bm25, ce=self.ce, debug=False)
-        reply = self._generate(messages, opts)
+        turn = build_turn(user, self.history, self.facts, self.vecs,
+                          bm25=self.bm25, ce=self.ce, debug=False)
+        hits = turn.hits
+        reply = self._generate(turn.messages, turn.opts)
         self.history += [{"role":"user","content":user}, {"role":"assistant","content":reply}]
         return {
             "user": user,
