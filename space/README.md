@@ -31,12 +31,19 @@ short_description: A fictional, RAG-grounded AI persona of Albert Camus.
 
 # CamusGPT (Space)
 
-A fine-tuned Llama-3.1-8B persona of Albert Camus, served on **ZeroGPU** via transformers and
-grounded in his life and writing by a CPU-side retrieval (RAG) layer.
+The hosted front end for CamusGPT: a fine-tuned persona of Albert Camus, grounded in his life
+and writing by a CPU-side retrieval (RAG) layer.
+
+This app was built to serve the **8B** build on **ZeroGPU** via transformers, and that is still
+what the code loads. It is not currently deployed, and it has not been adapted to the 12B build
+the project now uses locally — see the status note above.
 
 **Fictional AI persona for education and conversation — not the real Albert Camus, and not
 professional advice.** In crisis? Call or text **988** (US & Canada) or visit **findahelpline.com**.
-Conversations and basic metadata may be logged for safety and to improve the project.
+
+When deployed with logging configured, conversations and basic metadata may be recorded for
+safety and to improve the project; client IPs are stored as a salted hash. Logging is off unless
+`LOG_SHEET_ID`, `GCP_SERVICE_ACCOUNT`, and `LOG_IP_SALT` are all set.
 
 ## Configuration
 - **Hardware:** ZeroGPU, size `large`.
