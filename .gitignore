@@ -77,6 +77,13 @@ eval/archive/*
 mac_transfer*
 *.zip
 
+# Local conversation memory — never commit; contains chat content.
+# profile.md is per-user; a profile.example.md template is tracked instead.
+/memory.jsonl
+/memory_vectors.npy
+/memory_pending.jsonl
+/profile.md
+
 # Local-only working notes.
 MISSING.md
 

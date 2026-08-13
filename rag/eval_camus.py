@@ -154,16 +154,9 @@ def ask(turns):
     history = []
     answer, n_hits = "", 0
     for user in turns:
-        task = cr.is_task(user)
-        if task:
-            hits = []
-        else:
-            rq = (history[-2]["content"] + " " + user).strip() if (history and cr.is_followup(user)) else user
-            hits = cr.retrieve(rq, facts, vecs, bm25=ask.bm25, ce=ask.ce)
+        messages, opts, hits = cr.build_turn(user, history, facts, vecs,
+                                             bm25=ask.bm25, ce=ask.ce)
         n_hits = len(hits)
-        messages = [{"role": "system", "content": cr.build_system(hits)}] + history[-cr.HIST_WINDOW:] + [
-            {"role": "user", "content": user}]
-        opts = dict(cr.GEN_OPTS, temperature=cr.TEMP_TASK if task else cr.TEMP_FACTUAL)
         r = requests.post(f"{cr.OLLAMA}/api/chat",
                           json={"model": cr.GEN_MODEL, "messages": messages, "stream": False,
                                 "options": opts}, timeout=300)
