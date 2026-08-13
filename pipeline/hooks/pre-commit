@@ -58,6 +58,17 @@ while IFS= read -r path; do
         *.safetensors) emit "path" "$path" "model weights belong on the Hub" ;;
     esac
 
+    # Local conversation memory and the per-user profile. .gitignore covers these
+    # too, but .gitignore can be edited away and hooks are per-clone, so guard them
+    # here as well: the cost of a false block is nil, the cost of a leak is chat
+    # content in a public history.
+    case "$path" in
+        profile.md|memory.jsonl|memory_pending.jsonl|memory_vectors.npy)
+            emit "path" "$path" "local conversation memory / per-user profile — never commit" ;;
+        memory*.jsonl)
+            emit "path" "$path" "local conversation memory — never commit" ;;
+    esac
+
     # jsonl is allowed as the tracked training corpora and as eval probe scores;
     # everything else derived stays local.
     case "$path" in
