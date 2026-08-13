@@ -119,6 +119,30 @@ the repository does not bring it along:
     cp pipeline/hooks/pre-commit .git/hooks/pre-commit
     chmod +x .git/hooks/pre-commit
 
+## Gotchas
+
+**`util_chat()` is not the chat path.** It routes to `MEM_UTIL_MODEL` (an
+instruction-follower), not to the persona model, and exists for summarisation and
+memory extraction. Anything generated through it will not be in voice. User-facing
+replies go through `stream_chat()` / `GEN_MODEL`. This has already caught one test
+harness out: replies came back in the wrong voice because the harness reached for the
+utility helper.
+
+**Memory extraction loads a second model.** With `--memory`, session-end extraction
+calls `MEM_UTIL_MODEL` (default `gemma3:12b`, ~8 GB) while the persona model may still
+be resident (~8 GB). On a 24 GB machine that can briefly want both. `OLLAMA_KEEP_ALIVE`
+keeps the overlap short; `ollama stop <model>` frees one immediately. Set
+`MEM_UTIL_MODEL` to the persona model to avoid the second load entirely, at some cost
+to extraction quality.
+
+**Enabling memory makes eval runs non-comparable** to the tracked 34-probe baseline —
+see `docs/MEMORY.md`.
+
+## The memory layer
+
+Off by default, behind `--memory`. See **`docs/MEMORY.md`** for the two layers, the
+four gitignored files, the CLI flags, dedup and probation, and the tunables.
+
 ## The invariant
 
 `git status` should be clean at all times. Anything untracked is either about
