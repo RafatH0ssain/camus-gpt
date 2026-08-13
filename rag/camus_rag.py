@@ -354,9 +354,14 @@ UTIL_MODEL = None                      # resolved lazily on first utility call
 UTIL_SYS = ("You are a data-extraction utility, not a persona. Follow the output format "
             "exactly. Never speak in character. Never add commentary.")
 
-def chat_once(messages, temperature=SUMMARY_TEMP, fmt=None, system=None):
-    """Non-streaming single call on the local model — used for summarisation and
-    extraction. Same endpoint as the chat path, lower temperature."""
+def util_chat(messages, temperature=SUMMARY_TEMP, fmt=None, system=None):
+    """UTILITY calls only — routes to MEM_UTIL_MODEL, NOT the persona; never use this
+    to generate a user-facing reply (that is stream_chat / GEN_MODEL).
+
+    Non-streaming single call used for summarisation and extraction, at a lower
+    temperature than chat. The model here is deliberately an instruction-follower,
+    so anything generated through it will not be in voice.
+    """
     global UTIL_MODEL
     if UTIL_MODEL is None:
         UTIL_MODEL = resolve_util_model()
@@ -385,11 +390,11 @@ def chat_extract(messages):
     # object and the "fact|preference|thread" union gets read as a literal template.
     # So try plain first, and fall back to JSON mode only when that yields nothing —
     # which is what happens with the persona model, trained never to break character.
-    raw = chat_once(messages, temperature=SUMMARY_TEMP, system=UTIL_SYS)
+    raw = util_chat(messages, temperature=SUMMARY_TEMP, system=UTIL_SYS)
     if _looks_like_memory_array(raw):
         return raw
 
-    raw = chat_once(messages, temperature=SUMMARY_TEMP, fmt="json", system=UTIL_SYS)
+    raw = util_chat(messages, temperature=SUMMARY_TEMP, fmt="json", system=UTIL_SYS)
     try:
         val = json.loads(raw)
     except json.JSONDecodeError:
@@ -497,7 +502,7 @@ def main():
                     evicted = history[:len(history) - HIST_WINDOW]
                     history = history[len(history) - HIST_WINDOW:]
                     try:
-                        memctx.summary = mem.summarise(evicted, memctx.summary, chat_once)
+                        memctx.summary = mem.summarise(evicted, memctx.summary, util_chat)
                         if args.debug:
                             print(f"  [memory] summary now {len(memctx.summary.split())} words")
                     except Exception as e:
