@@ -72,6 +72,7 @@ data/archive/
 eval/archive/*
 !eval/archive/base_selection/
 !eval/archive/v2_*/
+!eval/archive/postrefactor_*/
 
 # Inbound transfer bundles must never be committed.
 mac_transfer*
