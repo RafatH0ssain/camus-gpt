@@ -36,25 +36,40 @@ import camus_rag as cr
 # --------------------------------------------------------------------------- probes ----
 # turns: user messages fed sequentially (multi-turn probes score the FINAL answer).
 # expect / forbid: shown to the judge as ground truth for the factuality dimension.
+VERIFIED_PETS = (
+    "These are VERIFIED facts from the curated knowledge base, NOT inventions: the cat was "
+    "named Cigarette; the dogs were Pauline, Kirk and Blaise. Do not score any of these names "
+    "as a hallucination. ")
+
 PROBES = [
  # --- identity: pets (the card's home turf; paraphrase spread) ---
  dict(id="pet_cat",       cat="identity_pets", turns=["do you have a cat"],
-      expect="Affirms having (had) cats; if named, the ONLY valid cat name is Cigarette.",
-      forbid="Any other cat name; denying he kept pets; invented breeds/colors/eye-colors."),
+      expect="Affirms having (had) a cat and names Cigarette. " + VERIFIED_PETS +
+             "The question is about the CAT: naming Cigarette alone is the correct, complete "
+             "answer. Volunteering the dogs unprompted is card-reciting and should score lower "
+             "on voice, not higher on factuality.",
+      forbid="Any cat name other than Cigarette; denying he kept pets; invented breeds/colors/eye-colors."),
  dict(id="pet_cat_name",  cat="identity_pets", turns=["what's your cat's name?"],
-      expect="Cigarette.", forbid="Any other cat name (Sarah, Nero, Salambo, Moniou...)."),
+      expect="Cigarette. " + VERIFIED_PETS +
+             "Only the cat was asked for: Cigarette alone is complete. Listing the dogs as well "
+             "is unprompted recitation and should not be rewarded.",
+      forbid="Any cat name other than Cigarette (Sarah, Nero, Salambo, Moniou...)."),
  dict(id="pet_dogs",      cat="identity_pets", turns=["what were your dogs' names?"],
-      expect="Pauline, Kirk, Blaise (all three ideally; subset acceptable, no additions).",
+      expect="Pauline, Kirk, Blaise (all three ideally; subset acceptable, no additions). " +
+             VERIFIED_PETS + "The dogs ARE the subject here, so naming them is correct and expected.",
       forbid="Names outside Pauline/Kirk/Blaise; denying he had dogs; invented breeds."),
  dict(id="pet_any",       cat="identity_pets", turns=["did you ever own a pet?"],
-      expect="Yes — cats (Cigarette) and/or dogs (Pauline, Kirk, Blaise).",
+      expect="Yes — cats (Cigarette) and/or dogs (Pauline, Kirk, Blaise). " + VERIFIED_PETS +
+             "The question is about pets generally, so naming both the cat and the dogs is correct.",
       forbid="Denial ('never mine to keep', 'my lungs kept me from it'); invented family lore."),
  dict(id="pet_describe",  cat="identity_pets", turns=["tell me about your pets"],
-      expect="Cats and dogs, correct names only, warm but unembellished.",
+      expect="Cats and dogs, correct names only, warm but unembellished. " + VERIFIED_PETS +
+             "The question invites both, so naming the cat and the dogs is correct here.",
       forbid="Invented names/breeds; claims like 'dogs not cats by choice'; invented spouse/mother backstory."),
  dict(id="pet_mersault",  cat="attribution",   turns=["was your cat named Mersault?"],
       expect="No; Meursault is the protagonist of HIS novel The Stranger (and Patrice Mersault of A Happy Death) — his own creation, not a cat, not anyone else's character.",
-      forbid="Attributing Meursault/Mersault to Sartre or any other author; confirming a cat by that name."),
+      forbid="Attributing Meursault/Mersault to Sartre or any other author; confirming a cat by that "
+             "name; calling Pauline/Kirk/Blaise cats (they are the DOGS; the cat is Cigarette)."),
  # --- identity: works ---
  dict(id="works_list",    cat="identity_works", turns=["name your works"],
       expect="Novels: The Stranger, The Plague, The Fall (+A Happy Death, The First Man posthumous). Stories: Exile and the Kingdom. Essays: The Myth of Sisyphus, The Rebel. Plays: Caligula, The Misunderstanding, State of Siege, The Just Assassins. Full list not mandatory but nothing false.",
@@ -126,8 +141,9 @@ PROBES = [
       expect="Brief, human, in voice.", forbid="AI disclaimers; excessive length."),
  # --- multi-turn / retrieval hygiene ---
  dict(id="mt_topic_change", cat="multiturn", turns=["tell me about The Plague", "do you have a cat"],
-      expect="Final answer is about his cat(s) (Cigarette), NOT contaminated by plague content.",
-      forbid="Plague material bleeding into the cat answer; wrong cat names."),
+      expect="Final answer is about his cat(s) (Cigarette), NOT contaminated by plague content. " +
+             VERIFIED_PETS,
+      forbid="Plague material bleeding into the cat answer; cat names other than Cigarette."),
  dict(id="mt_followup",   cat="multiturn", turns=["what were your dogs' names?", "and a cat?"],
       expect="Understands the follow-up; answers about the cat (Cigarette).",
       forbid="Treating 'and a cat?' as a new unrelated topic; invented names."),
@@ -154,9 +170,9 @@ def ask(turns):
     history = []
     answer, n_hits = "", 0
     for user in turns:
-        messages, opts, hits = cr.build_turn(user, history, facts, vecs,
-                                             bm25=ask.bm25, ce=ask.ce)
-        n_hits = len(hits)
+        turn = cr.build_turn(user, history, facts, vecs, bm25=ask.bm25, ce=ask.ce)
+        messages, opts = turn.messages, turn.opts
+        n_hits = len(turn.hits)
         r = requests.post(f"{cr.OLLAMA}/api/chat",
                           json={"model": cr.GEN_MODEL, "messages": messages, "stream": False,
                                 "options": opts}, timeout=300)
