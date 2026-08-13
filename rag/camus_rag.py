@@ -232,6 +232,33 @@ def stream_chat(messages, opts=None):
 def recent_user(history, n=1):
     return " ".join([m["content"] for m in history if m["role"]=="user"][-n:])
 
+def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False):
+    """The one place a turn is assembled. Returns (messages, opts, hits).
+
+    History is a list of {"role","content"} in chronological order, and is sliced
+    to HIST_WINDOW here — callers pass the full conversation.
+
+    Every entry point (the CLI, the eval harness, the importable client) must go
+    through this, so a probe run and an eval run exercise the same system:
+      - task gate: analysis / long text reasons unencumbered, with no retrieval
+      - follow-up fold: the previous user turn joins the retrieval query only when
+        the new message leans on it
+      - per-turn temperature: TEMP_TASK for tasks, TEMP_FACTUAL otherwise
+    """
+    task = is_task(user_msg)
+    if task:                               # analysis / long text -> reason unencumbered
+        hits = []
+        if debug: print("  [retrieval] skipped (task gate)")
+    else:
+        rquery = ((recent_user(history, 1) + " " + user_msg).strip()
+                  if is_followup(user_msg) else user_msg)
+        hits = retrieve(rquery, facts, vecs, bm25=bm25, ce=ce, debug=debug)
+    opts = dict(GEN_OPTS, temperature=TEMP_TASK if task else TEMP_FACTUAL)
+    messages = ([{"role":"system","content":build_system(hits)}]
+                + history[-HIST_WINDOW:]
+                + [{"role":"user","content":user_msg}])
+    return messages, opts, hits
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--debug", action="store_true"); args = ap.parse_args()
     facts, vecs = load_kb()
@@ -243,15 +270,8 @@ def main():
         while True:
             user = input("you: ").strip()
             if not user: continue
-            task = is_task(user)
-            if task:                               # analysis / long text -> reason unencumbered
-                hits = []
-                if args.debug: print("  [retrieval] skipped (task gate)")
-            else:
-                rquery = (recent_user(history, 1) + " " + user).strip() if is_followup(user) else user
-                hits = retrieve(rquery, facts, vecs, bm25=bm25, ce=ce, debug=args.debug)
-            opts = dict(GEN_OPTS, temperature=TEMP_TASK if task else TEMP_FACTUAL)
-            messages = [{"role":"system","content":build_system(hits)}] + history[-HIST_WINDOW:] + [{"role":"user","content":user}]
+            messages, opts, hits = build_turn(user, history, facts, vecs,
+                                              bm25=bm25, ce=ce, debug=args.debug)
             reply = stream_chat(messages, opts)
             history += [{"role":"user","content":user},{"role":"assistant","content":reply}]
     except (KeyboardInterrupt, EOFError):

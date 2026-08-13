@@ -21,20 +21,24 @@ Requires the index built once:  python build_index.py
 """
 import json, sys, argparse
 import requests
-from camus_rag import (OLLAMA, GEN_MODEL, GEN_OPTS, HIST_WINDOW,
-                       load_kb, retrieve, build_system, recent_user)
+from camus_rag import OLLAMA, GEN_MODEL, load_kb, build_bm25, load_reranker, build_turn
 
 class CamusClient:
     def __init__(self):
         self.facts, self.vecs = load_kb()
+        # Hybrid retrieval, same as the CLI and the eval harness. Without these the
+        # client silently ran dense-only with no reranker, which is a different
+        # retrieval system from the one every other entry point exercises.
+        self.bm25 = build_bm25(self.facts)
+        self.ce = load_reranker()
         self.history = []
 
     def reset(self):
         self.history = []
 
-    def _generate(self, messages):
+    def _generate(self, messages, opts):
         r = requests.post(f"{OLLAMA}/api/chat",
-                          json={"model":GEN_MODEL,"messages":messages,"stream":False,"options":GEN_OPTS},
+                          json={"model":GEN_MODEL,"messages":messages,"stream":False,"options":opts},
                           timeout=300)
         try:
             r.raise_for_status()
@@ -48,12 +52,15 @@ class CamusClient:
         return r.json()["message"]["content"].strip()
 
     def say(self, user):
-        """One conversational turn. Returns the reply + the retrieved KB entries used."""
-        rq = (recent_user(self.history, 1) + " " + user).strip()
-        hits = retrieve(rq, self.facts, self.vecs, debug=False)
-        system = build_system(hits)
-        messages = [{"role":"system","content":system}] + self.history[-HIST_WINDOW:] + [{"role":"user","content":user}]
-        reply = self._generate(messages)
+        """One conversational turn. Returns the reply + the retrieved KB entries used.
+
+        Turn assembly is delegated to camus_rag.build_turn, so this client applies
+        the same task gate, follow-up fold, and per-turn temperature as the CLI and
+        the eval harness. `retrieved` is empty on task-gated turns by design.
+        """
+        messages, opts, hits = build_turn(user, self.history, self.facts, self.vecs,
+                                          bm25=self.bm25, ce=self.ce, debug=False)
+        reply = self._generate(messages, opts)
         self.history += [{"role":"user","content":user}, {"role":"assistant","content":reply}]
         return {
             "user": user,
