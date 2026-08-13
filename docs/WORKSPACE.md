@@ -103,7 +103,12 @@ large enough to need Git LFS belongs on the Hub instead.
 - a file larger than **5 MB**,
 - anything under the root `archive/`,
 - `*.npy`, `*.gguf`, or `*.safetensors`,
-- any `*.jsonl` other than `data/camus_*.jsonl` and the tracked eval probe scores.
+- any `*.jsonl` other than `data/camus_*.jsonl` and the tracked eval probe scores,
+- `profile.md` and `memory*.jsonl` — local conversation memory and the per-user
+  profile. `.gitignore` covers these too; the hook is a second layer because a
+  `.gitignore` edit would otherwise be the only thing standing between chat
+  content and a public history. A `profile.example.md` template is still
+  committable.
 
 It prints what it blocked and why. Override deliberately with
 `git commit --no-verify`.
