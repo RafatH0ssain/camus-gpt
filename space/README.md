@@ -10,6 +10,25 @@ hf_oauth: true
 short_description: A fictional, RAG-grounded AI persona of Albert Camus.
 ---
 
+> **Status: the public deployment is inactive.** The hosted Space is no longer
+> running. The code here is still maintained, but it is **untested against the
+> current model** — the last verified deployment served the previous build.
+>
+> `app.py` still targets the **previous 8B model**: `MODEL_REPO` defaults to the
+> v1 weights repo, and it loads them with `AutoModelForCausalLM`. Pointing it at
+> the current 12B build would need at least three changes first:
+>
+> - `apply_chat_template(..., return_tensors="pt", return_dict=True)` returns a
+>   plain `str` on the current architecture, so `.to(model.device)` raises
+>   `AttributeError`. Render to text first, then tokenize.
+> - Messages are assembled with a `{"role": "system", ...}` turn. The current
+>   base has no system role; the prompt has to be folded into the first user turn.
+> - Chat markup and stop tokens differ between the two builds.
+>
+> Local use via `rag/camus_rag.py` is unaffected — it targets the current model
+> and is the maintained path.
+
+
 # CamusGPT (Space)
 
 A fine-tuned Llama-3.1-8B persona of Albert Camus, served on **ZeroGPU** via transformers and
