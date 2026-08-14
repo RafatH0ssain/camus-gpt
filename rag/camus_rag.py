@@ -100,6 +100,28 @@ def is_followup(text):
     t = (text or "").strip().lower()
     return len(t) < 40 or any(t.startswith(c) for c in FOLLOWUP_CUES)
 
+# Self-referential gate: a question the user asks about THEMSELVES ("what was I working
+# on again?", "where did we leave off?"). These retrieve strongly against Camus's own
+# biography — "working", "left", "stuck" all match his letters and journals — so the KB
+# answers in the memory layer's place, correctly labelled as his life and impossible for
+# the model to tell apart. Detected by a self-reference marker plus question shape; used
+# only to suppress the KB, and only when memory actually has something to say instead.
+SELF_REF_CUES = ("i", "i'm", "i've", "i'd", "me", "my", "mine", "myself",
+                 "we", "we're", "we've", "us", "our", "ourselves")
+_SELF_REF_RE = re.compile(r"\b(" + "|".join(re.escape(c) for c in SELF_REF_CUES) + r")\b")
+
+# Question shape, for the cases that do not end in a question mark
+# ("I'm stuck again on the same thing as last time.").
+SELF_REF_QUESTION_CUES = ("remember", "recall", "remind me", "what was", "what were",
+                          "where did", "did i", "was i", "am i", "have i", "last time",
+                          "we left", "we were")
+
+def is_self_ref(text):
+    t = (text or "").strip().lower()
+    if not _SELF_REF_RE.search(t):
+        return False
+    return t.endswith("?") or any(c in t for c in SELF_REF_QUESTION_CUES)
+
 _TOKEN_RE = re.compile(r"\w+")
 def _tok(t): return _TOKEN_RE.findall(t.lower())
 
@@ -191,8 +213,14 @@ def retrieve(query, facts, vecs, bm25=None, ce=None, debug=False):
                   f"[{facts[i].get('type','?'):4s}|{facts[i].get('source','?')[:22]}] {facts[i]['text'][:56]}")
     return hits
 
-def build_system(hits):
+def build_system(hits, kb_suppressed=False):
     if not hits:
+        # `kb_suppressed` means the self-referential gate dropped the KB on purpose: the
+        # question was about the USER, and memory has the answer. The no-match disclaimer
+        # below must NOT be emitted there — it tells the model to plead ignorance, which
+        # is the opposite of the intent and reintroduces the cross-session denial.
+        if kb_suppressed:
+            return CORE
         return CORE + ("\n\n(No memory closely matched this question. If it asks for a specific "
                        "name, place, date, or event you don't clearly recall and it is not in what "
                        "you know cold, say so plainly — do not invent.)")
@@ -205,7 +233,8 @@ def build_system(hits):
     if facts:
         if confident:  head = "Facts about your life:"
         elif relevant: head = ("Possibly-related memories (use only those that truly match the "
-                               "question; if none do, say you don't recall):")
+                               "question; if none do, say you don't recall that detail of "
+                               "your life):")
         else:          head = ("Background that is probably NOT relevant here — ignore it unless "
                                "it directly answers what was asked:")
         s += "\n\n" + head + "\n" + "\n".join(f"- {h['text']}" for h in facts)
@@ -252,6 +281,8 @@ class Turn:
     opts: dict
     hits: list
     memories: list = field(default_factory=list)
+    self_ref: bool = False             # the message asked about the USER, not about Camus
+    kb_suppressed: bool = False        # self_ref fired AND memory had something -> KB dropped
 
 def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                memory=None):
@@ -281,10 +312,10 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                   if is_followup(user_msg) else user_msg)
         hits = retrieve(rquery, facts, vecs, bm25=bm25, ce=ce, debug=debug)
 
-    system = build_system(hits)            # KB stream: facts + views only
-
-    # ---- memory stream: appended AFTER the KB system prompt, never merged into it ----
-    mems = []
+    # ---- memory stream: retrieved BEFORE the system prompt is assembled, because the
+    # self-referential gate can drop the KB stream for this turn. The block itself is
+    # still appended AFTER the KB prompt and never merged into it. ----
+    mem_block, mems, self_ref, kb_suppressed = "", [], False, False
     if memory is not None and not task:
         import memory as _mem
         try:
@@ -292,9 +323,14 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
         except Exception as e:
             print(f"[memory] retrieval failed ({e}) — continuing without memory")
             mems = []
-        block = _mem.build_memory_block(memory.profile, mems)
-        if block:
-            system += block
+        # The gate: when the user asks about themselves and memory has an answer, the KB
+        # is dropped so memory answers unopposed. With nothing in memory the KB stays —
+        # answering from biography beats answering from nothing.
+        self_ref = is_self_ref(user_msg)
+        if self_ref and mems:
+            hits = []
+            kb_suppressed = True
+        mem_block = _mem.build_memory_block(memory.profile, mems)
         if debug:
             print("  [memory]")
             if mems:
@@ -304,6 +340,10 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                 print("     (no memories above threshold)")
             if memory.profile:
                 print(f"     profile.md injected ({len(memory.profile)} chars)")
+            print(f"     self_ref={self_ref} kb_suppressed={kb_suppressed}"
+                  + ("  (KB dropped: memory answers unopposed)" if kb_suppressed else ""))
+
+    system = build_system(hits, kb_suppressed) + mem_block   # KB stream: facts + views only
     if memory is not None and memory.summary:
         system += _memory_summary_block(memory.summary)
 
@@ -311,7 +351,8 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
     messages = ([{"role":"system","content":system}]
                 + history[-HIST_WINDOW:]
                 + [{"role":"user","content":user_msg}])
-    return Turn(messages=messages, opts=opts, hits=hits, memories=mems)
+    return Turn(messages=messages, opts=opts, hits=hits, memories=mems,
+                self_ref=self_ref, kb_suppressed=kb_suppressed)
 
 def _memory_summary_block(summary):
     import memory as _mem

@@ -293,7 +293,9 @@ def build_memory_block(profile: str, mems: list[dict]) -> str:
     if not profile and not mems:
         return ""
     parts = ["\n\nWhat you know about the person you are speaking with "
-             "(this is about THEM, not about you — never confuse it with your own life):"]
+             "(this is about THEM, not about you — never confuse it with your own life). "
+             "When they say \"I\", \"my\", or \"me\", they mean themselves — answer from what "
+             "you know of THEM below, not from your own life:"]
     if profile:
         parts.append(profile)
     if mems:
@@ -307,8 +309,10 @@ def build_memory_block(profile: str, mems: list[dict]) -> str:
         if by_kind["thread"]:
             parts.append("Left unfinished last time (raise it only if it fits naturally):\n" +
                          "\n".join(f"- {m['text']}" for m in by_kind["thread"]))
-    parts.append("Draw on this only when it bears on what they say. Do not recite it back "
-                 "to them, and never present it as something you remember of your own life.")
+    parts.append("You genuinely remember these things about them from before; use them "
+                 "naturally when relevant, the way you would remember a friend's name or "
+                 "work. Never list them back as a summary, and never mistake them for "
+                 "events of your own life.")
     return "\n\n".join(parts)
 
 
