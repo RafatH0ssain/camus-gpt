@@ -63,7 +63,7 @@ while IFS= read -r path; do
     # here as well: the cost of a false block is nil, the cost of a leak is chat
     # content in a public history.
     case "$path" in
-        profile.md|memory.jsonl|memory_pending.jsonl|memory_vectors.npy)
+        profile.md|memory.jsonl|memory_pending.jsonl|memory_vectors.npy|memory_fixtures.json)
             emit "path" "$path" "local conversation memory / per-user profile — never commit" ;;
         memory*.jsonl)
             emit "path" "$path" "local conversation memory — never commit" ;;

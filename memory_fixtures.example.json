@@ -1,0 +1,27 @@
+{
+  "name": "Ada",
+  "city": "Lisbon",
+  "seed": [
+    {
+      "text": "The user is named Ada.",
+      "kind": "fact",
+      "cue": "my name; who I am"
+    },
+    {
+      "text": "The user is building a poetry search engine.",
+      "kind": "fact",
+      "cue": "my project; what I am building"
+    },
+    {
+      "text": "The user prefers terse answers and dislikes hedging.",
+      "kind": "preference",
+      "cue": "how I like replies"
+    },
+    {
+      "text": "The user was last debugging tokenizer edge cases.",
+      "kind": "thread",
+      "cue": "what I was working on; where I left off"
+    }
+  ],
+  "profile": "The user's name is Ada.\nThe user lives in Lisbon.\nThe user is building a poetry search engine and cares about measuring things rather than guessing.\nThe user prefers short, direct answers and dislikes hedging or flattery.\n"
+}
