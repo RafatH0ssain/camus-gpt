@@ -75,7 +75,8 @@ eval/archive/*
 !eval/archive/postrefactor_*/
 
 # Inbound transfer bundles must never be committed.
-mac_transfer*
+*transfer_bundle*
+*_transfer/
 *.zip
 
 # Local conversation memory — never commit; contains chat content.

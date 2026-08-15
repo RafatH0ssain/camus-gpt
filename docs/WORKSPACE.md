@@ -56,6 +56,12 @@ by a relative `FROM ./<weights>.gguf`. Register the local model with:
 
 Weights are ignored by extension (`*.gguf`, `*.safetensors`).
 
+**The tracked `rag/Modelfile` builds the 8B v1 only** — its `FROM` names the 8B GGUF.
+The current 12B build was registered from a GGUF that is not in the repository, so
+`camus2` cannot be rebuilt from a clone; pull it from the Hub, or recreate a Modelfile
+against the 12B weights. `ollama show camus2 --modelfile` prints the parameters it was
+registered with.
+
 ## Model memory footprint
 
 The current model is a 12B build and holds **~8 GB resident** in unified memory
