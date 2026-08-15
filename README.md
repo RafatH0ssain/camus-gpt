@@ -1,87 +1,76 @@
 # CamusGPT
 
-A fine-tuned persona of Albert Camus — dry, lucid, first-person — grounded in his real life
-and writing by a **RAG** layer. It runs locally via **Ollama**.
+A fine-tuned persona of Albert Camus — dry, lucid, first-person — grounded in his real life and
+writing by a retrieval layer, running locally on Ollama.
 
-Two builds exist. `camus2` (current) is a 12B base with a two-pass fine-tune; `camus` (previous)
-is the 8B build, kept installed as a rollback. Select between them with the `GEN_MODEL`
-environment variable — unset uses `camus`:
-
-    GEN_MODEL=camus2 python rag/camus_rag.py
-
-Scores for each build are in `eval/eval_history.csv`, whose `gen_model` column records which
-one produced each row. See `docs/WORKSPACE.md` for the memory cost of the larger build.
-
-Note: This project is no longer hosted on HF Spaces. Send me a message if you have any queries!
-
-> **This is a fictional AI persona for education and conversation — not the real Albert Camus,
-> and not professional advice.** If you are in crisis, call or text **988** (US & Canada) or
-> find a local helpline at **findahelpline.com**.
-
-## The idea
 **Personality lives in the weights; facts live in retrieval.** The model is trained once to
-*speak and behave* like Camus; everything it *knows about its own life* comes from a curated +
-extracted knowledge base retrieved at query time.
+*speak and behave* like Camus. Everything it *knows about his life* is retrieved at query time
+from a curated knowledge base, so a wrong fact is a retrieval bug, not a retraining job.
 
-## Repo layout
-```
-camusgpt/
-├── README.md  .gitignore  NOTICE
-├── docs/
-│   ├── PIPELINE.md             # full training + RAG pipeline write-up
-│   └── DEPLOYMENT.md           # how it's served (ZeroGPU) and why
-├── training/                   # make the weights
-│   ├── README.md               # the Google-Drive layout the notebook expects
-│   ├── build_epistemic.py  build_analysis.py  build_multiturn.py   # -> data/camus_*.jsonl
-│   ├── CamusGPT_Step3_5_RefusalSFT.ipynb       # Phase-2 refusal-SFT (reads data/ + adapters/)
-│   ├── train_camus_8b.py       # Unsloth trainer (3B or 8B via BASE_MODEL)
-│   ├── merge_8b.py             # LoRA -> fp16 safetensors
-│   └── make_gguf_colab.py      # safetensors -> Q4_K_M GGUF (Colab)
-├── kb/                         # build the knowledge base
-│   ├── sources_manifest.json  ingest_sources.py  extract_kb.py
-│   ├── build_kb.py  merge_kb.py
-│   ├── build_index.py          # Ollama nomic index (local)
-│   ├── embed_kb_llamacpp.py    # llama.cpp nomic index (Space parity)
-│   └── trim_kb.py              # semantic-dedup trim
-├── data/                       # training corpus (tracked) + KB intermediates (ignored)
-│   └── README.md               # mirrors Drive MyDrive/CamusGPT_Training/data/
-├── adapters/                   # camus_sft_lora (Phase-1 voice LoRA; weights ignored)
-│   └── README.md               # mirrors Drive MyDrive/CamusGPT_Training/adapters/
-├── rag/                        # the chat layer
-│   ├── camus_rag.py            # retrieval-augmented chat (boost, 3-tier, task gate)
-│   ├── camus_client.py  probe_camus.py  diagnose_retrieval.py
-│   ├── Modelfile
-└── space/                      # what you push to the HF Space (separate git repo)
-    ├── app.py  requirements.txt  README.md
-```
+> **A fictional AI persona for education and conversation — not the real Albert Camus, and not
+> professional advice.** If you are in crisis, call or text **988** (US & Canada) or find a local
+> helpline at **findahelpline.com**.
 
-## Training inputs (Google Drive layout)
-The Phase-2 notebook (`training/CamusGPT_Step3_5_RefusalSFT.ipynb`) runs on Colab and reads a
-Drive working folder — stage the repo's `data/` and `adapters/` there:
-```
-MyDrive/CamusGPT_Training/
-├── adapters/camus_sft_lora/        # Phase-1 voice-SFT LoRA (INPUT)
-├── data/  camus_sft.jsonl  camus_conversational.jsonl  camus_refusals.jsonl
-│          camus_epistemic.jsonl  camus_analysis.jsonl  camus_multiturn.jsonl
-└── deploy/  camus.gguf + Modelfile  (OUTPUT)
-```
+## Quickstart
 
-## Quickstart — local (Ollama)
+Needs [Ollama](https://ollama.com), Python 3.10+, and the weights and knowledge base from the
+project's Hugging Face repos (they are too large for git — see [docs/WORKSPACE.md](docs/WORKSPACE.md)).
+
 ```bash
 ollama pull nomic-embed-text
-ollama create camus -f rag/Modelfile            # FROM ./camus-8b.Q4_K_M.gguf
-python kb/build_kb.py && python kb/merge_kb.py
-python kb/build_index.py
-python kb/trim_kb.py --dedup 0.88               # optional: trim the noise floor
-python rag/camus_rag.py --debug
-python rag/probe_camus.py
+cd rag && ollama create camus -f Modelfile && cd ..   # relative FROM needs this cwd
+python kb/build_index.py                              # embed the KB
+GEN_MODEL=camus2 python rag/camus_rag.py              # chat
 ```
 
-## Quickstart — deploy (ZeroGPU)
-See `docs/DEPLOYMENT.md`: fp16 safetensors (`training/merge_8b.py`) → model repo; index via
-`kb/embed_kb_llamacpp.py` → dataset repo with the KB; push `space/` to a Gradio ZeroGPU Space;
-set `MODEL_REPO` / `KB_REPO`. Run all scripts **from the repo root** so relative paths resolve.
+Run everything **from the repository root** — the scripts resolve paths against the working
+directory, not against themselves.
+
+Useful flags: `--debug` shows what retrieval returned and why; `--memory` enables the optional
+persistent memory layer (off by default).
+
+## The two builds
+
+| Model | Base | Status |
+|---|---|---|
+| `camus2` | 12B, two-pass fine-tune | current |
+| `camus` | 8B | previous, kept installed as a rollback |
+
+`GEN_MODEL` selects between them; unset falls back to `camus`. Scores for each are in
+`eval/eval_history.csv`, whose `gen_model` column records which build produced each row. The
+12B build holds ~8 GB resident while loaded.
+
+## What's in here
+
+| Directory | What it does |
+|---|---|
+| `rag/` | the chat layer — retrieval, the persona prompt, memory, and the eval harnesses |
+| `kb/` | builds the knowledge base: ingest sources → extract → merge → embed → trim |
+| `training/` | makes the weights — dataset builders and the Colab fine-tuning notebooks |
+| `data/` | the training corpus (tracked) and KB intermediates (ignored) |
+| `eval/` | the scored baseline and archived runs behind each released build |
+| `space/` | the Gradio app for hosted deployment |
+| `pipeline/` | dataset tooling and the commit guard |
+
+## Evaluation
+
+The model is scored, not vibe-checked. `rag/eval_camus.py` runs 34 probes across 10 categories
+through the exact chat pipeline and writes per-category means plus an append-only history keyed
+to the git commit. Known open failures are tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
+
+```bash
+python rag/eval_camus.py --out-dir /tmp/eval_scratch   # anywhere but eval/, which is the baseline
+```
+
+## Deployment
+
+The public Hugging Face Space is **currently inactive**. The code in `space/` still works and
+still targets the 8B v1 build; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before redeploying.
 
 ## Docs
-- **[docs/PIPELINE.md](docs/PIPELINE.md)** — training, KB, and retrieval design end to end.
-- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — the served architecture and build steps.
+
+- **[PIPELINE.md](docs/PIPELINE.md)** — training, KB, and retrieval design end to end.
+- **[WORKSPACE.md](docs/WORKSPACE.md)** — what lives in git, what lives on disk, and where each piece must sit.
+- **[MEMORY.md](docs/MEMORY.md)** — the optional memory layer.
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** — the served architecture and build steps.
+- **[ROADMAP.md](docs/ROADMAP.md)** — phases, status log, and open failures.
