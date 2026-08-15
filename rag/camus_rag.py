@@ -48,8 +48,9 @@ CE_WEIGHT   = 0.15                  # final = cosine + CE_WEIGHT*sigmoid(ce): CE
 THRESHOLD   = 0.55                  # raw-score floor; tune with --debug
 HIST_WINDOW = 8
 GEN_OPTS = {"temperature":0.6, "top_k":40, "min_p":0.05, "repeat_penalty":1.1, "num_ctx":8192}
-TEMP_FACTUAL = 0.45   # biographical/conversational turns: less sampling drift on names
-TEMP_TASK    = 0.6    # analysis / long-text turns keep the expressive range
+# Env-overridable so a temperature sweep needs no edit; defaults are unchanged.
+TEMP_FACTUAL = float(os.environ.get("TEMP_FACTUAL", "0.45"))  # biographical/conversational turns: less sampling drift on names
+TEMP_TASK    = float(os.environ.get("TEMP_TASK", "0.6"))      # analysis / long-text turns keep the expressive range
 
 # The behavioural prose comes in two variants; the identity card below is shared verbatim by
 # both. CORE_VARIANT=lean selects the shortened prose — see docs/corpus_analysis.md and the
