@@ -84,6 +84,9 @@ mac_transfer*
 /memory_vectors.npy
 /memory_pending.jsonl
 /profile.md
+# Probe fixtures: a real name, city, and project. memory_fixtures.example.json
+# is committed as the template.
+/memory_fixtures.json
 
 # Local-only working notes.
 MISSING.md
@@ -91,4 +94,3 @@ MISSING.md
 # OS / editor
 .DS_Store
 .ipynb_checkpoints/
-rag/eval_memory.py
