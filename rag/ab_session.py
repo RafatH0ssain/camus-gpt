@@ -32,14 +32,34 @@ PROTOCOL  = os.path.join(ROOT, "docs", "HUMAN_EVAL_PROTOCOL.md")
 
 
 # ───────────────────────────────────────────────────────────── protocol ─────
-def _section(text, heading):
-    """Body of a '## <heading>' section, up to the next '## '."""
-    m = re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.M | re.I)
-    if not m:
-        return ""
-    rest = text[m.end():]
-    nxt = re.search(r"^##\s+", rest, re.M)
-    return (rest[:nxt.start()] if nxt else rest).strip("\n")
+def _section(text, keyword):
+    """Body of the first '## ...' heading containing `keyword`, up to the next '## '.
+    Matched loosely on purpose: the protocol is an authored document, and its headings
+    ('The eight topics', 'Score sheet (fill for each configuration...)') are prose, not
+    parser input. Do not tighten this into an exact match."""
+    for m in re.finditer(r"^##\s+(.+)$", text, re.M):
+        if keyword.lower() in m.group(1).lower():
+            rest = text[m.end():]
+            nxt = re.search(r"^##\s+", rest, re.M)
+            return (rest[:nxt.start()] if nxt else rest).strip("\n")
+    return ""
+
+
+def _parse_topics(body):
+    """Topics come either as a markdown table (| # | Topic | Open with... |) or as a
+    numbered list. Handle both; the authored protocol uses the table."""
+    topics = []
+    for ln in body.splitlines():
+        ln = ln.strip()
+        if ln.startswith("|"):
+            cells = [c.strip() for c in ln.strip("|").split("|")]
+            if len(cells) >= 2 and re.fullmatch(r"\d+", cells[0]):
+                name = re.sub(r"\*\*|\*|`", "", cells[1]).strip()
+                hint = re.sub(r"\*\*|\*|`", "", cells[2]).strip() if len(cells) > 2 else ""
+                topics.append(f"{name} — {hint}" if hint else name)
+        elif re.match(r"^\d+[.)]\s+", ln):
+            topics.append(re.sub(r"^\d+[.)]\s*", "", ln).strip())
+    return topics
 
 
 def load_protocol():
@@ -48,14 +68,12 @@ def load_protocol():
         sys.exit(f"protocol not found: {PROTOCOL}\n"
                  f"  ab_session reads its topic list and score sheet from that file.")
     text = open(PROTOCOL, encoding="utf-8").read()
-    topics = [re.sub(r"^\s*\d+[.)]\s*", "", ln).strip()
-              for ln in _section(text, "Topics").splitlines()
-              if re.match(r"^\s*\d+[.)]\s+", ln)]
-    sheet = _section(text, "Score sheet")
+    topics = _parse_topics(_section(text, "topics"))
+    sheet  = _section(text, "score sheet")
     if not topics:
-        sys.exit(f"no numbered topics found under '## Topics' in {PROTOCOL}")
+        sys.exit(f"no topics found under a '## ...topics...' heading in {PROTOCOL}")
     if not sheet:
-        sys.exit(f"no '## Score sheet' section found in {PROTOCOL}")
+        sys.exit(f"no '## ...score sheet...' section found in {PROTOCOL}")
     return topics, sheet
 
 
@@ -96,7 +114,8 @@ BANNER = """
 ────────────────────────────────────────────────────────────────────────
   Session {label}   ({idx} of 2)
 ────────────────────────────────────────────────────────────────────────
-  Cover these eight topics, in order. Type freely.
+  Cover all eight. 4-6 turns each. Use the SAME opening line in both halves.
+  Don't be polite to it — interrupt, disagree, change subject, be boring.
 
 {topics}
 
@@ -233,12 +252,15 @@ def main():
         apply_config(cr, parse_spec(assignment[label]))
         run_session(cr, label, idx, res, topics, outdir, args.memory)
 
+    # The protocol says to fill the sheet FOR EACH configuration, then reveal — so emit it
+    # twice, once per label, rather than a single side-by-side grid.
     sheet_path = os.path.join(outdir, "scores.md")
     with open(sheet_path, "w", encoding="utf-8") as fh:
         fh.write(f"# Score sheet — session {stamp}\n\n"
-                 f"Fill this in **before** revealing the key:\n\n"
-                 f"    python rag/ab_session.py --reveal {stamp}\n\n"
-                 f"{sheet}\n")
+                 f"Score **both** halves, then reveal:\n\n"
+                 f"    python rag/ab_session.py --reveal {stamp}\n\n")
+        for label in ("A", "B"):
+            fh.write(f"## Half {label}\n\n{sheet}\n\n")
 
     print(f"\n  both halves done.")
     print(f"  score sheet: eval_human/{stamp}/scores.md")
