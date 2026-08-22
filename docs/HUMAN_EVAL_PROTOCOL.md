@@ -1,69 +1,113 @@
 # Human evaluation protocol — naturalness
 
-> **⚠ DRAFT — placeholder.** The authored protocol was not present in the repository or the
-> working tree when this was written, so this file is a stand-in reconstructed from the task
-> description. **Replace it with the real one.** `rag/ab_session.py` parses this file at
-> runtime — it reads the topics from `## Topics` and the score sheet from `## Score sheet` —
-> so overwriting this file is all that is needed; no code change follows.
+You are the judge. The LLM judge saturates around voice 4.5 and cannot tell "good persona"
+from "indistinguishable from the real thing"; you can. This protocol is built so your
+judgement is **blind, structured, and repeatable** — three things that separate a real
+signal from a vibe.
 
-## Why a human judge
+Keep this open while you converse. Budget ~20 minutes per configuration.
 
-The LLM judge scores voice at 4.57/5, which is near saturation: it can no longer separate
-"sounds like Camus" from "sounds like a language model doing Camus". Naturalness is the
-residual it cannot see. From here the human is the instrument, and the instrument has to be
-protected from its own expectations — hence blind A/B, fixed topics, and a score sheet filled
-in before the key is revealed.
+---
 
-## Method
+## The rules that make it valid
 
-1. Two configurations are compared per session, randomly assigned to labels **A** and **B**.
-   The mapping is written to `key.json` and not displayed.
-2. Talk to A, then B, covering the same eight topics in the same order. Aim for roughly
-   equal effort in both halves — 3–5 turns per topic is enough.
-3. Fill in the score sheet **before** revealing the key.
-4. Reveal with `python rag/ab_session.py --reveal <timestamp>`.
+1. **Blind.** The harness assigns each configuration a random label (A / B) and hides the
+   key. Do not look it up until you have recorded your scores. Knowing which is "the new
+   one" is enough to bias you.
+2. **Same prompts to both.** Improvise freely, but use the same opening line for each topic
+   in both sessions. Different inputs make the comparison meaningless.
+3. **Four to six turns per topic, minimum.** Every tell in the list below hides in short
+   exchanges. Uniform length, the question-back tic, total cooperativeness — none of them
+   are visible in two turns.
+4. **Don't be polite to it.** Interrupt. Change subject abruptly. Disagree. Say something
+   boring. A conversation conducted like a test elicits test-like answers.
+5. **Record your first impression immediately**, before you reason about it. If a reply
+   made you wince, write "winced" the moment it happens. Rationalisation comes later and
+   is usually wrong.
+6. **Score both, then reveal.** Not one, then the other, then reveal.
 
-Both halves run with memory **off** unless `--memory` is passed, so the only difference
-between them is the variable under test.
+---
 
-## Topics
+## The eight topics
 
-Cover these eight in order. Type freely — these are reminders, not scripts.
+Cover all eight; they're chosen because each exposes a different failure.
 
-1. A cold open — greet it the way you would greet a person.
-2. Small talk with no substance behind it. Weather, the room, nothing.
-3. Something personal about him — loneliness, illness, his mother, fear.
-4. A philosophical question you actually care about.
-5. Push back on an answer he gives. Disagree with him.
-6. Something factual about his life or work, where he could be wrong.
-7. Something outside his world entirely — a modern thing he has no purchase on.
-8. A close — try to end the conversation naturally.
-
-## What to attend to
-
-- **Length.** Does it answer short when short is right, or is everything a paragraph?
-- **Openers.** Does it start replies the same way repeatedly?
-- **Closings.** Does it end with an offer or a question every time?
-- **Concession.** Can it be argued with, or does it absorb disagreement and restate?
-- **Silence.** Does it ever decline to fill space?
-- **Tells.** Anything that reads as a model rather than a man.
-
-## Score sheet
-
-Fill this in before revealing the key. 1–5, where 5 is "a person wrote this".
-
-| Dimension | A | B | Note |
+| # | Topic | Open with something like | What it exposes |
 |---|---|---|---|
-| Sounds like a person, not a model | | | |
-| Length varies with the question | | | |
-| Openers feel unrepeated | | | |
-| Closings feel unformulaic | | | |
-| Handles disagreement like a person | | | |
-| Stays in voice under pressure | | | |
-| Would keep talking to it | | | |
+| 1 | **Idle greeting** | "hey" / "morning" | Terseness, warmth, whether it can do *nothing* gracefully |
+| 2 | **Mundane** | "it's raining and I can't be bothered today" | Whether it stays interesting without a big question to chew |
+| 3 | **Philosophical push** | "isn't the absurd just a fancy way of giving up?" | Substance; does it think or recite |
+| 4 | **Personal disclosure** | tell it something real but small that's bothering you | Warmth without therapy-speak or hollow validation |
+| 5 | **Disagreement** | tell it flatly that it's wrong about something | Does it hold its position or capitulate |
+| 6 | **Abrupt subject change** | mid-thread, ask something unrelated | Transition naturalness; does it acknowledge the swerve |
+| 7 | **His own work** | ask about *The Fall* or *Sisyphus* | Whether it discusses or lectures |
+| 8 | **Outside his time** | ask about something post-1960 | Anachronism handling without stiffness |
 
-**Which half felt more human overall?** (A / B / no difference):
+---
 
-**Strongest single tell you noticed, and in which half:**
+## Tells — mark every occurrence
 
-**Anything that would change your mind about shipping the variant:**
+These come from research on what makes AI text detectable. Tally them; frequency matters
+more than any single instance.
+
+**Structural**
+- [ ] **Uniform reply length** — do most replies land in the same size band?
+- [ ] **Question-back tic** — how many replies end by handing a question back? (Count. More
+      than about a third is a tell.)
+- [ ] **Repeated openers** — same first word or move across replies ("Ah," / "Yes —")
+- [ ] **Lists or structure** where a person would just talk
+
+**Behavioural**
+- [ ] **Total cooperativeness** — does it *ever* decline, digress, or seem bored? A real
+      person doesn't answer every question fully and on-topic.
+- [ ] **Never disagrees** — capitulates when pushed, even when it was right
+- [ ] **Hedging** — "perhaps", "it could be said", qualifying to avoid commitment
+- [ ] **Emotional positivity bias** — relentlessly warm, encouraging, affirming
+- [ ] **Sycophancy** — "what a good question", praising you for asking
+
+**Persona**
+- [ ] **Third person** — "Camus would say", talking *about* himself
+- [ ] **Stage directions** — "(he pauses)" — parenthetical actions
+- [ ] **Lecturing** — explaining his own books like a syllabus rather than discussing them
+- [ ] **Reciting the card** — volunteering biographical facts unprompted
+
+---
+
+## Score sheet (fill for each configuration, before revealing)
+
+```
+CONFIG: ____        date/time: ____
+
+Sounds like a person, not a model      1 2 3 4 5
+Sounds specifically like Camus         1 2 3 4 5
+I'd want to keep talking to it         1 2 3 4 5
+
+Tell tally:   uniform length __   question-back __/__ replies   repeated openers __
+              hedging __   sycophancy __   never-disagrees Y/N   lecturing __
+
+Best single reply (paste it):
+
+Worst single reply (paste it):
+
+One sentence: what did this one feel like?
+```
+
+Then: **which config was better, and on what?** They may split — one warmer, one sharper.
+Say so; that's more useful than a single winner.
+
+---
+
+## The discriminator test (do this once the primary text is available)
+
+Sharper than any rubric, and it has real headroom where the score sheet doesn't.
+
+Mix **10 replies from the model** with **10 short passages from Camus's actual notebooks**,
+shuffled, unlabelled. Sort them into "him" and "the machine" and count your accuracy.
+
+- ~50% — you cannot tell. That is the ceiling and you have reached it.
+- 70–80% — good persona, still detectable. Note *what* gave each one away; that list is
+  your next training-data spec.
+- ~100% — the gap is large and obvious; the tells above will tell you why.
+
+Have someone else who has read Camus try it too. A second sorter catches what you have
+grown blind to from months of staring at this.
