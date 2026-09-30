@@ -46,7 +46,7 @@ CE_MODEL    = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 DENSE_FLOOR = 12                    # top-N by cosine ALWAYS enter the pool (RRF can't evict them)
 CE_WEIGHT   = 0.15                  # final = cosine + CE_WEIGHT*sigmoid(ce): CE promotes, never sinks
 THRESHOLD   = 0.55                  # raw-score floor; tune with --debug
-HIST_WINDOW = 8
+HIST_WINDOW = 32   # messages, i.e. 16 exchanges; ~2.5k tokens of history fits num_ctx 8192
 GEN_OPTS = {"temperature":0.6, "top_k":40, "min_p":0.05, "repeat_penalty":1.1, "num_ctx":8192}
 # Env-overridable so a temperature sweep needs no edit; defaults are unchanged.
 TEMP_FACTUAL = float(os.environ.get("TEMP_FACTUAL", "0.45"))  # biographical/conversational turns: less sampling drift on names
