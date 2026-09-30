@@ -8,6 +8,10 @@ wraps, repair encoding), chunks it, and writes ONE file:
 
     ./data/source_chunks.jsonl   rows: {id, source, stream, date, text}
 
+With --entries, files whose name contains 'notebooks' are cut into notebook
+entries instead: rows {id, source, stream, date, text, entry}. With --only, every
+row also carries its manifest 'file'.
+
 stream='fact'  chunks -> later mined for atomic biographical FACTS (biographies/criticism)
 stream='voice' chunks -> later mined for Camus's VIEWS in his own words (primary sources)
 
@@ -15,8 +19,10 @@ SETUP:  pip install pymupdf ftfy
 RUN:    python ingest_sources.py            (PDFs in ./sources/, names per manifest)
         python ingest_sources.py --src ./sources --fact-words 220 --voice-words 320
         python ingest_sources.py --dir ../sources --dir ../raw_books   (books read in place)
+        python ingest_sources.py --only 1935_1942_notebooks.pdf --entries --out data/primary_chunks.jsonl
 """
 import argparse, json, os, re, glob, hashlib
+from collections import Counter
 try:
     import fitz  # PyMuPDF
 except ImportError:
@@ -32,6 +38,20 @@ def slug(s):
 def extract_pages(path):
     doc = fitz.open(path)
     return [doc[i].get_text("text") for i in range(len(doc))]
+
+def extract_lines(path):
+    """[(x0, text)] per page: the same text extract_pages() returns, plus the
+    left offset of every line, so a notebook entry's indent survives."""
+    doc = fitz.open(path)
+    out = []
+    for i in range(len(doc)):
+        page = []
+        for block in doc[i].get_text("dict")["blocks"]:
+            if block.get("type") != 0: continue
+            for line in block["lines"]:
+                page.append((line["bbox"][0], "".join(s["text"] for s in line["spans"])))
+        out.append(page)
+    return out
 
 def find_running_lines(pages):
     """Lines that repeat at top/bottom of many pages = headers/footers."""
@@ -50,18 +70,22 @@ def find_running_lines(pages):
                 drop.add(line)
     return drop
 
-def clean_page(text, drop):
+def clean_lines(lines, drop):
+    """clean_page's rules over a line list, so the left offsets stay attached."""
     out = []
-    for line in text.splitlines():
+    for x0, line in lines:
         s = line.strip()
-        if not s: 
-            out.append("")  # keep paragraph breaks
+        if not s:
+            out.append((x0, ""))  # keep paragraph breaks
             continue
         if re.sub(r"\d+","#",s) in drop: continue        # running header/footer
         if re.fullmatch(r"[\divxlcdm]+", s, re.I): continue   # bare page number / roman numeral
         if re.fullmatch(r"\W{0,3}\d{1,4}\W{0,3}", s): continue
-        out.append(line)
-    return "\n".join(out)
+        out.append((x0, line))
+    return out
+
+def clean_page(text, drop):
+    return "\n".join(t for _, t in clean_lines([(0, l) for l in text.split("\n")], drop))
 
 def normalize(text):
     if ftfy: text = ftfy.fix_text(text)
@@ -100,6 +124,112 @@ def chunk(text, target_words, max_words):
     flush()
     return [c for c in chunks if len(c.split()) >= 25]   # drop scraps
 
+# ── notebook entries ───────────────────────────────────────────────────────────
+# A notebook volume is thousands of dated, self-contained entries. chunk() melts
+# them into 320-word blocks, which is right for a book and wrong for a notebook,
+# so with --entries those files are cut into entries instead: one row per entry,
+# never merged, never split here. See split_entries() for the boundary rules.
+
+PAGE_BREAK = "\f"                      # marks the end of a page in the raw text
+ENTRY_HINT = "notebooks"               # --entries applies to these files
+INDENT_MIN, INDENT_MAX = 7.0, 23.0     # entry indent from the body margin, in points
+SEPARATOR = re.compile(r"^[*—–=\u2026~\u2022_\-]{1,12}$")
+SENTENCE_END = re.compile(r"[.!?\u2026][\"'\u2019\u201d\)\]]*$")
+SENTENCE_START = re.compile(r"[\"'“‘(\[]*[A-Z0-9\u00c0-\u00ff]")
+MONTH = (r"jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec|"
+         r"janvier|fevrier|février|mars|avril|juin|juillet|aout|août|"
+         r"septembre|octobre|novembre|decembre|décembre")
+MONTH_TOKEN = re.compile(rf"^(?:{MONTH})[a-z]*\.?$", re.I)
+YEAR_TOKEN = re.compile(r"^\d{3,4}$")
+NUM_TOKEN = re.compile(r"^\d{1,2}$")
+DATE_WORDS = ("spring", "summer", "autumn", "winter", "printemps", "été", "ete")
+
+def is_blank(line):
+    return not line.strip()
+
+def is_separator(line):
+    return bool(SEPARATOR.match(line.strip()))
+
+def is_date_heading(line):
+    """A line that is only a date, a month/year, or a span of them:
+    'APRIL', 'DECEMBER 15', 'April 1948', 'September 1937 - April 1939'."""
+    s = line.strip().strip(" .\t")
+    if not s or len(s) > 48: return False
+    toks = [t for t in re.split(r"[\s,./\-–—]+", s) if t]
+    if not any(MONTH_TOKEN.match(t) or t.lower() in DATE_WORDS for t in toks):
+        return False
+    for t in toks:
+        if (MONTH_TOKEN.match(t) or YEAR_TOKEN.match(t) or NUM_TOKEN.match(t)
+                or t.lower() in DATE_WORDS):
+            continue
+        return False
+    return True
+
+def split_entries(text):
+    """Split raw extracted text into notebook entries, before any reflow.
+
+    An entry ends at: a blank line; a date or month/year heading line (which
+    then heads the next entry); a separator line (*, ***, ---); or a page break
+    that lands on a paragraph end. A page break mid-paragraph is not a boundary,
+    so an entry continues onto the next page. Pages are separated by \\f.
+    """
+    entries, buf, heading_only = [], [], True
+
+    def flush():
+        nonlocal buf, heading_only
+        if buf: entries.append("\n".join(buf).strip())
+        buf, heading_only = [], True
+
+    for page in text.split(PAGE_BREAK):
+        lines = page.split("\n")
+        # page break: a boundary only if the page ended on a paragraph end
+        if buf and lines and not is_blank(lines[0]) and not is_blank(buf[-1]) \
+                and SENTENCE_END.search(buf[-1].strip()) \
+                and SENTENCE_START.match(lines[0].strip()):
+            flush()
+        for line in lines:
+            if is_blank(line) or is_separator(line):
+                flush(); continue
+            if is_date_heading(line):
+                if not heading_only: flush()      # the heading heads what follows
+                buf.append(line); heading_only = True; continue
+            buf.append(line); heading_only = False
+    flush()
+    return [e for e in entries if e]
+
+def body_margin(lines):
+    """The page's body-text left offset = the most common one among its long
+    lines; running heads, page numbers and indents are all outliers."""
+    counts = Counter(round(x) for x, t in lines if len(t.strip()) >= 12)
+    if counts: return counts.most_common(1)[0][0]
+    return min((x for x, _ in lines), default=0.0)
+
+def entry_start_indices(lines):
+    """Indexes of the lines that begin an entry. Every notebook edition sets each
+    entry a step in from the body margin, so the indent is the boundary that the
+    plain text stream does not carry."""
+    base = body_margin(lines)
+    return {i for i, (x, t) in enumerate(lines)
+            if t.strip() and INDENT_MIN <= x - base <= INDENT_MAX}
+
+def entry_page_text(lines):
+    """Raw page text with a blank line inserted before every entry start, so
+    that the plain-text splitter sees the edition's entries as paragraphs."""
+    starts = entry_start_indices(lines)
+    out = []
+    for i, (_, t) in enumerate(lines):
+        if i in starts and (out or i):
+            out.append("")
+        out.append(t)
+    return "\n".join(out)
+
+def notebook_entries(path):
+    """(raw entries, number of running header/footer patterns dropped)."""
+    pages = extract_lines(path)
+    drop = find_running_lines(["\n".join(t for _, t in p) for p in pages])
+    raw = PAGE_BREAK.join(entry_page_text(clean_lines(p, drop)) for p in pages)
+    return split_entries(raw), len(drop)
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default="sources_manifest.json")
@@ -108,6 +238,13 @@ def main():
                     help="extra directory to search for manifest files (repeatable); "
                          "default: --src only. First hit wins.")
     ap.add_argument("--out", default="./data/source_chunks.jsonl")
+    ap.add_argument("--only", nargs="+", default=None, metavar="FILE",
+                    help="ingest only these manifest files (repeatable names, no "
+                         "paths) and tag every row with its 'file'")
+    ap.add_argument("--entries", action="store_true",
+                    help=f"for files whose name contains '{ENTRY_HINT}', cut the "
+                         "raw text into notebook entries (one row per entry) "
+                         "instead of chunking; other files are unaffected")
     ap.add_argument("--fact-words", type=int, default=220)   # tight -> focused fact extraction
     ap.add_argument("--voice-words", type=int, default=320)  # roomier -> preserve view context
     args = ap.parse_args()
@@ -116,28 +253,46 @@ def main():
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     man = json.load(open(args.manifest, encoding="utf-8"))["sources"]
+    if args.only:
+        wanted = set(args.only)
+        unknown = wanted - {s["file"] for s in man}
+        for name in sorted(unknown):
+            print(f"  !! --only {name}: not in the manifest (ignored)")
+        man = [s for s in man if s["file"] in wanted]
     dirs = args.dirs or [args.src]
-    total = 0
+    total, kind = 0, "chunks"
     with open(args.out, "w", encoding="utf-8") as out:
         for s in man:
             path = next((os.path.join(d, s["file"]) for d in dirs
                          if os.path.exists(os.path.join(d, s["file"]))), None)
             if path is None:
                 print(f"  !! missing: {s['file']} in {dirs}  (skipping)"); continue
-            pages = extract_pages(path)
-            drop = find_running_lines(pages)
-            body = normalize("\n\n".join(clean_page(p, drop) for p in pages))
-            tw = args.fact_words if s["stream"]=="fact" else args.voice_words
-            chunks = chunk(body, tw, tw*2)
+            entry_mode = args.entries and ENTRY_HINT in s["file"].lower()
+            if entry_mode:
+                found, n_drop = notebook_entries(path)
+                units = [normalize(e) for e in found]
+                units = [u for u in units if u]
+                label = "entries"
+            else:
+                pages = extract_pages(path)
+                drop = find_running_lines(pages)
+                body = normalize("\n\n".join(clean_page(p, drop) for p in pages))
+                tw = args.fact_words if s["stream"]=="fact" else args.voice_words
+                units, n_drop = chunk(body, tw, tw*2), len(drop)
+                label = "chunks"
+            if entry_mode: kind = "entries"
             sl = slug(s["source"])
-            for i, c in enumerate(chunks):
-                out.write(json.dumps({
+            for i, c in enumerate(units):
+                row = {
                     "id": f"{sl}-{i:05d}", "source": s["source"],
                     "stream": s["stream"], "date": s.get("date",""), "text": c
-                }, ensure_ascii=False) + "\n")
-            total += len(chunks)
-            print(f"  OK {s['file']:32s} {s['stream']:5s} -> {len(chunks)} chunks  (dropped {len(drop)} header/footer patterns)")
-    print(f"\n✅ {total} chunks -> {args.out}")
+                }
+                if entry_mode: row["entry"] = True
+                if args.only:   row["file"] = s["file"]
+                out.write(json.dumps(row, ensure_ascii=False) + "\n")
+            total += len(units)
+            print(f"  OK {s['file']:32s} {s['stream']:5s} -> {len(units)} {label}  (dropped {n_drop} header/footer patterns)")
+    print(f"\n✅ {total} {kind} -> {args.out}")
 
 if __name__ == "__main__":
     main()
