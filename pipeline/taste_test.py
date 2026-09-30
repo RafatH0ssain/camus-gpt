@@ -88,18 +88,23 @@ _THINK = re.compile(r"<think>.*?</think>", re.S)
 
 def ask(alias, prompt, think=False):
     """Non-streaming chat; return (text, tokens, tok_per_sec, had_think).
-    Qwen3 is a hybrid reasoning model — we append /no_think to compare final VOICE, not
-    chain-of-thought, and strip any <think> block that leaks through."""
-    msg = prompt if think else prompt + " /no_think"
+
+    Reasoning models are asked for their FINAL VOICE, not their chain of thought. Ollama's
+    top-level `think` flag is the general lever and is accepted (as a no-op) by models with
+    no thinking capability, so it is safe to send unconditionally — unlike the old
+    " /no_think" suffix, which is a Qwen3 convention that any other model reads as literal
+    text appended to the question. Gemma 4 returns reasoning in a separate `message.thinking`
+    field rather than inline, so detect both that and a leaked inline <think> block."""
     t0 = time.time()
-    r = _post("/api/chat", {"model": alias, "messages": [{"role": "user", "content": msg}],
-                            "stream": False, "options": GEN_OPTS})
+    r = _post("/api/chat", {"model": alias, "messages": [{"role": "user", "content": prompt}],
+                            "stream": False, "think": bool(think), "options": GEN_OPTS})
     d = json.loads(r.read())
     n = d.get("eval_count", 0)
     gen_s = d.get("eval_duration", 0) / 1e9 or (time.time() - t0)
     tps = n / gen_s if gen_s else 0.0
-    raw = d["message"]["content"]
-    had_think = "<think>" in raw
+    msg = d["message"]
+    raw = msg["content"]
+    had_think = "<think>" in raw or bool((msg.get("thinking") or "").strip())
     return _THINK.sub("", raw).strip(), n, tps, had_think
 
 def main():
@@ -136,7 +141,7 @@ def main():
     # ---- write side-by-side markdown ----
     lines = ["# CamusGPT base taste test", "",
              "Raw base + CORE system prompt (no identity card, no RAG). Reasoning models run with "
-             "/no_think and any <think> block stripped, so this compares final voice. "
+             "Reasoning disabled via Ollama's `think:false`, so this compares final voice. "
              f"Sampling: temp {GEN_OPTS['temperature']}, ctx {GEN_OPTS['num_ctx']}.", "",
              "## Speed summary (generation tokens/sec)", "",
              "| prompt | " + " | ".join(f"{b} tok/s" for b in args.bases) + " |",
