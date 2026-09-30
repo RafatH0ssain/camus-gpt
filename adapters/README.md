@@ -2,6 +2,10 @@
 
 Mirrors the Drive path `CamusGPT_Training/adapters/`.
 
+> **These configs are from the v1 8B adapter** (`unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit`):
+> `chat_template.jinja` renders Llama-3 markers, not Gemma. The v2 (Gemma-3-12B) adapter
+> configs were never committed here; the notebooks rebuild them from `unsloth/gemma-3-12b-it`.
+
 ## `camus_sft_lora/`  (the Phase-1 voice adapter — INPUT to Step 3.5)
 The first LoRA SFT pass installs Camus's *voice*. Its output adapter, `camus_sft_lora/`, is
 the **input** to `training/CamusGPT_Step3_5_RefusalSFT.ipynb`, whose cell 2 merges it into a
