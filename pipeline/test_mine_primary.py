@@ -15,9 +15,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mine_primary as mp  # noqa: E402
 
 
-def row(chunk_id, text, source="Source A", stream="voice"):
-    return {"id": chunk_id, "source": source, "stream": stream,
+def row(chunk_id, text, source="Source A", stream="voice", **extra):
+    base = {"id": chunk_id, "source": source, "stream": stream,
             "date": "1950", "text": text}
+    base.update(extra)
+    return base
 
 
 class FilterTests(unittest.TestCase):
@@ -101,6 +103,62 @@ class SplitTests(unittest.TestCase):
         self.assertEqual(
             mp.split_passages(text, 5),
             ["One two. Three four.", "Five six. Seven eight."])
+
+
+class EntryTests(unittest.TestCase):
+    def test_entry_kept_whole_under_max_words(self):
+        text = "APRIL\n\nFirst sentence of the entry. Second one closes it."
+        rows = [row("n1", text, entry=True)]
+        candidates, _ = mp.mine_rows(rows)
+        self.assertEqual(candidates[0]["passage"],
+                         "APRIL First sentence of the entry. Second one closes it.")
+        self.assertTrue(candidates[0]["entry"])
+
+    def test_entry_never_splits_on_blank_lines(self):
+        rows = [row("n1", "One paragraph of an entry.\n\nA second paragraph of it.",
+                    entry=True)]
+        candidates, _ = mp.mine_rows(rows)
+        self.assertEqual(len(candidates), 1)
+
+    def test_entry_over_max_words_splits_on_sentences(self):
+        text = ("One two three. Four five six. Seven eight nine. Ten eleven twelve. "
+                "Thirteen fourteen.")
+        rows = [row("n1", text, entry=True)]
+        candidates, _ = mp.mine_rows(rows, min_words=2, max_words=6)
+        self.assertEqual([c["passage"] for c in candidates],
+                         ["One two three. Four five six.",
+                          "Seven eight nine. Ten eleven twelve.", "Thirteen fourteen."])
+        self.assertTrue(all(c["entry"] for c in candidates))
+
+    def test_entry_split_never_breaks_a_sentence(self):
+        rows = [row("n1", "One two three four five. Six seven.", entry=True)]
+        candidates, _ = mp.mine_rows(rows, min_words=2, max_words=3)
+        self.assertEqual([c["passage"] for c in candidates],
+                         ["One two three four five.", "Six seven."])
+
+    def test_entry_under_min_words_dropped(self):
+        rows = [row("n1", "Yes.", entry=True), row("n2", "A whole entry of prose here.")]
+        candidates, _ = mp.mine_rows(rows, min_words=4)
+        self.assertEqual([c["chunk_id"] for c in candidates], ["n2"])
+
+    def test_plain_rows_are_untouched(self):
+        rows = [row("c1", "One paragraph of a chunk.\n\nA second paragraph of it.")]
+        candidates, _ = mp.mine_rows(rows)
+        self.assertEqual(len(candidates), 2)
+        self.assertNotIn("entry", candidates[0])
+
+    def test_entry_page_number_still_stripped(self):
+        rows = [row("n1", "42\n\nA real notebook entry of prose follows here.",
+                    entry=True)]
+        candidates, _ = mp.mine_rows(rows)
+        self.assertEqual(candidates[0]["passage"],
+                         "A real notebook entry of prose follows here.")
+
+    def test_split_entry_passage_collapses_whitespace(self):
+        self.assertEqual(
+            mp.split_entry_passage("  one\ntwo  \nthree\n\nfour  ", 150),
+            ["one two three four"])
+        self.assertEqual(mp.split_entry_passage("   ", 150), [""])
 
 
 if __name__ == "__main__":

@@ -10,7 +10,9 @@ passages, and writes:
     data/primary_candidates.jsonl   rows {source, chunk_id, passage, words, prompt}
 
 Splitting: on blank lines; a chunk with no blank lines is split on sentence
-boundaries into runs of at most --max-words words, never breaking a sentence.
+boundaries into runs of at most --max-words words, never breaking a sentence. A
+row marked "entry" is one notebook entry: it is kept whole, and only split on
+sentence boundaries if it is longer than --max-words.
 
     python pipeline/mine_primary.py [--sources "Name A" "Name B" ...]
         [--min-words 3] [--max-words 150] [--out data/primary_candidates.jsonl]
@@ -90,6 +92,15 @@ def split_passages(text, max_words):
     return [" ".join(run.split()) for run in split_sentences(text, max_words) if run.strip()]
 
 
+def split_entry_passage(text, max_words):
+    """One notebook entry. Kept whole however many paragraphs it holds; split on
+    sentence boundaries only when it is longer than max_words."""
+    flat = " ".join(text.split())
+    if len(flat.split()) <= max_words:
+        return [flat]
+    return [" ".join(run.split()) for run in split_sentences(flat, max_words)]
+
+
 def strip_lines(text, headers):
     kept = []
     for line in text.splitlines():
@@ -114,7 +125,10 @@ def mine_rows(rows, sources=None, min_words=3, max_words=150):
     for row in selected:
         source = row.get("source", "")
         clean = strip_lines(str(row.get("text", "")), headers.get(source, set()))
-        for passage in split_passages(clean, max_words):
+        is_entry = row.get("entry") is True
+        passages = (split_entry_passage(clean, max_words) if is_entry
+                    else split_passages(clean, max_words))
+        for passage in passages:
             if len(passage.split()) < min_words:
                 continue
             if is_junk(passage):
@@ -123,13 +137,16 @@ def mine_rows(rows, sources=None, min_words=3, max_words=150):
             if key in seen:
                 continue
             seen.add(key)
-            candidates.append({
+            candidate = {
                 "source": source,
                 "chunk_id": row.get("id"),
                 "passage": passage,
                 "words": len(passage.split()),
                 "prompt": None,
-            })
+            }
+            if is_entry:
+                candidate["entry"] = True
+            candidates.append(candidate)
             per_source[source] += 1
 
     return candidates, per_source
