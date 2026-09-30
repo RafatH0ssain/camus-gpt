@@ -14,6 +14,7 @@ stream='voice' chunks -> later mined for Camus's VIEWS in his own words (primary
 SETUP:  pip install pymupdf ftfy
 RUN:    python ingest_sources.py            (PDFs in ./sources/, names per manifest)
         python ingest_sources.py --src ./sources --fact-words 220 --voice-words 320
+        python ingest_sources.py --dir ../sources --dir ../raw_books   (books read in place)
 """
 import argparse, json, os, re, glob, hashlib
 try:
@@ -103,6 +104,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default="sources_manifest.json")
     ap.add_argument("--src", default="./sources")
+    ap.add_argument("--dir", action="append", dest="dirs", default=None, metavar="D",
+                    help="extra directory to search for manifest files (repeatable); "
+                         "default: --src only. First hit wins.")
     ap.add_argument("--out", default="./data/source_chunks.jsonl")
     ap.add_argument("--fact-words", type=int, default=220)   # tight -> focused fact extraction
     ap.add_argument("--voice-words", type=int, default=320)  # roomier -> preserve view context
@@ -112,12 +116,14 @@ def main():
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     man = json.load(open(args.manifest, encoding="utf-8"))["sources"]
+    dirs = args.dirs or [args.src]
     total = 0
     with open(args.out, "w", encoding="utf-8") as out:
         for s in man:
-            path = os.path.join(args.src, s["file"])
-            if not os.path.exists(path):
-                print(f"  !! missing: {path}  (skipping)"); continue
+            path = next((os.path.join(d, s["file"]) for d in dirs
+                         if os.path.exists(os.path.join(d, s["file"]))), None)
+            if path is None:
+                print(f"  !! missing: {s['file']} in {dirs}  (skipping)"); continue
             pages = extract_pages(path)
             drop = find_running_lines(pages)
             body = normalize("\n\n".join(clean_page(p, drop) for p in pages))
