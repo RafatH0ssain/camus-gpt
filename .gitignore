@@ -91,6 +91,12 @@ eval/archive/*
 # is committed as the template.
 /memory_fixtures.json
 
+# Primary sources (copyrighted books) and anything mined from them — local only.
+/raw_books/
+/sources/
+data/drafts/
+data/primary_*.jsonl
+
 # Local-only working notes.
 MISSING.md
 
