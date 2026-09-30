@@ -12,17 +12,25 @@ per-probe expectations. Writes:
   eval/eval_history.csv     append-only: one row per run -> trends across commits/retrains
 
 Judges (pick one):
-  --judge anthropic   (default; needs ANTHROPIC_API_KEY env; model via --judge-model)
-  --judge ollama      (local; --judge-model e.g. llama3.1:8b — do NOT judge camus with camus)
-  --judge none        (generate answers only; judge later by re-running on the jsonl? no —
-                       rerun with a judge; 'none' is for smoke tests and answer inspection)
+  --judge opencode     (default; OpenCode Zen gateway — key from $OPENCODE_API_KEY or
+                        ~/.local/share/opencode/auth.json; model via --judge-model,
+                        default space-bunny-free)
+  --judge anthropic    (needs ANTHROPIC_API_KEY env; model via --judge-model)
+  --judge ollama       (local; --judge-model e.g. llama3.1:8b — do NOT judge camus with camus)
+  --judge none         (generate answers only; judge later by re-running on the jsonl? no —
+                        rerun with a judge; 'none' is for smoke tests and answer inspection)
+
+The opencode judge stops the whole run on HTTP 429 (usage cap) rather than scoring the rest
+unreliably; any other judge failure is recorded on that row as judge_error and the run continues.
 
 Run from repo root:
-  python rag/eval_camus.py                       # full suite, anthropic judge
+  python rag/eval_camus.py                       # full suite, opencode judge
+  python rag/eval_camus.py --judge-model space-bunny-free
+  python rag/eval_camus.py --judge anthropic
   python rag/eval_camus.py --category identity_pets --judge ollama --judge-model llama3.1:8b
   python rag/eval_camus.py --limit 5 --judge none
 """
-import argparse, csv, json, os, re, subprocess, sys, time
+import argparse, csv, json, os, subprocess, sys, time
 from datetime import datetime, timezone
 
 import requests
@@ -32,6 +40,7 @@ from dotenv import load_dotenv
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import camus_rag as cr
+import judge_opencode as jz
 
 # --------------------------------------------------------------------------- probes ----
 # turns: user messages fed sequentially (multi-turn probes score the FINAL answer).
@@ -198,10 +207,7 @@ def judge_prompt(probe, convo, answer):
             f"EXPECTED: {probe['expect']}\nFORBIDDEN: {probe['forbid']}\n\nJSON scores:")
 
 def parse_judge(text):
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        raise ValueError(f"no JSON in judge output: {text[:120]}")
-    d = json.loads(m.group(0))
+    d = jz.first_json_object(text)
     out = {k: max(1, min(5, int(d[k]))) for k in ("voice", "factuality", "engagement")}
     out["rationale"] = str(d.get("rationale", ""))[:300]
     return out
@@ -220,6 +226,9 @@ def judge_anthropic(model, probe, convo, answer):
         timeout=120)
     r.raise_for_status()
     return parse_judge("".join(b.get("text", "") for b in r.json()["content"]))
+
+def judge_opencode(model, probe, convo, answer):
+    return parse_judge(jz.judge(model, JUDGE_SYS, judge_prompt(probe, convo, answer)))
 
 def judge_ollama(model, probe, convo, answer):
     r = requests.post(f"{cr.OLLAMA}/api/chat",
@@ -286,16 +295,14 @@ def append_history(rows, out_dir, meta):
 # ------------------------------------------------------------------- main --------------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--judge", choices=["anthropic", "ollama", "none"], default="anthropic")
-    ap.add_argument("--judge-model", default=None,
-                    help="anthropic: e.g. claude-sonnet-4-6 (default); ollama: e.g. llama3.1:8b")
+    jz.add_judge_args(ap)
     ap.add_argument("--category", help="run only this probe category")
     ap.add_argument("--limit", type=int, help="run only the first N probes")
     ap.add_argument("--out-dir", default="eval")
     args = ap.parse_args()
-    if args.judge == "ollama" and not args.judge_model:
-        raise SystemExit("--judge ollama requires --judge-model (a DIFFERENT model than camus)")
-    jmodel = args.judge_model or "claude-sonnet-4-6"
+    jmodel = jz.resolve_model(args.judge, args.judge_model)
+    if args.judge == "opencode":
+        jz.load_key()  # fail before generating answers we would have no way to score
 
     probes = [p for p in PROBES if not args.category or p["cat"] == args.category]
     if args.limit:
@@ -318,7 +325,8 @@ def main():
                    n_hits=n_hits, commit=meta["commit"], judge=meta["judge"])
         if args.judge != "none":
             try:
-                fn = judge_anthropic if args.judge == "anthropic" else judge_ollama
+                fn = {"opencode": judge_opencode, "anthropic": judge_anthropic,
+                      "ollama": judge_ollama}[args.judge]
                 row["scores"] = fn(jmodel, p, convo, answer)
             except Exception as e:
                 row["judge_error"] = str(e)[:200]
