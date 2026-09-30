@@ -21,7 +21,7 @@ RUN:    python ingest_sources.py            (PDFs in ./sources/, names per manif
         python ingest_sources.py --dir ../sources --dir ../raw_books   (books read in place)
         python ingest_sources.py --only 1935_1942_notebooks.pdf --entries --out data/primary_chunks.jsonl
 """
-import argparse, json, os, re, glob, hashlib
+import argparse, json, os, re, glob, hashlib, sys
 from collections import Counter
 try:
     import fitz  # PyMuPDF
@@ -240,7 +240,8 @@ def main():
     ap.add_argument("--out", default="./data/source_chunks.jsonl")
     ap.add_argument("--only", nargs="+", default=None, metavar="FILE",
                     help="ingest only these manifest files (repeatable names, no "
-                         "paths) and tag every row with its 'file'")
+                         "paths) and tag every row with its 'file'; a name that is "
+                         "not in the manifest is an error")
     ap.add_argument("--entries", action="store_true",
                     help=f"for files whose name contains '{ENTRY_HINT}', cut the "
                          "raw text into notebook entries (one row per entry) "
@@ -255,9 +256,13 @@ def main():
     man = json.load(open(args.manifest, encoding="utf-8"))["sources"]
     if args.only:
         wanted = set(args.only)
-        unknown = wanted - {s["file"] for s in man}
-        for name in sorted(unknown):
-            print(f"  !! --only {name}: not in the manifest (ignored)")
+        unknown = sorted(wanted - {s["file"] for s in man})
+        if unknown:                       # a typo'd --only silently drops sources
+            for name in unknown:
+                print(f"  !! --only {name}: not in the manifest", file=sys.stderr)
+            raise SystemExit(
+                f"error: {len(unknown)} --only file(s) not in the manifest: "
+                + ", ".join(unknown))
         man = [s for s in man if s["file"] in wanted]
     dirs = args.dirs or [args.src]
     total, kind = 0, "chunks"
