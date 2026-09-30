@@ -7,6 +7,21 @@
     {"file": "resistance_rebellion_death.pdf","stream": "voice","source": "Resistance, Rebellion, and Death", "date": "1944-1958"},
     {"file": "lyrical_critical_essays.pdf", "stream": "voice", "source": "Lyrical and Critical Essays", "date": "1937-1958"},
     {"file": "camus_at_combat.pdf",         "stream": "voice", "source": "Camus at Combat (1944-1947)", "date": "1944-1947"},
-    {"file": "algerian_chronicles.pdf",     "stream": "voice", "source": "Algerian Chronicles",       "date": "1939-1958"}
+    {"file": "algerian_chronicles.pdf",     "stream": "voice", "source": "Algerian Chronicles",       "date": "1939-1958"},
+    {"file": "1935_1942_notebooks.pdf",                  "stream": "voice", "source": "Notebooks (1935-1942)",        "date": "1935-1942"},
+    {"file": "1942_1951_notebooks.pdf",                  "stream": "voice", "source": "Notebooks (1942-1951)",        "date": "1942-1951"},
+    {"file": "1951_1959_notebooks.pdf",                  "stream": "voice", "source": "Notebooks (1951-1959)",        "date": "1951-1959"},
+    {"file": "1942_theMythOfSisyphus_novel.pdf",         "stream": "voice", "source": "The Myth of Sisyphus",          "date": "1942"},
+    {"file": "1942_theStranger_book.pdf",                "stream": "voice", "source": "The Stranger",                 "date": "1942"},
+    {"file": "1945_1951_1959_interviews.pdf",            "stream": "voice", "source": "Three Interviews",              "date": "1945-1959"},
+    {"file": "1946_1949_americanJournals.pdf",           "stream": "voice", "source": "American Journals",             "date": "1946-1949"},
+    {"file": "1947_thePlague_book.pdf",                  "stream": "voice", "source": "The Plague",                    "date": "1947"},
+    {"file": "1949_theJustAssassins_play.pdf",           "stream": "voice", "source": "The Just (Les Justes)",         "date": "1949"},
+    {"file": "1951_theRebel_book.pdf",                   "stream": "voice", "source": "The Rebel",                     "date": "1951"},
+    {"file": "1956_theFall_book.pdf",                    "stream": "voice", "source": "The Fall",                      "date": "1956"},
+    {"file": "1957_exileAndTheKingdom_short_stories.pdf","stream": "voice", "source": "Exile and the Kingdom",         "date": "1957"},
+    {"file": "1958_theInvincibleSummer_book.pdf",        "stream": "voice", "source": "The Invincible Summer",         "date": "1958"},
+    {"file": "1971_aHappyDeath_book.pdf",                "stream": "voice", "source": "A Happy Death",                 "date": "1971"},
+    {"file": "1994_theFirstMan_novel.pdf",               "stream": "voice", "source": "The First Man",                 "date": "1994"}
   ]
 }
