@@ -4,8 +4,8 @@ mine_primary.py — primary-text passages from ingested chunks.
 
 Reads data/source_chunks.jsonl (rows {id, source, stream, date, text} from
 kb/ingest_sources.py), keeps stream == "voice" chunks, splits them into
-passages, removes extraction junk and running headers, deduplicates exact
-passages, and writes:
+passages, removes extraction junk and running headers, drops editorial notes
+and front/back matter, deduplicates exact passages, and writes:
 
     data/primary_candidates.jsonl   rows {source, chunk_id, passage, words, prompt}
 
@@ -13,6 +13,9 @@ Splitting: on blank lines; a chunk with no blank lines is split on sentence
 boundaries into runs of at most --max-words words, never breaking a sentence. A
 row marked "entry" is one notebook entry: it is kept whole, and only split on
 sentence boundaries if it is longer than --max-words.
+
+mine_rows() returns (candidates, per_source_counts, junk_filtered_counts); the
+printed report lists the sources and then what each junk filter removed.
 
     python pipeline/mine_primary.py [--sources "Name A" "Name B" ...]
         [--min-words 3] [--max-words 150] [--out data/primary_candidates.jsonl]
@@ -35,6 +38,42 @@ ROMAN_STRICT = re.compile(
     r"^M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$", re.I)
 ORDINARY_PUNCT = set(",.;:!?'\"()[]{}-/\\|@#$%^&*+=`~\u2014\u2013\u2026"
                      "\u00ab\u00bb\u201c\u201d\u2018\u2019")
+
+# ── junk filters ───────────────────────────────────────────────────────────────
+# Three kinds of passage that survive the character and running-header filters but
+# are not Camus talking. They run in this order and a passage is counted under the
+# first one that matches, so the three counts add up to everything dropped here.
+
+EDITORIAL_NAME = re.compile(r"\bCamus\b")
+FRONT_MATTER = re.compile(
+    r"typography|binding design|isbn|copyright|all rights reserved"
+    r"|translated by|translated from|library of congress|printed in"
+    r"|first edition|published by|edited by|introduction by", re.I)
+APPARATUS = re.compile(r"^(?:See\s|Cf\.|Note:|\[Translator|\[Editor|\d+\.\s)")
+
+
+def is_editorial_note(passage):
+    """The notebooks' editors write about Camus in the third person; he does not
+    name himself, so the name marks editorial matter, not his own words."""
+    return EDITORIAL_NAME.search(passage) is not None
+
+
+def is_front_back_matter(passage):
+    """Copyright page, colophon, translator's and editor's credits."""
+    return FRONT_MATTER.search(passage) is not None
+
+
+def is_apparatus_line(passage):
+    """A footnote, a cross-reference, or a translator/editor's aside left in the
+    text flow by the extraction."""
+    return APPARATUS.match(passage) is not None
+
+
+JUNK_FILTERS = (
+    ("editorial notes (names Camus)", is_editorial_note),
+    ("front/back matter", is_front_back_matter),
+    ("footnote/apparatus lines", is_apparatus_line),
+)
 
 
 def is_page_or_roman(line):
@@ -112,6 +151,14 @@ def strip_lines(text, headers):
     return "\n".join(kept)
 
 
+def junk_filter(passage):
+    """Label of the first junk filter that rejects the passage, else None."""
+    for label, test in JUNK_FILTERS:
+        if test(passage):
+            return label
+    return None
+
+
 def mine_rows(rows, sources=None, min_words=3, max_words=150):
     selected = [row for row in rows
                 if row.get("stream") == VOICE
@@ -121,6 +168,7 @@ def mine_rows(rows, sources=None, min_words=3, max_words=150):
     seen = set()
     candidates = []
     per_source = Counter()
+    filtered = Counter()
 
     for row in selected:
         source = row.get("source", "")
@@ -132,6 +180,10 @@ def mine_rows(rows, sources=None, min_words=3, max_words=150):
             if len(passage.split()) < min_words:
                 continue
             if is_junk(passage):
+                continue
+            reason = junk_filter(passage)
+            if reason is not None:
+                filtered[reason] += 1
                 continue
             key = " ".join(passage.lower().split())
             if key in seen:
@@ -149,7 +201,7 @@ def mine_rows(rows, sources=None, min_words=3, max_words=150):
             candidates.append(candidate)
             per_source[source] += 1
 
-    return candidates, per_source
+    return candidates, per_source, filtered
 
 
 def load_rows(path):
@@ -178,7 +230,8 @@ def main():
     args = ap.parse_args()
 
     rows = load_rows(args.src)
-    candidates, per_source = mine_rows(rows, args.sources, args.min_words, args.max_words)
+    candidates, per_source, filtered = mine_rows(
+        rows, args.sources, args.min_words, args.max_words)
 
     with open(args.out, "w", encoding="utf-8") as handle:
         for row in candidates:
@@ -187,6 +240,11 @@ def main():
     print(f"passages -> {args.out}  ({len(candidates)} total)")
     for source, count in sorted(per_source.items(), key=lambda kv: (-kv[1], kv[0])):
         print(f"  {count:>6}  {source}")
+
+    print("\npassages removed by junk filter:")
+    for label, _ in JUNK_FILTERS:
+        print(f"  {filtered[label]:>6}  {label}")
+    print(f"  {sum(filtered.values()):>6}  total")
 
     print("\ncorpus metrics over passages:")
     print(json.dumps(metrics([row["passage"] for row in candidates]),

@@ -21,6 +21,7 @@
     {"file": "1956_theFall_book.pdf",                    "stream": "voice", "source": "The Fall",                      "date": "1956"},
     {"file": "1957_exileAndTheKingdom_short_stories.pdf","stream": "voice", "source": "Exile and the Kingdom",         "date": "1957"},
     {"file": "1958_theInvincibleSummer_book.pdf",        "stream": "voice", "source": "The Invincible Summer",         "date": "1958"},
+    {"file": "lectures_speeches_letters.pdf",             "stream": "voice", "source": "Lectures, Speeches and Letters", "date": ""},
     {"file": "1971_aHappyDeath_book.pdf",                "stream": "voice", "source": "A Happy Death",                 "date": "1971"},
     {"file": "1994_theFirstMan_novel.pdf",               "stream": "voice", "source": "The First Man",                 "date": "1994"}
   ]

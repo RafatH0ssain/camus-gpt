@@ -8,15 +8,21 @@ read or written.
 
     python -m unittest kb/test_ingest_sources.py -v
 """
+import io
+import json
 import os
 import sys
+import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import ingest_sources as ing  # noqa: E402
 
 PB = ing.PAGE_BREAK
+MANIFEST = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "sources_manifest.json")
 
 
 def lines(*rows):
@@ -179,6 +185,47 @@ class IndentTests(unittest.TestCase):
         lines_ = self.page([(55, "a body line of one entry"), (55, "   "),
                             (69, "the real start of another entry")])
         self.assertEqual(ing.entry_start_indices(lines_), {2})
+
+
+class OnlyTests(unittest.TestCase):
+    """--only names a manifest file; a name that is not in the manifest is fatal,
+    so a typo cannot silently drop a source from the run."""
+
+    def call_main(self, *only):
+        """Run main() with --only *only, returning (SystemExit or None, stderr)."""
+        argv = sys.argv
+        err = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "chunks.jsonl")
+            sys.argv = ["ingest_sources.py", "--manifest", MANIFEST,
+                        "--out", out, "--only", *only]
+            raised = None
+            try:
+                with redirect_stdout(io.StringIO()), redirect_stderr(err):
+                    try:
+                        ing.main()
+                    except SystemExit as exc:
+                        raised = exc
+            finally:
+                sys.argv = argv
+            self.assertEqual(os.listdir(tmp), [] if raised is not None
+                             else ["chunks.jsonl"])
+        return raised, err.getvalue()
+
+    def test_unknown_names_exit_listing_every_one(self):
+        raised, err = self.call_main("no_such_book.pdf", "also_missing.pdf")
+        self.assertIsNotNone(raised)
+        self.assertNotEqual(raised.code, 0)
+        for name in ("no_such_book.pdf", "also_missing.pdf"):
+            self.assertIn(name, str(raised))
+            self.assertIn(name, err)
+
+    @unittest.skipIf(ing.fitz is None, "PyMuPDF not installed")
+    def test_known_name_does_not_raise(self):
+        with open(MANIFEST, encoding="utf-8") as handle:
+            known = {s["file"] for s in json.load(handle)["sources"]}
+        raised, _ = self.call_main(sorted(known)[0])
+        self.assertIsNone(raised)
 
 
 if __name__ == "__main__":
