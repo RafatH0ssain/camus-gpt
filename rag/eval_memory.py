@@ -20,11 +20,16 @@ Each case runs in an isolated temp store (env-injected paths), so your real
 memory.jsonl / profile.md are never read or written.
 
 Run from repo root:
-  python rag/eval_memory.py                          # anthropic judge
+  python rag/eval_memory.py                          # opencode judge (default)
+  python rag/eval_memory.py --judge-model space-bunny-free
+  python rag/eval_memory.py --judge anthropic
   python rag/eval_memory.py --judge ollama --judge-model gemma3:12b
   python rag/eval_memory.py --family false --judge none   # inspect answers only
+
+The opencode judge stops the whole run on HTTP 429 (usage cap) rather than scoring the rest
+unreliably; any other judge failure is recorded on that case as judge_error and the run continues.
 """
-import argparse, json, os, re, subprocess, sys, tempfile, time
+import argparse, json, os, subprocess, sys, tempfile, time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -34,6 +39,7 @@ from dotenv import load_dotenv
 # Load environment variables from the .env file in the current directory
 load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import judge_opencode as jz
 
 # ── seeded memories used by the recall/false families ───────────────────────
 # The fixtures are personal data — a real name, city, and project — so they live in an
@@ -208,10 +214,7 @@ def run_probe(probe, tmpdir, cr, judge_fn=None):
 
 
 def parse_judge(text):
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        raise ValueError(f"no JSON in judge output: {text[:120]}")
-    d = json.loads(m.group(0))
+    d = jz.first_json_object(text)
     out = {k: max(1, min(5, int(d[k]))) for k in ("voice", "memory", "naturalness")}
     out["rationale"] = str(d.get("rationale", ""))[:300]
     return out
@@ -240,6 +243,10 @@ def judge_anthropic(model, probe, convo, answer):
     return parse_judge("".join(b.get("text", "") for b in r.json()["content"]))
 
 
+def judge_opencode(model, probe, convo, answer):
+    return parse_judge(jz.judge(model, JUDGE_SYS, judge_prompt(probe, convo, answer)))
+
+
 def judge_ollama(model, probe, convo, answer, cr=None):
     r = requests.post(f"{cr.OLLAMA}/api/chat",
         json={"model": model, "stream": False, "options": {"temperature": 0},
@@ -260,12 +267,13 @@ def git_commit():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--judge", choices=["anthropic", "ollama", "none"], default="anthropic")
-    ap.add_argument("--judge-model", default=None)
+    jz.add_judge_args(ap)
     ap.add_argument("--family", choices=["recall", "profile", "false"])
     ap.add_argument("--out-dir", default="eval_memory")
     args = ap.parse_args()
-    jmodel = args.judge_model or ("claude-sonnet-4-6" if args.judge == "anthropic" else None)
+    jmodel = jz.resolve_model(args.judge, args.judge_model)
+    if args.judge == "opencode":
+        jz.load_key()  # fail before generating answers we would have no way to score
 
     import camus_rag as cr
     assert hasattr(cr, "MemoryCtx"), "camus_rag has no MemoryCtx — is the memory layer integrated?"
@@ -278,10 +286,11 @@ def main():
     run_probe.bm25 = cr.build_bm25(run_probe.facts)
     run_probe.ce = cr.load_reranker()
 
-    if args.judge == "anthropic":
+    if args.judge == "opencode":
+        jf = lambda p, c, a: judge_opencode(jmodel, p, c, a)
+    elif args.judge == "anthropic":
         jf = lambda p, c, a: judge_anthropic(jmodel, p, c, a)
     elif args.judge == "ollama":
-        assert jmodel, "--judge ollama requires --judge-model"
         jf = lambda p, c, a: judge_ollama(jmodel, p, c, a, cr=cr)
     else:
         jf = None
