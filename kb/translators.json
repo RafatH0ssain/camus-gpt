@@ -1,0 +1,211 @@
+{
+  "A Happy Death": {
+    "evidence": "p. 3 (year, publisher; no translator credited)",
+    "file": "raw_books/1971_aHappyDeath_book.pdf",
+    "publisher": "Alfred A. Knopf",
+    "translators": [
+      "unknown"
+    ],
+    "year": "1972"
+  },
+  "Albert Camus: A Biography": {
+    "evidence": "p. 7 (year, publisher); no translator credited",
+    "file": "sources/lottman_biography.pdf",
+    "publisher": "Gingko Press Inc. (first published by Doubleday & Company)",
+    "translators": [
+      "unknown"
+    ],
+    "year": "1979"
+  },
+  "Albert Camus: A Life": {
+    "evidence": "p. 5 (translator); p. 6 (year, publisher)",
+    "file": "sources/todd_a_life.pdf",
+    "publisher": "Vintage (Random House)",
+    "translators": [
+      "Benjamin Ivry"
+    ],
+    "year": "1998"
+  },
+  "Algerian Chronicles (1939-1958)": {
+    "evidence": "p. 4 (translator, publisher); p. 5 (year)",
+    "file": "sources/algerian_chronicles.pdf",
+    "publisher": "The Belknap Press of Harvard University Press",
+    "translators": [
+      "Arthur Goldhammer"
+    ],
+    "year": "2013"
+  },
+  "American Journals": {
+    "evidence": "p. 5 (translator, publisher); p. 6 (year)",
+    "file": "raw_books/1946_1949_americanJournals.pdf",
+    "publisher": "Paragon House Publishers",
+    "translators": [
+      "Hugh Levick"
+    ],
+    "year": "1987"
+  },
+  "Camus at \"Combat\": Writing 1944-1947": {
+    "evidence": "p. 7 (translator, publisher); p. 8 (year)",
+    "file": "sources/camus_at_combat.pdf",
+    "publisher": "Princeton University Press",
+    "translators": [
+      "Arthur Goldhammer"
+    ],
+    "year": "2006"
+  },
+  "Exile and the Kingdom": {
+    "evidence": "p. 1",
+    "file": "raw_books/1957_exileAndTheKingdom_short_stories.pdf",
+    "publisher": "Alfred A. Knopf (Vintage Books edition)",
+    "translators": [
+      "Justin O'Brien"
+    ],
+    "year": "1957"
+  },
+  "Lyrical and Critical Essays": {
+    "evidence": "p. 4 (Kennedy, Thody); p. 5 (O'Brien)",
+    "file": "sources/lyrical_critical_essays.pdf",
+    "publisher": "Alfred A. Knopf (Vintage Books edition)",
+    "translators": [
+      "Ellen Conroy Kennedy",
+      "Philip Thody",
+      "Justin O'Brien"
+    ],
+    "year": "1968"
+  },
+  "Notebooks (1935-1942)": {
+    "evidence": "p. 9",
+    "file": "raw_books/1935_1942_notebooks.pdf",
+    "publisher": "Alfred A. Knopf (Borzoi); Hamish Hamilton Ltd. (UK)",
+    "translators": [
+      "Philip Thody"
+    ],
+    "year": "1963"
+  },
+  "Notebooks (1942-1951)": {
+    "evidence": "p. 9",
+    "file": "raw_books/1942_1951_notebooks.pdf",
+    "publisher": "Alfred A. Knopf (Borzoi)",
+    "translators": [
+      "Justin O'Brien"
+    ],
+    "year": "1965"
+  },
+  "Notebooks (1951-1959)": {
+    "evidence": "p. 5",
+    "file": "raw_books/1951_1959_notebooks.pdf",
+    "publisher": "unknown",
+    "translators": [
+      "Ryan Bloom"
+    ],
+    "year": "unknown"
+  },
+  "Resistance, Rebellion, and Death": {
+    "evidence": "p. 6 (introduction signed JUSTIN O'BRIEN); p. 3 (year, publisher)",
+    "file": "sources/resistance_rebellion_death.pdf",
+    "publisher": "Alfred A. Knopf",
+    "translators": [
+      "Justin O'Brien"
+    ],
+    "year": "1960"
+  },
+  "The Complete Notebooks": {
+    "evidence": "p. 6 (translator, publisher); p. 7 (year)",
+    "file": "sources/notebooks_1933_1959.pdf",
+    "publisher": "University of Chicago Press",
+    "translators": [
+      "Ryan Bloom"
+    ],
+    "year": "2025"
+  },
+  "The Fall": {
+    "evidence": "not stated in pp. 1-8",
+    "file": "raw_books/1956_theFall_book.pdf",
+    "publisher": "unknown",
+    "translators": [
+      "unknown"
+    ],
+    "year": "unknown"
+  },
+  "The First Man": {
+    "evidence": "p. 6",
+    "file": "raw_books/1994_theFirstMan_novel.pdf",
+    "publisher": "Alfred A. Knopf",
+    "translators": [
+      "David Hapgood"
+    ],
+    "year": "1995"
+  },
+  "The Invincible Summer": {
+    "evidence": "p. 2",
+    "file": "raw_books/1958_theInvincibleSummer_book.pdf",
+    "publisher": "George Braziller, Inc.",
+    "translators": [
+      "Herma Briffault"
+    ],
+    "year": "1958"
+  },
+  "The Just (Les Justes)": {
+    "evidence": "p. 1",
+    "file": "raw_books/1949_theJustAssassins_play.pdf",
+    "publisher": "unknown",
+    "translators": [
+      "Suzanne M. Saunders"
+    ],
+    "year": "unknown"
+  },
+  "The Myth of Sisyphus": {
+    "evidence": "p. 5 (year, publisher; no translator credited)",
+    "file": "raw_books/1942_theMythOfSisyphus_novel.pdf",
+    "publisher": "Alfred A. Knopf (Vintage Books edition)",
+    "translators": [
+      "unknown"
+    ],
+    "year": "1955"
+  },
+  "The Plague": {
+    "evidence": "p. 1",
+    "file": "raw_books/1947_thePlague_book.pdf",
+    "publisher": "Random House (The Modern Library)",
+    "translators": [
+      "Stuart Gilbert"
+    ],
+    "year": "1948"
+  },
+  "The Rebel: An Essay on Man in Revolt": {
+    "evidence": "p. 1",
+    "file": "raw_books/1951_theRebel_book.pdf",
+    "publisher": "unknown",
+    "translators": [
+      "Anthony Bower"
+    ],
+    "year": "unknown"
+  },
+  "The Stranger": {
+    "evidence": "not stated in pp. 1-8",
+    "file": "raw_books/1942_theStranger_book.pdf",
+    "publisher": "unknown",
+    "translators": [
+      "unknown"
+    ],
+    "year": "unknown"
+  },
+  "Three Interviews": {
+    "evidence": "not stated in pp. 1-8",
+    "file": "raw_books/1945_1951_1959_interviews.pdf",
+    "publisher": "unknown",
+    "translators": [
+      "unknown"
+    ],
+    "year": "unknown"
+  },
+  "camus_kb.jsonl (derived atomic-facts KB)": {
+    "evidence": "not a PDF (derived KB, no front matter)",
+    "file": "sources/camus_kb.jsonl",
+    "publisher": "unknown",
+    "translators": [
+      "unknown"
+    ],
+    "year": "unknown"
+  }
+}
