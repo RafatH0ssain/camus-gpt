@@ -11,7 +11,7 @@ withholds which was which until asked.
     python rag/ab_session.py --reveal 2026-08-15_141230
 
 Config specs:
-    core:current | core:lean      the CORE prose variant (identity card is identical in both)
+    core:current|lean|persona     the CORE prose variant (identity card is identical in both)
     temp:<float>                  TEMP_FACTUAL for the session
     model:<name>                  an Ollama model name, e.g. model:camus
 
@@ -84,8 +84,8 @@ def parse_spec(spec):
     kind, value = spec.split(":", 1)
     kind = kind.strip().lower()
     if kind == "core":
-        if value not in ("current", "lean"):
-            sys.exit(f"core variant must be 'current' or 'lean', got {value!r}")
+        if value not in ("current", "lean", "persona"):
+            sys.exit(f"core variant must be 'current', 'lean' or 'persona', got {value!r}")
     elif kind == "temp":
         try:
             float(value)
@@ -100,8 +100,7 @@ def apply_config(cr, cfg):
     """Mutate the imported module in place. Both halves run in one process, so whatever
     this sets must be fully overwritten by the other config — never left half-applied."""
     if cfg["kind"] == "core":
-        prose = cr._CORE_PROSE_LEAN if cfg["value"] == "lean" else cr._CORE_PROSE_CURRENT
-        cr.CORE = prose + cr._IDENTITY_CARD
+        cr.CORE = cr._CORE_PROSE[cfg["value"]] + cr._IDENTITY_CARD
         cr.CORE_VARIANT = cfg["value"]
     elif cfg["kind"] == "temp":
         cr.TEMP_FACTUAL = float(cfg["value"])
