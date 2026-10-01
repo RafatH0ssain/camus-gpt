@@ -45,11 +45,17 @@ while IFS= read -r path; do
     fi
 
     # --- path guards --------------------------------------------------------
-    # Root archive/ only. eval/archive/ has tracked exceptions (base-model
-    # selection evidence, per-release scored runs) that .gitignore permits.
+    # Root archive/ and build/ only. eval/archive/ has tracked exceptions
+    # (base-model selection evidence, per-release scored runs) that .gitignore
+    # permits, and build/ holds upload bundles assembled from tracked sources.
+    # The jsonl rule below would already catch build/*.jsonl; the guard here is
+    # what stops MANIFEST.json, a notebook, or any other name under build/ —
+    # phase1_old/phase1_new carry published book text.
     case "$path" in
         archive/*)
             emit "path" "$path" "local reference material — keep it out of history" ;;
+        build/*)
+            emit "path" "$path" "assembled upload bundles — keep them out of history" ;;
     esac
 
     case "$path" in

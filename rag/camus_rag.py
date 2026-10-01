@@ -301,7 +301,8 @@ def build_system(hits, kb_suppressed=False):
 
 def stream_chat(messages, opts=None):
     r = requests.post(f"{OLLAMA}/api/chat",
-                      json={"model":GEN_MODEL,"messages":messages,"stream":True,"options":opts or GEN_OPTS},
+                      json={"model":GEN_MODEL,"messages":messages,"stream":True,"options":opts or GEN_OPTS,
+                            "think":False},
                       stream=True, timeout=300)
     r.raise_for_status()
     full = ""; print("camus: ", end="", flush=True)
@@ -461,7 +462,7 @@ def util_chat(messages, temperature=SUMMARY_TEMP, fmt=None, system=None):
         UTIL_MODEL = resolve_util_model()
     msgs = ([{"role": "system", "content": system}] if system else []) + messages
     body = {"model": UTIL_MODEL, "messages": msgs, "stream": False,
-            "options": dict(GEN_OPTS, temperature=temperature)}
+            "options": dict(GEN_OPTS, temperature=temperature), "think": False}
     if fmt:
         body["format"] = fmt
     r = requests.post(f"{OLLAMA}/api/chat", json=body, timeout=300)
