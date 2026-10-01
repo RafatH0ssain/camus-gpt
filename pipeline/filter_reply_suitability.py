@@ -33,6 +33,12 @@ Two stages, in this order.
    quoted as his reply all fail. The reply is a JSON array of {"id", "keep", "reason"} and
    nothing else.
 
+Concurrency: two batches are in flight at a time (--workers, 1 or 2, default 2). A worker
+only makes the call and parses the reply; this process's main thread alone appends decisions
+and holds the resume map. Results are consumed in batch order whatever order they arrive in,
+so two workers write byte-for-byte what one worker would have written, and at most two
+requests are ever outstanding.
+
 Checkpointing: decisions are appended per batch and flushed before the next call, keyed on
 the normalised response text (lowercased, whitespace collapsed), so a rerun skips rows
 already decided instead of paying for them again. The response text is the right key rather
@@ -41,24 +47,33 @@ re-mined. One writer: the decisions file is appended, the filtered file is rewri
 from the input plus the decisions at the end of the run, so an interrupted run leaves both
 files consistent with each other.
 
-Failure handling:
+Failure handling: every call runs under a 60 s deadline, down from the 120 s jz.judge
+spends on a silent socket, so a gateway that has stopped answering costs a minute instead of
+hanging the run. Then:
   * HTTP 429 or a usage-limit body: the run stops at once, prints how far it got, exits 0.
     The gateway caps a window, not a run, so a retried batch would only earn the same
     answer. What was decided stays on disk.
-  * any other error, or a reply that will not parse: the batch is retried once, then left
-    undecided, so a rerun picks those rows up. jz.judge already retries an empty or
-    truncated reply once, so that retry is on top of its own.
+  * any other error, an empty reply, or a reply that will not parse: the batch is retried
+    once, then left undecided, so a rerun picks those rows up. jz.judge already retries an
+    empty or truncated reply once, so that retry is on top of its own.
+  * three such batches in a row: the run gives up, prints how far it got, exits 0. Three
+    consecutive failures mean the gateway is down rather than that three batches were
+    unlucky, and a run that keeps going just pays the deadline again for every batch left.
+    Stopping is what turns an overnight stall into an overnight run that ended.
 
     python pipeline/filter_reply_suitability.py --dry-run
     python pipeline/filter_reply_suitability.py --limit 50
     python pipeline/filter_reply_suitability.py
 """
 import argparse
+import inspect
 import json
 import os
 import re
 import sys
-from collections import Counter
+import threading
+from collections import Counter, deque, namedtuple
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rag"))
@@ -67,6 +82,15 @@ import judge_opencode as jz  # noqa: E402  (key loading, headers, transport, 429
 
 MODEL = jz.DEFAULT_MODEL   # the same model the opencode-go provider calls space-bunny-free
 BATCH = 25
+# Batches asked about at once. Two is both the default and the ceiling: the gateway is the
+# bottleneck, not this script, and a third request in flight only buys a rate cap.
+WORKERS = 2
+MAX_WORKERS = 2
+# Seconds for one judge call, down from jz.TIMEOUT's 120. A batch that times out is
+# retried once, so a dead gateway costs 2 minutes per batch, not 4 — and the fail streak
+# below ends the run on the third one.
+REQUEST_TIMEOUT = 60
+FAIL_STREAK = 3        # batches in a row left undecided, then the run gives up
 SAMPLES = 10
 SAMPLE_CHARS = 90
 
@@ -231,6 +255,54 @@ def call_model(system, user, key=None):
     return jz.judge(MODEL, system, user, key=key)
 
 
+def _takes_timeout(call):
+    """Whether `call` accepts a timeout it will use itself, rather than swallow in **kwargs."""
+    try:
+        params = inspect.signature(call).parameters
+    except (TypeError, ValueError):
+        return False
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return False
+    return "timeout" in params
+
+
+def call_with_deadline(call, system, user, key=None, timeout=REQUEST_TIMEOUT):
+    """`call`, given `timeout` seconds to answer, and its exception if it raised one.
+
+    A client that takes a timeout is handed it. jz.judge takes none — its requests.post
+    timeout is the module constant jz.TIMEOUT — so the deadline is enforced from outside:
+    the call runs on a daemon thread, is given `timeout` seconds, and is then abandoned
+    rather than waited on. That is the difference between a batch that costs a minute and
+    a batch that costs the process its night; a hung socket cannot be cancelled from here.
+
+    A call that overruns keeps running and its late reply is dropped, which is the right
+    answer to a batch this run has already given up on: a rerun asks again, and the
+    abandoned thread is a daemon, so it never holds the process open at exit.
+
+    Exceptions cross back through the box rather than out of the thread, and BaseException
+    is caught so a UsageCapReached — a SystemExit — stays the same object on the way: the
+    cap must reach fetch()'s own handler, not die quietly in a worker.
+    """
+    if _takes_timeout(call):
+        return call(system, user, key=key, timeout=timeout)
+    box = {}
+
+    def target():
+        try:
+            box["reply"] = call(system, user, key=key)
+        except BaseException as exc:  # noqa: BLE001 - re-raised on this thread
+            box["error"] = exc
+
+    thread = threading.Thread(target=target, name="frs-call", daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError(f"no reply within {timeout:g}s")
+    if "error" in box:
+        raise box["error"]
+    return box.get("reply")
+
+
 def is_usage_limit_error(error):
     """A cap that arrives as an ordinary HTTP error rather than a 429: the gateway
     words it several ways and all of them mean the window is spent."""
@@ -318,37 +390,50 @@ def batches(items, size):
     return [items[i:i + size] for i in range(0, len(items), size)]
 
 
-def fetch(batch, number, key, call, stats=None):
-    """One batch's parsed decisions, None when the batch is left undecided, plus a stop
-    reason when a cap ended the run.
+BatchResult = namedtuple("BatchResult", "items stop_reason calls last_error")
+"""One batch's outcome, handed back from a worker thread.
+
+items: the parsed decisions, or None when the batch is left undecided.
+stop_reason: the cap text when a cap ended the run, else None.
+calls: how many judge calls the batch cost.
+last_error: the last error seen, for the fail-streak message.
+"""
+
+
+def fetch(batch, number, key, call, timeout=REQUEST_TIMEOUT):
+    """One batch's outcome: its parsed decisions, or None when it is left undecided, plus
+    a stop reason when a cap ended the run, the calls it cost, and the last error.
 
     The retry covers the call *and* the parse, because a reply the model could not format
     is as likely to arrive again as a transport error is: a model that answered with prose
     once has shown what it is doing, and the identical request is worth exactly one more
     ask. jz.judge already retries an empty or truncated reply once, so this retry sits on
-    top of its own.
+    top of its own, and each attempt runs under `timeout`.
 
     The two failure kinds call for opposite answers. A cap (429, or a usage-limit body on
     another status) comes back as a stop reason and is never retried: the window is
     spent. Anything else is retried once and then the batch is abandoned without a
     decision, which a rerun picks up again.
+
+    Nothing here touches the decisions file or the resume map, so this is safe to call from
+    a worker thread: it counts its own calls and hands them back rather than adding to a
+    shared tally two threads would be writing at once.
     """
-    last = ""
+    last, calls = "", 0
     for attempt in (1, 2):
-        if stats is not None:
-            stats["calls"] += 1
+        calls += 1
         try:
-            reply = call(SYSTEM, batch_payload(batch), key=key)
-            return parse_decisions(reply), None
+            reply = call_with_deadline(call, SYSTEM, batch_payload(batch), key, timeout)
+            return BatchResult(parse_decisions(reply), None, calls, "")
         except jz.UsageCapReached as exc:
-            return None, str(exc)
+            return BatchResult(None, str(exc), calls, str(exc))
         except Exception as exc:  # noqa: BLE001 - retried once, then left undecided
             if is_usage_limit_error(exc):
-                return None, f"{type(exc).__name__}: {exc}"
+                return BatchResult(None, f"{type(exc).__name__}: {exc}", calls, last)
             last = f"{type(exc).__name__}: {exc}"
             print(f"  batch {number}: attempt {attempt} failed — {exc}", file=sys.stderr)
     print(f"  batch {number}: left undecided after one retry — {last}", file=sys.stderr)
-    return None, None
+    return BatchResult(None, None, calls, last)
 
 
 def load_rows(path):
@@ -396,11 +481,67 @@ def write_filtered(rows, decided, out_path):
     return kept
 
 
-def run(survivors, decided, decisions_path, batch_size=BATCH, key=None, call=call_model):
+def resolve_workers(requested):
+    """The worker count actually used, clamped to 1..MAX_WORKERS. Anything else is a
+    mistake or a wish the gateway cannot grant, and neither is worth failing a run over."""
+    try:
+        wanted = int(requested)
+    except (TypeError, ValueError):
+        return WORKERS
+    return max(1, min(wanted, MAX_WORKERS))
+
+
+def batch_results(pool, todo, batch_size, key, call, timeout, workers):
+    """(number, batch, result) for every batch, in batch order, at most `workers` calls
+    in flight.
+
+    The window is the size of the pool and nothing is submitted past it, so a run of a
+    thousand batches asks the gateway two questions at a time rather than a thousand.
+    Results are yielded in batch order, not completion order: that is what lets the caller
+    write from one thread and still get the same file a one-worker run would have left.
+
+    Closing the generator — on exhaustion, on a break, or on an exception — cancels what
+    has not started and leaves what has running without waiting for it, so a stop costs
+    one deadline rather than the whole queue behind it.
+    """
+    pending = deque()
+    try:
+        for number, batch in enumerate(batches(todo, batch_size), 1):
+            pending.append((number, batch, pool.submit(fetch, batch, number, key, call,
+                                                       timeout)))
+            if len(pending) < workers:
+                continue    # the window is not full yet, so there is nothing to write
+            # Waits here, on the one thread that writes: a worker only ever calls.
+            number, batch, future = pending.popleft()
+            yield number, batch, future.result()
+        while pending:
+            number, batch, future = pending.popleft()
+            yield number, batch, future.result()
+    finally:
+        for _, _, future in pending:
+            future.cancel()   # a request not yet started: do not start it now
+        pool.shutdown(wait=False)
+
+
+def run(survivors, decided, decisions_path, batch_size=BATCH, key=None, call=call_model,
+        workers=WORKERS, timeout=REQUEST_TIMEOUT, max_failures=FAIL_STREAK):
     """Decide every survivor not already in `decided`, appending each batch at once.
 
-    Returns (stats, stop_reason). stop_reason is None unless a usage cap ended the run,
-    in which case the decisions on disk are everything decided so far."""
+    Up to `workers` batches are in flight, but this function is the only writer: workers
+    call and parse, and every decision line is appended and flushed here, in batch order.
+    That is the same single-writer arrangement as a one-worker run, so an interrupted run
+    still leaves a decisions file a rerun can resume from.
+
+    A batch left undecided after its retry counts towards a streak; `max_failures` of them
+    in a row ends the run cleanly, because that many consecutive failures is a dead
+    gateway rather than three unlucky batches, and the rows behind them are still on disk
+    to be asked about when it is back.
+
+    Returns (stats, stop_reason). stop_reason is not None only when a usage cap ended the
+    run; a fail-streak stop returns None there and leaves its reason in stats, so a caller
+    cannot mistake a dead gateway for a rate cap. Either way the decisions on disk are
+    everything decided so far.
+    """
     todo, seen = [], set()
     for row in survivors:
         key_text = row_key(row)
@@ -409,37 +550,54 @@ def run(survivors, decided, decisions_path, batch_size=BATCH, key=None, call=cal
         seen.add(key_text)
         todo.append(row)
 
+    workers = resolve_workers(workers)
     stats = {"survivors": len(survivors), "todo": len(todo),
-             "already": len(decided), "batches": 0, "calls": 0,
-             "decided": 0, "kept": 0, "dropped": 0, "undecided": 0}
+             "already": len(decided), "batches": 0, "attempted": 0, "calls": 0,
+             "decided": 0, "kept": 0, "dropped": 0, "undecided": 0, "failures": 0,
+             "fail_reason": None}
     stop_reason = None
+    streak = 0
 
     with open(decisions_path, "a", encoding="utf-8") as out:
-        for number, batch in enumerate(batches(todo, batch_size), 1):
-            items, stop_reason = fetch(batch, number, key, call, stats)
-            if stop_reason is not None:
-                stats["undecided"] += len(batch)
-                break
-            if items is None:
-                stats["undecided"] += len(batch)
-                continue
-            pairs = align(batch, items)
-            written = 0
-            for row, item in zip(batch, pairs):
-                if not isinstance(item, dict) or "keep" not in item:
-                    stats["undecided"] += 1
+        pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="frs-batch")
+        results = batch_results(pool, todo, batch_size, key, call, timeout, workers)
+        try:
+            for number, batch, result in results:
+                stats["attempted"] += 1
+                stats["calls"] += result.calls
+                if result.stop_reason is not None:
+                    stats["undecided"] += len(batch)
+                    stop_reason = result.stop_reason
+                    break
+                if result.items is None:
+                    # left undecided: a rerun asks again, so the rows behind it stay on disk
+                    stats["undecided"] += len(batch)
+                    stats["failures"] += 1
+                    streak += 1
+                    if streak >= max_failures:
+                        stats["fail_reason"] = result.last_error
+                        break
                     continue
-                keep = _keep(item["keep"])
-                record = decision_row(row, keep, item.get("reason"))
-                out.write(json.dumps(record, ensure_ascii=False) + "\n")
-                decided[record["key"]] = record
-                written += 1
-                stats["kept" if keep else "dropped"] += 1
-            out.flush()
-            stats["decided"] += written
-            stats["batches"] += 1
-            print(f"  batch {number}: {len(batch)} rows, {written} decided, "
-                  f"{stats['kept']} kept, {stats['calls']} calls")
+                streak = 0
+                pairs = align(batch, result.items)
+                written = 0
+                for row, item in zip(batch, pairs):
+                    if not isinstance(item, dict) or "keep" not in item:
+                        stats["undecided"] += 1
+                        continue
+                    keep = _keep(item["keep"])
+                    record = decision_row(row, keep, item.get("reason"))
+                    out.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    decided[record["key"]] = record
+                    written += 1
+                    stats["kept" if keep else "dropped"] += 1
+                out.flush()
+                stats["decided"] += written
+                stats["batches"] += 1
+                print(f"  batch {number}: {len(batch)} rows, {written} decided, "
+                      f"{stats['kept']} kept, {stats['calls']} calls")
+        finally:
+            results.close()
     return stats, stop_reason
 
 
@@ -468,8 +626,14 @@ def print_summary(stats, stop_reason, decisions_path, out_path, kept_total):
           f"undecided {stats['undecided']}")
     print(f"decisions -> {decisions_path}")
     print(f"kept rows -> {out_path}  ({kept_total} rows)")
+    reason = None
     if stop_reason is not None:
-        print(f"stopped on a usage cap, not a failure: {stop_reason}")
+        reason = f"stopped on a usage cap, not a failure: {stop_reason}"
+    elif stats.get("fail_reason"):
+        reason = (f"stopped on {stats['failures']} batches in a row, not on a cap: "
+                  f"{stats['fail_reason']}")
+    if reason:
+        print(reason)
         print(f"  {stats['todo'] - stats['decided'] - stats['undecided']} rows still "
               "to decide; re-run the same command to continue where this stopped.")
 
@@ -508,6 +672,9 @@ def main():
                     help="put at most N survivors to the model")
     ap.add_argument("--batch", type=int, default=BATCH,
                     help=f"rows per call (default {BATCH})")
+    ap.add_argument("--workers", type=int, default=WORKERS,
+                    help=f"batches in flight at once, 1 to {MAX_WORKERS} (default "
+                         f"{WORKERS}; higher is clamped to {MAX_WORKERS})")
     ap.add_argument("--samples", type=int, default=SAMPLES,
                     help=f"kept and dropped pairs to print at the end (default {SAMPLES}, "
                          "0 for none)")
@@ -526,9 +693,12 @@ def main():
     if args.limit is not None:
         survivors = survivors[:args.limit]
         print(f"\nlimited to {len(survivors)} survivors")
+    workers = resolve_workers(args.workers)
+    if workers != args.workers:
+        print(f"\n--workers {args.workers} clamped to {workers}")
     key = jz.load_key()
     stats, stop_reason = run(survivors, decided, args.decisions, args.batch,
-                             key=key, call=call_model)
+                             key=key, call=call_model, workers=workers)
     kept = write_filtered(rows, load_decisions(args.decisions), args.out)
     print_summary(stats, stop_reason, args.decisions, args.out, len(kept))
     if args.samples:
