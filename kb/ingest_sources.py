@@ -133,7 +133,18 @@ def chunk(text, target_words, max_words):
 PAGE_BREAK = "\f"                      # marks the end of a page in the raw text
 ENTRY_HINT = "notebooks"               # --entries applies to these files
 INDENT_MIN, INDENT_MAX = 7.0, 23.0     # entry indent from the body margin, in points
-SEPARATOR = re.compile(r"^[*—–=\u2026~\u2022_\-]{1,12}$")
+SEP_CHARS = r"*—–=\u2026~\u2022_\-"
+SEPARATOR = re.compile(rf"^[{SEP_CHARS}]{{1,12}}$")
+# A rule that the extraction glued to the text it divides:
+# "————A test of daily concentration..." is still a boundary, not an opener.
+# Two or more rule chars, so the single dash that opens a real sentence
+# ("—Goes to the balcony and pours his whole being") is left alone.
+GLUED_RULE = re.compile(rf"^([{SEP_CHARS}]{{2,12}})(?=[^{SEP_CHARS}])")
+# An editor's note opens with its number and a capital: "11 In \"The Nearby Sea...",
+# "35 Almost all the elements of this entry...". The capital after the number is
+# what keeps prose out: "10 years ago", "3 o'clock" and ". . . Run away." do not
+# match, so Camus's own sentences and ellipses stay inside their entry.
+NOTE_START = re.compile(r"^\d{1,3}\s+[\"'\u201c\u2018A-Z(\u00c0-\u00dd]")
 SENTENCE_END = re.compile(r"[.!?\u2026][\"'\u2019\u201d\)\]]*$")
 SENTENCE_START = re.compile(r"[\"'“‘(\[]*[A-Z0-9\u00c0-\u00ff]")
 MONTH = (r"jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec|"
@@ -149,6 +160,10 @@ def is_blank(line):
 
 def is_separator(line):
     return bool(SEPARATOR.match(line.strip()))
+
+def is_note_start(line):
+    """A line that opens an editor's footnote: '11 In "The Nearby Sea...'."""
+    return NOTE_START.match(line.strip()) is not None
 
 def is_date_heading(line):
     """A line that is only a date, a month/year, or a span of them:
@@ -169,9 +184,10 @@ def split_entries(text):
     """Split raw extracted text into notebook entries, before any reflow.
 
     An entry ends at: a blank line; a date or month/year heading line (which
-    then heads the next entry); a separator line (*, ***, ---); or a page break
-    that lands on a paragraph end. A page break mid-paragraph is not a boundary,
-    so an entry continues onto the next page. Pages are separated by \\f.
+    then heads the next entry); a separator line (*, ***, ---); a footnote
+    opening (which starts the next unit); or a page break that lands on a
+    paragraph end. A page break mid-paragraph is not a boundary, so an entry
+    continues onto the next page. Pages are separated by \\f.
     """
     entries, buf, heading_only = [], [], True
 
@@ -188,11 +204,19 @@ def split_entries(text):
                 and SENTENCE_START.match(lines[0].strip()):
             flush()
         for line in lines:
+            glued = GLUED_RULE.match(line.strip())
+            if glued:                         # the rule closes the entry above
+                flush()
+                line = line.strip()[glued.end():]
             if is_blank(line) or is_separator(line):
                 flush(); continue
             if is_date_heading(line):
                 if not heading_only: flush()      # the heading heads what follows
                 buf.append(line); heading_only = True; continue
+            # The combined volume sets the editor's notes in the text flow with no
+            # blank line between them, so without this a run of notes fuses into a
+            # single entry. The number opens the note, never the entry above it.
+            if buf and is_note_start(line): flush()
             buf.append(line); heading_only = False
     flush()
     return [e for e in entries if e]
