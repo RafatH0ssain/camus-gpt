@@ -40,9 +40,9 @@ ORDINARY_PUNCT = set(",.;:!?'\"()[]{}-/\\|@#$%^&*+=`~\u2014\u2013\u2026"
                      "\u00ab\u00bb\u201c\u201d\u2018\u2019")
 
 # ── junk filters ───────────────────────────────────────────────────────────────
-# Three kinds of passage that survive the character and running-header filters but
-# are not Camus talking. They run in this order and a passage is counted under the
-# first one that matches, so the three counts add up to everything dropped here.
+# Kinds of passage that survive the character and running-header filters but are
+# not Camus talking. They run in this order and a passage is counted under the
+# first one that matches, so the counts add up to everything dropped here.
 
 EDITORIAL_NAME = re.compile(r"\bCamus\b")
 FRONT_MATTER = re.compile(
@@ -50,6 +50,20 @@ FRONT_MATTER = re.compile(
     r"|translated by|translated from|library of congress|printed in"
     r"|first edition|published by|edited by|introduction by", re.I)
 APPARATUS = re.compile(r"^(?:See\s|Cf\.|Note:|\[Translator|\[Editor|\d+\.\s)")
+# An endnote opens with its own number: "106 This title will continue to appear...".
+ENDNOTE_MARKER = re.compile(r"^\d{1,3}\s+[A-Z\u00c0-\u00dd]")
+# An endnote glosses a person with their dates: "Alexandre Jacob (1879–1954)".
+LIFE_DATES = re.compile(r"\(\s*\d{4}\s*[\u2013\u2014-]\s*\d{4}\s*\)")
+# A passage opening mid-sentence, left by a page break or a soft wrap.
+LOWERCASE_START = re.compile(r"^[a-z\u00df-\u00ff]")
+
+
+# Endnote reference numbers glued after punctuation: "Tiempo perdido.70" -> "Tiempo perdido."
+_NOTE_REF = re.compile(r"(?<=[.!?,;:\u201d\"\u2019')])\d{1,3}(?=\s|$)")
+
+
+def strip_note_refs(passage):
+    return _NOTE_REF.sub("", passage)
 
 
 def is_editorial_note(passage):
@@ -69,10 +83,34 @@ def is_apparatus_line(passage):
     return APPARATUS.match(passage) is not None
 
 
+def is_endnote_marker(passage):
+    """A note that opens with its own number: the editor's endnote, not an entry.
+
+    The number is followed by a capital, so a sentence that merely starts with a
+    figure keeps its place: "10 years ago", "3 o'clock in the morning".
+    """
+    return ENDNOTE_MARKER.match(passage) is not None
+
+
+def is_life_dates(passage):
+    """A note glossing someone with their lifespan in brackets, the endnotes' stock
+    form of introduction: "Alexandre \"Marius\" Jacob (1879-1954)"."""
+    return LIFE_DATES.search(passage) is not None
+
+
+def is_lowercase_start(passage):
+    """A passage opening mid-sentence, which is a fragment rather than a whole
+    thought: the extraction split it at a page break or a soft wrap."""
+    return LOWERCASE_START.match(passage) is not None
+
+
 JUNK_FILTERS = (
     ("editorial notes (names Camus)", is_editorial_note),
     ("front/back matter", is_front_back_matter),
     ("footnote/apparatus lines", is_apparatus_line),
+    ("endnote markers (numbered notes)", is_endnote_marker),
+    ("life-dates brackets", is_life_dates),
+    ("lowercase-opening fragments", is_lowercase_start),
 )
 
 
@@ -177,6 +215,7 @@ def mine_rows(rows, sources=None, min_words=3, max_words=150):
         passages = (split_entry_passage(clean, max_words) if is_entry
                     else split_passages(clean, max_words))
         for passage in passages:
+            passage = strip_note_refs(passage)
             if len(passage.split()) < min_words:
                 continue
             if is_junk(passage):
