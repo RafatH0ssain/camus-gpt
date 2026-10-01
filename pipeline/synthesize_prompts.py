@@ -22,8 +22,13 @@ Selection (the counts print under --dry-run):
     the three volumes, sampled uniformly at random (seed 13) — shortest-first
     would quietly hand back a corpus of two-word fragments;
   * every other source: 20-120 words, at most 150 per source, random sample
-    (seed 13). The same seed picks the same passages every run, so a resumed
-    run and a full run agree on what the file should contain.
+    (seed 13). Every pool is sorted by passage text and holds one row per
+    passage, so the seed picks the same passages from the same passages whatever
+    order the candidate file is in and whatever extra fields its rows carry: a
+    resumed run and a full run agree on what the file should contain.
+  * the caps are counted against the output file, not against the candidates:
+    a run that already spent part of a source's budget gets only the remainder,
+    so no number of reruns can put more than 150 rows of a source in the file.
 
 Synthesis: the instruction is one system message and a batch of 20 passages goes
 out per call, through rag/judge_opencode.py (key loading, headers, transport and
@@ -33,8 +38,14 @@ the "opencode-go/" provider prefix and answers HTTP 400 "Model is unavailable" t
 the prefixed name.
 
 Each finished batch is appended and flushed before the next call, so a run that
-dies halfway leaves a usable file, and a rerun skips the rows already written
-rather than paying for them twice.
+dies halfway leaves a usable file, and a rerun skips the passages already written
+rather than paying for them twice. The resume key is the passage text itself,
+lowercased with its whitespace collapsed. A chunk id is the wrong key for that: it
+names a chunk of many passages and is rewritten whenever the candidate file is
+re-mined, so a resumed run re-sent passages the file already held. The file this
+was measured on held 3394 rows and 2473 distinct passages, every repeated passage
+byte-identical and filed under the same chunk id, which is the signature of a
+second run working from a stale snapshot rather than of a different passage.
 
 Failure handling, in the order it matters:
   * HTTP 429 or a usage-limit error: the run stops at once, prints how far it got
@@ -69,6 +80,7 @@ NOTEBOOK_MIN_WORDS, NOTEBOOK_MAX_WORDS = 3, 80
 NOTEBOOK_TOTAL = 1500
 OTHER_MIN_WORDS, OTHER_MAX_WORDS = 20, 120
 OTHER_PER_SOURCE = 150
+NOTEBOOK_BUDGET = "\0notebooks"   # the three notebook volumes share one budget
 
 MAX_PROMPT_WORDS = 25
 LEAK_NGRAM = 5
@@ -147,13 +159,103 @@ def is_notebook(source):
     return str(source or "").startswith(NOTEBOOK_PREFIX)
 
 
-def select_rows(rows, seed=SEED):
+def normalise(text):
+    """Passage text as the resume key reads it: lowercase, whitespace collapsed.
+
+    The passage is the row, not the chunk it came from. A chunk id names a chunk
+    of many passages and is rewritten whenever the candidate file is re-mined, so
+    two files holding the same passage can disagree about it — the text cannot.
+    """
+    return " ".join(str(text or "").split()).lower()
+
+
+def budget_key(source):
+    """What a source spends against: its own name, or one shared notebook budget,
+    because the 1500 is a cap on the notebooks together and not per volume."""
+    return NOTEBOOK_BUDGET if is_notebook(source) else str(source or "")
+
+
+def cap_for(source):
+    return NOTEBOOK_TOTAL if is_notebook(source) else OTHER_PER_SOURCE
+
+
+class Written:
+    """What the output file already holds: the passages in it, and how many rows
+    each source has there. The caps are counted against this, so a run that is
+    picking up where the last one stopped spends only what is left."""
+
+    def __init__(self, rows=()):
+        self.texts = set()
+        self.notebooks = set()
+        self.per_source = {}
+        for row in rows:
+            text = normalise(row.get("response"))
+            if not text:
+                continue
+            self.texts.add(text)
+            if is_notebook(row.get("source")):
+                self.notebooks.add(text)
+            else:
+                self.per_source.setdefault(str(row.get("source", "")), set()).add(text)
+
+    def spent(self, budget):
+        """Rows the file holds against one budget, counted once per passage so a
+        file that still holds an old duplicate cannot starve a source."""
+        if budget == NOTEBOOK_BUDGET:
+            return len(self.notebooks)
+        return len(self.per_source.get(budget, ()))
+
+
+def pool(rows):
+    """A sampling pool in an order of its own: sorted by passage text, one row per
+    passage. Sorting is what makes the sample depend on the passages rather than on
+    the order the candidate file happens to be in, and the dedupe is why a passage
+    filed under two chunk ids is offered to the model once, not twice."""
+    unique = {}
+    for row in rows:
+        text = row_key(row)
+        if text:
+            unique.setdefault(text, row)
+    return [unique[text] for text in sorted(unique)]
+
+
+def plan_todo(selected, written):
+    """The rows to synthesise now, in selection order, and the budget each source
+    spends on them.
+
+    Three things are dropped: a passage the output file already holds (the resume),
+    the same passage twice in the selection (one row per passage, whatever the
+    candidate file did), and anything past a cap — where a cap counts the rows the
+    file already has, so the plan is a statement about the finished corpus rather
+    than about one run of it."""
+    used = {}
+    todo, seen = [], set()
+    for row in selected:
+        text = row_key(row)
+        budget = budget_key(row.get("source"))
+        if not text or text in seen or text in written.texts:
+            continue
+        if used.get(budget, 0) + written.spent(budget) >= cap_for(row.get("source")):
+            continue
+        used[budget] = used.get(budget, 0) + 1
+        seen.add(text)
+        todo.append(row)
+    return todo, used
+
+
+def select_rows(rows, seed=SEED, written=None):
     """The passages to synthesise prompts for, and the counts behind that choice.
 
     Sampling is one random.Random(seed) used in a fixed order — notebooks first,
-    then the other sources by name — so the same seed and the same input file
-    always give the same list, in the same order.
+    then the other sources by name — over pools that are sorted by passage text and
+    hold one row per passage. So the seed and the passages decide the sample, and
+    not the order or the extra fields of the candidate file: a rerun picks the same
+    passages as the run before it.
+
+    `written` is the output file's state; the caps are counted against it, so a
+    resumed run takes only the rows the file has room for.
     """
+    written = written or Written()
     dropped = Counter()
     kept = []
     for row in rows:
@@ -163,35 +265,39 @@ def select_rows(rows, seed=SEED):
         else:
             dropped[label] += 1
 
-    notebook_pool = [row for row in kept
-                     if is_notebook(row.get("source"))
-                     and NOTEBOOK_MIN_WORDS <= row_words(row) <= NOTEBOOK_MAX_WORDS]
-    others = [row for row in kept if not is_notebook(row.get("source"))]
+    notebook_pool = pool([row for row in kept
+                          if is_notebook(row.get("source"))
+                          and NOTEBOOK_MIN_WORDS <= row_words(row) <= NOTEBOOK_MAX_WORDS])
     per_source = {}
-    for row in others:
-        if OTHER_MIN_WORDS <= row_words(row) <= OTHER_MAX_WORDS:
+    for row in kept:
+        if not is_notebook(row.get("source")) \
+                and OTHER_MIN_WORDS <= row_words(row) <= OTHER_MAX_WORDS:
             per_source.setdefault(str(row.get("source", "")), []).append(row)
+    per_source = {source: pool(entries)
+                  for source, entries in sorted(per_source.items())}
 
     rng = random.Random(seed)
-    selected = rng.sample(notebook_pool, min(NOTEBOOK_TOTAL, len(notebook_pool)))
-    notebook_kept = len(selected)
+    sampled = rng.sample(notebook_pool, min(NOTEBOOK_TOTAL, len(notebook_pool)))
     for source in sorted(per_source):
-        pool = per_source[source]
-        selected.extend(rng.sample(pool, min(OTHER_PER_SOURCE, len(pool))))
+        candidates = per_source[source]
+        sampled.extend(rng.sample(candidates, min(OTHER_PER_SOURCE, len(candidates))))
 
+    selected, used = plan_todo(sampled, written)
     stats = {
         "input": len(rows),
         "dropped": dropped,
         "notebook_pool": len(notebook_pool),
-        "notebook_kept": notebook_kept,
-        "other_sources": {source: {"eligible": len(pool),
-                                   "kept": min(OTHER_PER_SOURCE, len(pool))}
-                          for source, pool in sorted(per_source.items())},
+        "notebook_kept": used.get(NOTEBOOK_BUDGET, 0),
+        "already": len(written.texts),
+        "other_sources": {source: {"eligible": len(candidates),
+                                   "already": written.spent(source),
+                                   "kept": used.get(source, 0)}
+                          for source, candidates in per_source.items()},
     }
     return selected, stats
 
 
-def print_selection(stats, selected):
+def print_selection(stats, selected, out_path=None):
     print(f"input passages {stats['input']}")
     print("removed (first rule that matches, so the counts add up):")
     for label, _ in DROP_RULES:
@@ -199,13 +305,16 @@ def print_selection(stats, selected):
     print(f"  {sum(stats['dropped'].values()):>6}  total removed")
     print(f"  {stats['input'] - sum(stats['dropped'].values()):>6}  left after the drop rules")
     print(f"\nnotebook passages {NOTEBOOK_MIN_WORDS}-{NOTEBOOK_MAX_WORDS} words: "
-          f"{stats['notebook_pool']} eligible, {stats['notebook_kept']} sampled "
+          f"{stats['notebook_pool']} eligible, {stats['notebook_kept']} to go out "
           f"(cap {NOTEBOOK_TOTAL}, uniform sample, seed {SEED})")
     print(f"other sources {OTHER_MIN_WORDS}-{OTHER_MAX_WORDS} words, "
           f"max {OTHER_PER_SOURCE} each:")
     for source, counts in stats["other_sources"].items():
-        print(f"  {counts['kept']:>6} / {counts['eligible']:>6}  {source}")
-    print(f"\nselected {len(selected)} passages")
+        print(f"  {counts['kept']:>6} / {counts['eligible']:>6}  {source}"
+              f"  ({counts['already']} already written)")
+    print(f"\n{stats['already']} distinct passages already in "
+          f"{out_path or 'the output file'}; the caps above are counted with them")
+    print(f"selected {len(selected)} passages")
 
 
 def batch_payload(batch):
@@ -341,19 +450,16 @@ def load_rows(path):
     return rows
 
 
-def written_keys(path):
-    """The (src_id, response) pairs already in the output file: a rerun resumes
-    from these instead of paying for the same passages twice."""
-    keys = set()
-    for row in load_rows(path) if os.path.exists(path) else []:
-        response = row.get("response")
-        if isinstance(response, str):
-            keys.add((row.get("src_id"), response))
-    return keys
+def written_state(path):
+    """The output file's state, read once at the start of a run: the passages in it
+    and how many rows each source has there. A rerun resumes from these instead of
+    paying for the same passages twice."""
+    return Written(load_rows(path) if os.path.exists(path) else [])
 
 
 def row_key(row):
-    return (row.get("chunk_id"), str(row.get("passage", "")))
+    """What identifies a passage across files and across re-mines: its text."""
+    return normalise(row.get("passage"))
 
 
 def output_row(prompt, row):
@@ -431,11 +537,14 @@ def fetch(batch, number, key, call, stats):
 def run(selected, out_path, batch_size=BATCH, key=None, call=call_model):
     """Synthesise every selected passage, appending each finished batch at once.
 
+    The passages the output file already holds are dropped before the first call,
+    and the caps are counted against the file, so a run that is killed and started
+    again neither pays twice nor pushes a source past its cap.
+
     Returns (stats, stop_reason). stop_reason is None unless a usage cap ended
     the run, in which case the file on disk is everything written so far.
     """
-    done = written_keys(out_path)
-    todo = [row for row in selected if row_key(row) not in done]
+    todo, _ = plan_todo(selected, written_state(out_path))
     stats = {"selected": len(selected), "todo": len(todo), "calls": 0,
              "batches": 0, "written": 0, "rejected": 0, "skipped": [],
              "faults": Counter()}
@@ -503,8 +612,8 @@ def main():
                     help=f"passages per call (default {BATCH})")
     args = ap.parse_args()
 
-    selected, stats = select_rows(load_rows(args.src))
-    print_selection(stats, selected)
+    selected, stats = select_rows(load_rows(args.src), written=written_state(args.out))
+    print_selection(stats, selected, args.out)
     if args.dry_run:
         print(f"\ndry run: {len(selected)} passages would go out in "
               f"{-(-len(selected) // args.batch)} calls of {args.batch}")

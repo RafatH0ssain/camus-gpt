@@ -140,7 +140,7 @@ class SelectionTests(unittest.TestCase):
     def test_notebook_cap_spans_the_three_volumes(self):
         rows = []
         for volume in ("1935-1942", "1942-1951", "1951-1959"):
-            rows += [row(f"v{volume}-{i}", words(10, f"v{i}"),
+            rows += [row(f"v{volume}-{i}", words(10, f"n{volume}-{i}"),
                          source=f"Notebooks ({volume})") for i in range(700)]
         selected, stats = sp.select_rows(rows)
         self.assertEqual(len(selected), sp.NOTEBOOK_TOTAL)
@@ -152,7 +152,8 @@ class SelectionTests(unittest.TestCase):
         selected, stats = sp.select_rows(rows)
         self.assertEqual(len(selected), sp.OTHER_PER_SOURCE)
         self.assertEqual(stats["other_sources"]["The Rebel"],
-                         {"eligible": 400, "kept": 150})
+                         {"eligible": 400, "already": 0, "kept": 150})
+
 
     def test_cap_is_per_source_not_whole_corpus(self):
         rows = ([row(f"a{i}", words(30, f"a{i}"), source="The Rebel") for i in range(200)] +
@@ -166,7 +167,7 @@ class SelectionTests(unittest.TestCase):
     def test_sampling_is_uniform_not_shortest_first(self):
         """The notebook cap must not be the 1500 shortest: a corpus of uniform
         samples keeps the long tail the whole point of the notebooks is."""
-        rows = [notebook_row(f"n{i}", words(3 + i % 78)) for i in range(2000)]
+        rows = [notebook_row(f"n{i}", words(3 + i % 78, f"n{i}")) for i in range(2000)]
         selected, _ = sp.select_rows(rows)
         lengths = sorted(sp.row_words(r) for r in selected)
         self.assertEqual(len(selected), 1500)
@@ -193,6 +194,215 @@ class SelectionTests(unittest.TestCase):
         selected, stats = sp.select_rows([])
         self.assertEqual(selected, [])
         self.assertEqual(stats["input"], 0)
+
+
+class StableSelectionTests(unittest.TestCase):
+    """The sample is a function of the passages, not of the candidate file around
+    them: a file re-mined, reordered or carrying new columns selects the same
+    passages, or a rerun pays for a different corpus than the run before it."""
+
+    ROWS = ([notebook_row(f"n{i}", words(10, f"n{i}")) for i in range(200)] +
+            [row(f"r{i}", words(30, f"r{i}")) for i in range(400)])
+
+    def keys(self, rows, **kwargs):
+        return [sp.row_key(r) for r in sp.select_rows(rows, **kwargs)[0]]
+
+    def test_an_extra_field_on_every_row_changes_nothing(self):
+        grown = [dict(r, translators="E. Gilson") for r in self.ROWS]
+        self.assertEqual(self.keys(self.ROWS), self.keys(grown))
+
+    def test_a_reordered_file_changes_nothing(self):
+        self.assertEqual(self.keys(self.ROWS), self.keys(list(reversed(self.ROWS))))
+
+    def test_the_same_seed_picks_the_same_passages(self):
+        self.assertEqual(self.keys(self.ROWS), self.keys(self.ROWS))
+
+    def test_the_chunk_id_is_not_part_of_the_selection_key(self):
+        """Two rows carrying the same passage are one passage, so a re-mining that
+        moved it to another chunk cannot put it in the file twice."""
+        rows = self.ROWS + [row("moved-1", self.ROWS[0]["passage"],
+                                source=self.ROWS[0]["source"])]
+        keys = self.keys(rows)
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(keys, self.keys(self.ROWS))
+
+    def test_a_passage_written_under_another_chunk_id_is_not_offered_again(self):
+        already = self.ROWS[:50]
+        written = sp.Written([{"response": r["passage"], "source": r["source"],
+                               "src_id": "old-" + r["chunk_id"]} for r in already])
+        selected, _ = sp.select_rows(self.ROWS, written=written)
+        offered = {sp.row_key(r) for r in selected}
+        self.assertFalse({sp.row_key(r) for r in already} & offered,
+                         "a passage already written must not go out again")
+        self.assertEqual(len(selected), 300, "150 notebooks left and 150 of The Rebel")
+
+
+class CapAccountingTests(unittest.TestCase):
+    """The caps describe the finished corpus, so they are counted against the output
+    file: a source that already has rows gets the remainder and nothing more."""
+
+    def rows(self, count, source="The Rebel"):
+        return [row(f"s{i}", words(30, f"s{i}"), source=source) for i in range(count)]
+
+    def written(self, rows):
+        return sp.Written([{"response": r["passage"], "source": r["source"]}
+                           for r in rows])
+
+    def test_a_source_with_rows_in_the_file_gets_only_the_remainder(self):
+        already = self.rows(100)
+        selected, stats = sp.select_rows(self.rows(400), written=self.written(already))
+        self.assertEqual(len(selected), sp.OTHER_PER_SOURCE - 100)
+        self.assertEqual(stats["other_sources"]["The Rebel"],
+                         {"eligible": 400, "already": 100,
+                          "kept": sp.OTHER_PER_SOURCE - 100})
+        self.assertFalse({sp.row_key(r) for r in selected}
+                         & {sp.row_key(r) for r in already},
+                         "a passage already written must not go out again")
+
+    def test_a_full_source_is_not_offered_another_row(self):
+        selected, stats = sp.select_rows(
+            self.rows(400), written=self.written(self.rows(sp.OTHER_PER_SOURCE)))
+        self.assertEqual(selected, [])
+        self.assertEqual(stats["other_sources"]["The Rebel"]["kept"], 0)
+
+    def test_the_notebook_budget_is_shared_by_the_three_volumes(self):
+        rows = []
+        for volume in ("1935-1942", "1942-1951", "1951-1959"):
+            rows += [row(f"v{volume}-{i}", words(10, f"n{volume}-{i}"),
+                         source=f"Notebooks ({volume})") for i in range(900)]
+        written = sp.Written([{"response": r["passage"], "source": r["source"]}
+                              for r in rows[:1400]])
+        selected, stats = sp.select_rows(rows, written=written)
+        self.assertEqual(len(selected), sp.NOTEBOOK_TOTAL - 1400,
+                         "1400 notebook rows are already written, so 100 may go out")
+        self.assertEqual(stats["notebook_kept"], sp.NOTEBOOK_TOTAL - 1400)
+
+    def test_caps_are_counted_on_passages_not_on_rows(self):
+        """A file that still holds an old duplicate cannot starve a source: the
+        budget is spent once per passage."""
+        passage = words(30, "s0")
+        written = sp.Written([{"response": passage, "source": "The Rebel"},
+                              {"response": passage, "source": "The Rebel"}])
+        self.assertEqual(written.spent("The Rebel"), 1)
+        selected, _ = sp.select_rows(self.rows(400), written=written)
+        self.assertEqual(len(selected), sp.OTHER_PER_SOURCE - 1)
+
+
+class HttpResumeTests(unittest.TestCase):
+    """A run through the real transport with requests.post mocked: the batching, the
+    alignment and jz.judge's own reply checks all run, and nothing leaves the
+    process. A run is killed the way a real one is — the gateway's cap."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.out = os.path.join(self.tmp.name, "rows.jsonl")
+        self.sent = []
+        self.calls = 0
+        self.die_after = None
+        patcher = mock.patch.object(jz.requests, "post")
+        self.post = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.post.side_effect = self.fake_post
+
+    def fake_post(self, url, **kwargs):
+        batch = json.loads(kwargs["json"]["messages"][1]["content"])
+        self.calls += 1
+        if self.die_after is not None and self.calls > self.die_after:
+            raise jz.UsageCapReached("usage cap reached (HTTP 429)")
+        self.sent.extend(item["passage"] for item in batch)
+        return chat(json.dumps([{"id": item["id"],
+                                "prompt": f"a remark, passage {item['id']}, take {self.calls}"}
+                               for item in batch]))
+
+    def run_until_done(self, rows, batch_size=20):
+        """Rerun as often as it takes, one batch per run, the way a killed run is
+        restarted. Returns the number of runs it took."""
+        selected, _ = sp.select_rows(rows)
+        runs = 0
+        while True:
+            runs += 1
+            self.die_after = self.calls + 1
+            stats, stop = sp.run(selected, self.out, batch_size, key=KEY)
+            self.die_after = None
+            if stats["todo"] == 0 or stop is None:
+                return runs
+
+    def written(self):
+        return sp.load_rows(self.out) if os.path.exists(self.out) else []
+
+    def per_source(self):
+        counts = {}
+        for row in self.written():
+            counts[row["source"]] = counts.get(row["source"], 0) + 1
+        return counts
+
+    def corpus(self, count, source="The Rebel"):
+        return [row(f"c{i}", words(30, f"p{i}") + " and a little more here",
+                    source=source) for i in range(count)]
+
+    def test_a_run_killed_and_resumed_writes_no_duplicate(self):
+        rows = self.corpus(60)
+        selected, _ = sp.select_rows(rows)
+        self.die_after = 1                      # one batch, then the cap
+        first, stop = sp.run(selected, self.out, key=KEY)
+        self.assertIn("429", stop)
+        self.assertEqual(len(self.written()), 20)
+        before = [json.dumps(r, sort_keys=True) for r in self.written()]
+
+        self.die_after = None                   # the cap is gone; the run finishes
+        stats, _ = sp.run(selected, self.out, key=KEY)
+        self.assertEqual(stats["todo"], 40, "the resumed run re-sent the first batch")
+        after = self.written()
+        self.assertEqual(len(after), 60)
+        self.assertEqual(len({sp.normalise(r["response"]) for r in after}), 60)
+        self.assertEqual([json.dumps(r, sort_keys=True) for r in after[:20]], before,
+                         "the rows already written must not be touched")
+        self.assertEqual(len(self.sent), 60, "no passage went out twice")
+
+    def test_a_resume_after_a_re_mining_writes_no_duplicate(self):
+        """The same passages, re-mined into different chunks: a resume keyed on the
+        chunk id would pay for all sixty again."""
+        rows = self.corpus(60)
+        selected, _ = sp.select_rows(rows)
+        self.die_after = 1
+        sp.run(selected, self.out, key=KEY)
+        self.die_after = None
+
+        remined = [row(f"chunk-{i}", r["passage"], source=r["source"])
+                   for i, r in enumerate(rows)]
+        again, _ = sp.select_rows(remined)
+        stats, _ = sp.run(again, self.out, key=KEY)
+        self.assertEqual(stats["todo"], 40)
+        after = self.written()
+        self.assertEqual(len(after), 60)
+        self.assertEqual(len({sp.normalise(r["response"]) for r in after}), 60)
+
+    def test_the_caps_hold_across_runs_that_were_all_killed(self):
+        rows = self.corpus(400)
+        self.run_until_done(rows)
+        counts = self.per_source()
+        self.assertEqual(counts["The Rebel"], sp.OTHER_PER_SOURCE,
+                         "a killed-and-resumed run must not push a source past its cap")
+        self.assertEqual(len({sp.normalise(r["response"]) for r in self.written()}),
+                         sp.OTHER_PER_SOURCE)
+
+    def test_nothing_more_is_offered_once_the_caps_are_spent(self):
+        rows = self.corpus(400)
+        self.run_until_done(rows)
+        selected, stats = sp.select_rows(rows, written=sp.written_state(self.out))
+        self.assertEqual(selected, [])
+        calls = self.calls
+        sp.run(selected, self.out, key=KEY)
+        self.assertEqual(self.calls, calls, "an exhausted corpus makes no call")
+        self.assertEqual(len(self.written()), sp.OTHER_PER_SOURCE)
+
+    def test_the_notebook_cap_holds_across_runs(self):
+        rows = [row(f"n{i}", words(10, f"n{i}"),
+                    source="Notebooks (1935-1942)") for i in range(60)]
+        self.run_until_done(rows)
+        self.assertEqual(len(self.written()), 60)
+        self.assertEqual(len(self.sent), 60)
 
 
 class PayloadTests(unittest.TestCase):
