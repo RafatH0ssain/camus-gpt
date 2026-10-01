@@ -6,3 +6,5 @@ timestamp,commit,gen_model,judge,n,voice,factuality,engagement,composite
 2026-08-13 00:19 UTC,e5ff07e,camus2,anthropic:claude-sonnet-4-6,34,4.559,3.912,4.265,4.245
 2026-08-13 05:56 UTC,8e88dba,camus2,anthropic:claude-sonnet-4-6,34,4.529,3.824,4.324,4.225
 2026-08-13 06:08 UTC,dfb435e,camus2,anthropic:claude-sonnet-4-6,34,4.618,4.029,4.294,4.314
+2026-10-01 03:08 UTC,d486d91,camus2,opencode:space-bunny-free,34,4.471,4.176,4.588,4.412
+2026-10-01 00:14 UTC,9701562,camus2,opencode:space-bunny-free,34,4.676,4.441,4.882,4.667
