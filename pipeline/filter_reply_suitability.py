@@ -24,6 +24,15 @@ Two stages, in this order.
      to die, or the "stop resisting the thought of dying" shape. These rows are dropped
      whatever the passage is: a notebook fragment paired with a crisis message is not
      training data, it is a bad thing to hand a model at two in the morning.
+   * a dialogue marker — the response opens on a speaker initial and a dash or colon
+     ("S.—Yes.", "M.: ...", "X. — ...", "B.- ..."), i.e. a line of dialogue lifted out of
+     a scene rather than a remark made to the person in the prompt;
+   * an instruction-like prompt — the prompt reads as a direction to whoever is writing
+     the reply ("keep the speaker's response clipped", "let the awkward silence ..."),
+     not as something a person says in conversation. The verb has to be followed by
+     the/a/an/him/her/his/it, or the prompt has to name "the speaker" or "the response",
+     so "let's spend tonight talking about the theater", "give me a minute" and
+     "make sense?" stay out.
 
 2. A model pass over the survivors, in batches of 25 through rag/judge_opencode.py (key
    loading, the four Zen headers, transport and the 429 abort all come from there), on
@@ -61,11 +70,20 @@ hanging the run. Then:
     unlucky, and a run that keeps going just pays the deadline again for every batch left.
     Stopping is what turns an overnight stall into an overnight run that ended.
 
+Second opinion (--second-opinion MODEL): a second model is asked the exact same question
+about the rows the first pass kept, and a row survives only when both passes keep it. The
+second pass checkpoints to data/primary_rows.decisions2.jsonl, keyed the same way, and
+resumes from it; its batches default to 25 rows and its calls get 16000 output tokens
+(the first pass's 4000 is spent on reasoning before the model reaches a 25-row reply).
+Rows the second model has not decided yet are left out of the filtered file.
+
     python pipeline/filter_reply_suitability.py --dry-run
     python pipeline/filter_reply_suitability.py --limit 50
     python pipeline/filter_reply_suitability.py
+    python pipeline/filter_reply_suitability.py --second-opinion some-model
 """
 import argparse
+import contextlib
 import inspect
 import json
 import os
@@ -91,6 +109,10 @@ MAX_WORKERS = 2
 # below ends the run on the third one.
 REQUEST_TIMEOUT = 150   # space-bunny takes ~23 s on a 10-row batch; 25-row batches exhaust its token budget
 FAIL_STREAK = 3        # batches in a row left undecided, then the run gives up
+# Second-opinion defaults. Its batches are bigger and its answer needs a larger budget:
+# jz.MAX_TOKENS is 4000, which a reasoning model spends before it emits a 25-row array.
+SECOND_OPINION_BATCH = 25
+SECOND_OPINION_MAX_TOKENS = 16000
 SAMPLES = 10
 SAMPLE_CHARS = 90
 
@@ -143,9 +165,29 @@ CRISIS = re.compile(
     r"|\bd(?:ie|ying)\s+alone\b",
     re.I)
 
+# ── rule 4: the response opens on a dialogue marker ──────────────────────────────
+# "S.—Yes.", "M.: ...", "X. — ...", "B.- ...": one speaker initial, a full stop, then a
+# dash or a colon. The separator is what makes this a dialogue marker rather than a
+# sentence: "N. Nobody told her" is the single initial starting an ordinary reply and is
+# deliberately left alone, as is "A. He came back that winter".
+DIALOGUE_START = re.compile(r"^\s*[A-Z]\.\s*[—–:-]")
+
+# ── rule 5: the prompt is an instruction to the writer ───────────────────────────
+# A direction to whoever is writing the reply, not a thing a person says to another:
+# "keep the speaker's response clipped", "let the awkward silence do the work", "make it
+# a complaint". The verb must be followed by the/a/an/him/her/his/it, or the prompt must
+# name "the speaker" or "the response", so ordinary messages such as "let's spend tonight
+# talking about the theater", "give me a minute" and "make sense?" are not caught.
+INSTRUCTION_START = re.compile(
+    r"^\s*(?:keep|let|make|have|write|describe|rewrite|give)"
+    r"\s+(?:the|a|an|him|her|his|it)\b", re.I)
+INSTRUCTION_MENTION = re.compile(r"\bthe\s+(?:speaker|response)\b", re.I)
+
 RULE_LABELS = ("dated log entry (response opens on a date)",
                "citation marker (Id./Ibid./Cf./initials)",
-               "crisis prompt (suicide, self-harm, wanting to die)")
+               "crisis prompt (suicide, self-harm, wanting to die)",
+               "dialogue marker (speaker initial then a dash or colon)",
+               "instruction-like prompt (a direction to the writer)")
 
 SYSTEM = (
     "You screen mined rows for a conversational dataset. Each row is a user message and a "
@@ -199,6 +241,19 @@ def is_crisis(prompt):
     return CRISIS.search(str(prompt or "")) is not None
 
 
+def is_dialogue(response):
+    """A line lifted out of a scene: a speaker initial, then a dash or a colon. It reads
+    as somebody else talking, not as a reply to the prompt."""
+    return DIALOGUE_START.match(str(response or "")) is not None
+
+
+def is_instruction(prompt):
+    """A prompt that directs the writer rather than speaking to the other person: a
+    writing verb and a determiner, or an explicit mention of the speaker or the response."""
+    text = str(prompt or "")
+    return bool(INSTRUCTION_START.match(text) or INSTRUCTION_MENTION.search(text))
+
+
 def rule_label(row):
     """Label of the first rule the row breaks, else None.
 
@@ -210,6 +265,10 @@ def rule_label(row):
         return RULE_LABELS[0]
     if is_citation(row.get("response")):
         return RULE_LABELS[1]
+    if is_dialogue(row.get("response")):
+        return RULE_LABELS[3]
+    if is_instruction(row.get("prompt")):
+        return RULE_LABELS[4]
     return None
 
 
@@ -228,6 +287,10 @@ def apply_rules(rows):
             matched[RULE_LABELS[0]] += 1
         if is_citation(row.get("response")):
             matched[RULE_LABELS[1]] += 1
+        if is_dialogue(row.get("response")):
+            matched[RULE_LABELS[3]] += 1
+        if is_instruction(row.get("prompt")):
+            matched[RULE_LABELS[4]] += 1
         label = rule_label(row)
         if label is None:
             survivors.append(row)
@@ -253,6 +316,34 @@ def call_model(system, user, key=None):
     objects, which is what jz.judge checks a reply for, so nothing here re-validates it.
     """
     return jz.judge(MODEL, system, user, key=key)
+
+
+def model_call(model):
+    """A judge call bound to `model`, through the one shared transport.
+
+    The second-opinion pass asks a different model the identical question, so it needs
+    the same call with a different name in it rather than a second copy of the
+    transport. jz.judge takes no max_tokens argument, so the token budget is set by
+    _override_max_tokens around the whole second-opinion run."""
+    def call(system, user, key=None):
+        return jz.judge(model, system, user, key=key)
+    return call
+
+
+@contextlib.contextmanager
+def _override_max_tokens(tokens):
+    """jz.MAX_TOKENS for the duration of the block, restored after it.
+
+    jz.judge reads the module constant when it builds each payload, so the override has
+    to hold for the whole run, not one call: with two workers in flight a per-call reset
+    could put the old budget back while the other call is still reading it. The value is
+    restored even when the run raises."""
+    previous = jz.MAX_TOKENS
+    jz.MAX_TOKENS = tokens
+    try:
+        yield
+    finally:
+        jz.MAX_TOKENS = previous
 
 
 def _takes_timeout(call):
@@ -481,6 +572,23 @@ def write_filtered(rows, decided, out_path):
     return kept
 
 
+def agreed_decisions(first, second):
+    """The rows both passes keep, as a decisions map the filtered file can be written from.
+
+    A row is agreed when the first pass kept it and the second pass, asked the same
+    question, kept it too. A row the second model has not decided has no record in
+    `second` and is excluded, so an interrupted second pass never emits an unconfirmed
+    row. First-pass drops never enter the second pass and never appear here."""
+    agreed = {}
+    for key, record in first.items():
+        if not record.get("keep"):
+            continue
+        other = second.get(key)
+        if other is not None and other.get("keep"):
+            agreed[key] = {"keep": True}
+    return agreed
+
+
 def resolve_workers(requested):
     """The worker count actually used, clamped to 1..MAX_WORKERS. Anything else is a
     mistake or a wish the gateway cannot grant, and neither is worth failing a run over."""
@@ -601,6 +709,25 @@ def run(survivors, decided, decisions_path, batch_size=BATCH, key=None, call=cal
     return stats, stop_reason
 
 
+def run_second_opinion(candidates, decided, decisions_path, model,
+                       batch_size=SECOND_OPINION_BATCH, key=None, call=None,
+                       workers=WORKERS, timeout=REQUEST_TIMEOUT,
+                       max_failures=FAIL_STREAK,
+                       max_tokens=SECOND_OPINION_MAX_TOKENS):
+    """The second model's pass over the first pass's keeps, then the shared run loop.
+
+    The same SYSTEM question, the same batch payload, the same parse and align, the same
+    two workers and single writer as the first pass: only the model, the batch size and
+    the token budget differ. `call` is an injection seam for tests; when it is None the
+    real transport is bound to `model`. The token budget is raised for the whole run and
+    put back in _override_max_tokens' finally, so a 429 or a fail-streak stop cannot
+    leave jz.MAX_TOKENS changed for the rest of the process."""
+    call = call if call is not None else model_call(model)
+    with _override_max_tokens(max_tokens):
+        return run(candidates, decided, decisions_path, batch_size, key=key, call=call,
+                   workers=workers, timeout=timeout, max_failures=max_failures)
+
+
 def print_rules(rows, dropped, matched, decided):
     print(f"input rows {len(rows)}")
     print("dropped by rule (first rule that matches, so the counts add up):")
@@ -626,6 +753,37 @@ def print_summary(stats, stop_reason, decisions_path, out_path, kept_total):
           f"undecided {stats['undecided']}")
     print(f"decisions -> {decisions_path}")
     print(f"kept rows -> {out_path}  ({kept_total} rows)")
+    reason = None
+    if stop_reason is not None:
+        reason = f"stopped on a usage cap, not a failure: {stop_reason}"
+    elif stats.get("fail_reason"):
+        reason = (f"stopped on {stats['failures']} batches in a row, not on a cap: "
+                  f"{stats['fail_reason']}")
+    if reason:
+        print(reason)
+        print(f"  {stats['todo'] - stats['decided'] - stats['undecided']} rows still "
+              "to decide; re-run the same command to continue where this stopped.")
+
+
+def print_second_opinion_summary(stats, first_keeps, stop_reason, decisions_path,
+                                 out_path, kept_total):
+    """The second pass's counts, its agreement with the first, and the two-model total.
+
+    Agreement is measured over the rows the second model has actually decided. Every one
+    of them was a first-pass keep, so agreement is the share the second model kept too;
+    a row it has not reached is not a disagreement and is not counted, which is why the
+    denominator is decided rows rather than the whole candidate list."""
+    print(f"\nfirst-pass keeps {first_keeps}  already decided in the second pass "
+          f"{stats['already']}  to decide {stats['todo']}")
+    print(f"second pass: batches {stats['batches']}  calls {stats['calls']}  "
+          f"keep {stats['kept']}  drop {stats['dropped']}  decided {stats['decided']}  "
+          f"undecided {stats['undecided']}")
+    decided = stats["kept"] + stats["dropped"]
+    rate = (stats["kept"] / decided * 100.0) if decided else 0.0
+    print(f"agreement rate {rate:.1f}% (second pass kept {stats['kept']} of {decided} "
+          "decided first-pass keeps)")
+    print(f"decisions -> {decisions_path}")
+    print(f"kept rows -> {out_path}  ({kept_total} rows, keep=true in both passes)")
     reason = None
     if stop_reason is not None:
         reason = f"stopped on a usage cap, not a failure: {stop_reason}"
@@ -665,20 +823,30 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("--in", dest="src", default="data/primary_rows.jsonl")
     ap.add_argument("--decisions", default="data/primary_rows.decisions.jsonl")
+    ap.add_argument("--decisions2", default="data/primary_rows.decisions2.jsonl",
+                    help="second-opinion checkpoint, used only with --second-opinion")
     ap.add_argument("--out", default="data/primary_rows.filtered.jsonl")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the rule counts and stop; no model is called")
     ap.add_argument("--limit", type=int, default=None,
                     help="put at most N survivors to the model")
-    ap.add_argument("--batch", type=int, default=BATCH,
-                    help=f"rows per call (default {BATCH})")
+    ap.add_argument("--batch", type=int, default=None,
+                    help=f"rows per call (default {BATCH}, or {SECOND_OPINION_BATCH} "
+                         "with --second-opinion)")
     ap.add_argument("--workers", type=int, default=WORKERS,
                     help=f"batches in flight at once, 1 to {MAX_WORKERS} (default "
                          f"{WORKERS}; higher is clamped to {MAX_WORKERS})")
     ap.add_argument("--samples", type=int, default=SAMPLES,
                     help=f"kept and dropped pairs to print at the end (default {SAMPLES}, "
                          "0 for none)")
+    ap.add_argument("--second-opinion", metavar="MODEL", default=None,
+                    help="ask MODEL the same question about the first pass's keeps; a "
+                         "row is kept only when both passes keep it")
     args = ap.parse_args()
+
+    batch = args.batch
+    if batch is None:
+        batch = SECOND_OPINION_BATCH if args.second_opinion else BATCH
 
     rows = load_rows(args.src)
     survivors, dropped, matched = apply_rules(rows)
@@ -687,17 +855,39 @@ def main():
 
     if args.dry_run:
         print(f"\ndry run: rules only. {len(survivors)} rows would go to the model in "
-              f"{-(-len(survivors) // args.batch)} calls of {args.batch}.")
+              f"{-(-len(survivors) // batch)} calls of {batch}.")
+        return 0
+
+    workers = resolve_workers(args.workers)
+    if workers != args.workers:
+        print(f"\n--workers {args.workers} clamped to {workers}")
+    key = jz.load_key()
+
+    if args.second_opinion:
+        candidates = [row for row in survivors
+                      if decided.get(row_key(row), {}).get("keep")]
+        if args.limit is not None:
+            candidates = candidates[:args.limit]
+            print(f"\nlimited to {len(candidates)} first-pass keeps")
+        decided2 = load_decisions(args.decisions2)
+        print(f"\nsecond opinion: {len(candidates)} first-pass keeps to re-ask "
+              f"{args.second_opinion} about, in batches of {batch}")
+        stats, stop_reason = run_second_opinion(
+            candidates, decided2, args.decisions2, args.second_opinion,
+            batch_size=batch, key=key, workers=workers)
+        agreed = agreed_decisions(load_decisions(args.decisions),
+                                  load_decisions(args.decisions2))
+        kept = write_filtered(survivors, agreed, args.out)
+        print_second_opinion_summary(stats, len(candidates), stop_reason,
+                                     args.decisions2, args.out, len(kept))
+        if args.samples:
+            print_samples(survivors, agreed, args.samples)
         return 0
 
     if args.limit is not None:
         survivors = survivors[:args.limit]
         print(f"\nlimited to {len(survivors)} survivors")
-    workers = resolve_workers(args.workers)
-    if workers != args.workers:
-        print(f"\n--workers {args.workers} clamped to {workers}")
-    key = jz.load_key()
-    stats, stop_reason = run(survivors, decided, args.decisions, args.batch,
+    stats, stop_reason = run(survivors, decided, args.decisions, batch,
                              key=key, call=call_model, workers=workers)
     kept = write_filtered(rows, load_decisions(args.decisions), args.out)
     print_summary(stats, stop_reason, args.decisions, args.out, len(kept))
