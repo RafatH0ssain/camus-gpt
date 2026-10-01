@@ -17,7 +17,13 @@ It is never printed, logged or written, and every message produced here is scrub
 Failures split in two, deliberately: HTTP 429 raises UsageCapReached (a SystemExit, so a
 harness's `except Exception` cannot turn a dead run into a row full of judge errors), while
 everything else — other HTTP errors, timeouts, unparseable replies — raises normally so the
-harness records it as a judge error and keeps going.
+harness records it as a judge error and keeps going. 429 is never retried; a run that hit the
+cap must stop, not spend a second call proving it.
+
+The default model is a reasoning model, so it can spend the whole token budget thinking and
+answer with nothing — or run out mid-object. judge() therefore sends the identical request
+once more when the first reply is empty or carries no complete JSON object, and only then
+raises what the first attempt's failure would have raised.
 """
 import argparse, json, os, re, secrets
 
@@ -27,7 +33,8 @@ ENDPOINT      = "https://opencode.ai/zen/go/v1/chat/completions"
 DEFAULT_MODEL = "space-bunny-free"
 USER_AGENT    = "camus-gpt-eval/1.0"
 TIMEOUT       = 120
-MAX_TOKENS    = 1200
+MAX_TOKENS    = 4000
+ATTEMPTS      = 2       # the first call, plus exactly one retry of the same request
 AUTH_PATH     = os.path.expanduser("~/.local/share/opencode/auth.json")
 
 # One session id per process, so the gateway can group a whole run's judge calls.
@@ -77,29 +84,61 @@ def headers(key):
 
 
 def judge(model, system, prompt, key=None, auth_path=AUTH_PATH):
-    """Return the judge's reply text. Raises UsageCapReached on 429, otherwise raises
-    normally so the caller records a judge error."""
+    """Return the judge's reply text, once it is known to carry a complete JSON object.
+
+    A reply that arrives empty, null, truncated mid-object, or not chat/completions-shaped at
+    all gets the identical request sent once more — the model may just have run out of budget.
+    If the second attempt is no better, the failure is raised exactly as before (a ValueError
+    from first_json_object, or the shape RuntimeError), so the harness still records a judge
+    error and keeps going.
+
+    Raises UsageCapReached on 429 — raised from the first attempt, never retried — and raises
+    normally otherwise.
+    """
     key = key if key is not None else load_key(auth_path)
     payload = {"model": model,
                "messages": [{"role": "system", "content": system},
                             {"role": "user", "content": prompt}],
                "max_tokens": MAX_TOKENS, "temperature": 0}
+    sent = headers(key)
+    for attempt in range(ATTEMPTS):
+        last = attempt == ATTEMPTS - 1
+        try:
+            r = requests.post(ENDPOINT, headers=sent, json=payload, timeout=TIMEOUT)
+        except requests.RequestException as e:
+            raise RuntimeError(_scrub(f"opencode judge request failed: {e}", key)) from None
+        if r.status_code == 429:
+            raise UsageCapReached(_scrub(
+                f"opencode judge hit the usage cap (HTTP 429) on model {model} — stopping the run. "
+                f"Everything past this point would be unscored, so nothing is recorded: top up or "
+                f"wait out the cap, then re-run. ({_body(r)})", key))
+        if r.status_code >= 400:
+            raise RuntimeError(_scrub(f"opencode judge HTTP {r.status_code}: {_body(r)}", key))
+        content = _content(r)
+        if content is None:  # no choices[0].message: nothing here this call could judge
+            if last:
+                raise RuntimeError(_scrub("opencode judge reply was not chat/completions-shaped: "
+                                         f"{_body(r)}", key)) from None
+            continue
+        try:
+            first_json_object(content)  # exactly what the harness's parse_judge goes on to do
+            return content
+        except ValueError:
+            if last:
+                raise
+    raise RuntimeError(_scrub(f"opencode judge reply unusable after {ATTEMPTS} attempts", key))
+
+
+def _content(r):
+    """choices[0].message.content, or None when the body is not chat/completions-shaped.
+
+    A null or missing content is empty content, not a shape error: a reasoning model can
+    spend every token on reasoning_content and hand back an empty answer."""
     try:
-        r = requests.post(ENDPOINT, headers=headers(key), json=payload, timeout=TIMEOUT)
-    except requests.RequestException as e:
-        raise RuntimeError(_scrub(f"opencode judge request failed: {e}", key)) from None
-    if r.status_code == 429:
-        raise UsageCapReached(_scrub(
-            f"opencode judge hit the usage cap (HTTP 429) on model {model} — stopping the run. "
-            f"Everything past this point would be unscored, so nothing is recorded: top up or "
-            f"wait out the cap, then re-run. ({_body(r)})", key))
-    if r.status_code >= 400:
-        raise RuntimeError(_scrub(f"opencode judge HTTP {r.status_code}: {_body(r)}", key))
-    try:
-        content = r.json()["choices"][0]["message"]["content"]
+        message = r.json()["choices"][0]["message"]
     except (ValueError, KeyError, IndexError, TypeError):
-        raise RuntimeError(_scrub(
-            f"opencode judge reply was not chat/completions-shaped: {_body(r)}", key)) from None
+        return None
+    content = message.get("content") if isinstance(message, dict) else None
     return content if isinstance(content, str) else ""
 
 

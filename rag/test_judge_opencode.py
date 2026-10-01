@@ -25,6 +25,9 @@ PROBE = dict(id="pet_cat", cat="identity_pets", turns=["do you have a cat"],
              expect="Affirms having a cat and names Cigarette.", forbid="Other cat names.")
 CONVO = [{"role": "user", "content": "do you have a cat"},
          {"role": "assistant", "content": "I had a cat. Cigarette."}]
+VALID_JSON = ('{"voice": 4, "factuality": 5, "engagement": 3, "rationale": "terse and correct"}')
+VALID_SCORES = {"voice": 4, "factuality": 5, "engagement": 3, "rationale": "terse and correct"}
+CUT_OFF = '{"voice": 4, "rationale": "The response is terse, first-pe'   # ran out of tokens mid-object
 
 
 class FakeResponse:
@@ -44,6 +47,12 @@ class FakeResponse:
 def chat(content):
     return FakeResponse(200, {"choices": [{"message": {"role": "assistant",
                                                        "content": content}}]})
+
+
+def reasoning_only(reasoning):
+    """A reasoning model that spent its whole budget thinking: content null, thoughts present."""
+    return FakeResponse(200, {"choices": [{"message": {"role": "assistant", "content": None,
+                                                       "reasoning_content": reasoning}}]})
 
 
 def judge_a_probe():
@@ -106,7 +115,10 @@ class JudgeOpencodeTest(unittest.TestCase):
             "model": "some-model",
             "messages": [{"role": "system", "content": "SYSTEM"},
                          {"role": "user", "content": "USER"}],
-            "max_tokens": 1200, "temperature": 0})
+            "max_tokens": 4000, "temperature": 0})
+
+    def test_max_tokens_leaves_room_for_a_reasoning_model_to_finish_its_answer(self):
+        self.assertEqual(jz.MAX_TOKENS, 4000)
 
     def test_session_id_is_one_hex_id_reused_for_the_whole_process(self):
         self.post.return_value = chat("{}")
@@ -223,6 +235,79 @@ class JudgeOpencodeTest(unittest.TestCase):
         self.assertNotIn("scores", row)
         self.assertTrue(row["judge_error"])
 
+    # ------------------------------------------------ empty / truncated replies ----
+    # The judge model reasons before it answers, so a reply can come back with nothing in it
+    # or cut off mid-object. One identical retry, then the failure stands.
+    def test_empty_reply_then_a_good_one_scores(self):
+        self.post.side_effect = [chat(""), chat(VALID_JSON)]
+        row = run_like_harness(judge_a_probe)
+        self.assertEqual(row.get("judge_error"), None)
+        self.assertEqual(row["scores"], VALID_SCORES)
+        self.assertEqual(self.post.call_count, 2)
+
+    def test_truncated_reply_then_a_good_one_scores(self):
+        self.post.side_effect = [chat(CUT_OFF), chat(VALID_JSON)]
+        row = run_like_harness(judge_a_probe)
+        self.assertEqual(row.get("judge_error"), None)
+        self.assertEqual(row["scores"], VALID_SCORES)
+        self.assertEqual(self.post.call_count, 2)
+
+    def test_null_content_beside_reasoning_is_treated_as_empty_and_retried(self):
+        self.post.side_effect = [reasoning_only("Weighing voice against factuality..."),
+                                 chat(VALID_JSON)]
+        row = run_like_harness(judge_a_probe)
+        self.assertEqual(row.get("judge_error"), None)
+        self.assertEqual(row["scores"], VALID_SCORES)
+        self.assertEqual(self.post.call_count, 2)
+
+    def test_null_content_with_no_reasoning_beside_it_is_also_a_judge_error(self):
+        self.post.side_effect = [reasoning_only("..."), reasoning_only("...")]
+        row = run_like_harness(judge_a_probe)
+        self.assertNotIn("scores", row)
+        self.assertIn("no JSON", row["judge_error"])
+        self.assertEqual(self.post.call_count, 2)
+
+    def test_reply_missing_the_message_is_retried_then_a_judge_error(self):
+        shapeless = FakeResponse(200, {"id": "gen-1", "object": "chat.completion", "created": 0})
+        self.post.side_effect = [shapeless, chat(VALID_JSON)]
+        self.assertEqual(run_like_harness(judge_a_probe)["scores"], VALID_SCORES)
+        self.assertEqual(self.post.call_count, 2)
+        self.post.reset_mock()
+        self.post.side_effect = [shapeless, shapeless]
+        row = run_like_harness(judge_a_probe)
+        self.assertNotIn("scores", row)
+        self.assertIn("chat/completions-shaped", row["judge_error"])
+        self.assertEqual(self.post.call_count, 2)
+
+    def test_the_retry_resends_the_identical_request(self):
+        self.post.side_effect = [chat(CUT_OFF), chat(VALID_JSON)]
+        run_like_harness(judge_a_probe)
+        first, second = self.post.call_args_list
+        self.assertEqual(second.args, first.args)
+        self.assertEqual(second.kwargs["json"], first.kwargs["json"])
+        self.assertEqual(second.kwargs["headers"], first.kwargs["headers"])
+        self.assertEqual(second.kwargs["timeout"], first.kwargs["timeout"])
+
+    def test_two_empty_replies_are_a_judge_error_not_a_score(self):
+        self.post.side_effect = [chat(""), chat("")]
+        row = run_like_harness(judge_a_probe)
+        self.assertNotIn("scores", row)
+        self.assertIn("no JSON", row["judge_error"])
+        self.assertEqual(self.post.call_count, 2)  # one retry, not a loop
+
+    def test_two_truncated_replies_are_a_judge_error_carrying_todays_message(self):
+        self.post.side_effect = [chat(CUT_OFF), chat(CUT_OFF)]
+        row = run_like_harness(judge_a_probe)
+        self.assertNotIn("scores", row)
+        self.assertIn("unterminated JSON", row["judge_error"])
+        self.assertEqual(self.post.call_count, 2)
+
+    def test_a_good_first_reply_is_never_retried(self):
+        self.post.return_value = chat(VALID_JSON)
+        row = run_like_harness(judge_a_probe)
+        self.assertEqual(row["scores"], VALID_SCORES)
+        self.assertEqual(self.post.call_count, 1)
+
     # --------------------------------------------------------------- usage cap ----
     def test_429_raises_usage_cap_not_a_judge_error(self):
         self.post.return_value = FakeResponse(429, text="usage limit reached")
@@ -230,6 +315,12 @@ class JudgeOpencodeTest(unittest.TestCase):
             judge_a_probe()
         self.assertIn("429", str(cm.exception))
         self.assertNotIn(KEY, str(cm.exception))
+
+    def test_429_is_not_retried_not_even_after_an_empty_reply(self):
+        self.post.side_effect = [chat(""), FakeResponse(429, text="usage limit reached")]
+        with self.assertRaises(jz.UsageCapReached):
+            judge_a_probe()
+        self.assertEqual(self.post.call_count, 2)  # the retry hit the cap; no third call
 
     def test_usage_cap_is_not_an_exception_so_a_harness_cannot_swallow_it(self):
         self.assertTrue(issubclass(jz.UsageCapReached, SystemExit))
