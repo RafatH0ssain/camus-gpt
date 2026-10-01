@@ -315,6 +315,86 @@ class CrisisPromptTest(unittest.TestCase):
         self.assertEqual(sum(dropped.values()), 1)
 
 
+class DialogueMarkerTest(unittest.TestCase):
+    """Rule 4: a response opening on a speaker initial and a dash or colon is a line
+    lifted out of a scene, not a reply made to the person in the prompt."""
+
+    def test_dialogue_openings_are_dropped(self):
+        for response in ("S.—Yes.",
+                         "M.: ...",
+                         "X. — ...",
+                         "B.- ...",
+                         "J.—I don't know what you mean.",
+                         "P.: the same answer as before.",
+                         "  S.—Indented, still dialogue."):
+            with self.subTest(response=response):
+                self.assertTrue(frs.is_dialogue(response), response)
+
+    def test_a_sentence_beginning_with_one_initial_is_not_dropped(self):
+        # The separator is the whole rule: a single initial opens ordinary sentences
+        # often enough that only a dash or a colon may mark it as dialogue.
+        for response in ("N. Nobody told her, and she never asked.",
+                         "M. Dupont arrived at noon without a word.",
+                         "A. He came back that winter without saying why.",
+                         "Xylophone players were the only ones still awake.",
+                         "S. Yes, of course, but not tonight."):
+            with self.subTest(response=response):
+                self.assertFalse(frs.is_dialogue(response), response)
+
+    def test_dialogue_rows_are_counted_and_not_sent_to_the_model(self):
+        rows = [row("what did he say?", "S.—Yes."),
+                row("tell me something.", "The world does not care about us.")]
+        survivors, dropped, _ = frs.apply_rules(rows)
+        self.assertEqual([r["src_id"] for r in survivors], ["s1"])
+        self.assertEqual(dropped[frs.RULE_LABELS[3]], 1)
+
+
+class InstructionPromptTest(unittest.TestCase):
+    """Rule 5: a prompt that directs whoever is writing the reply is not something a
+    person says to the other person in a conversation."""
+
+    def test_writer_instructions_are_dropped(self):
+        for prompt in ("keep the speaker's response clipped and plain.",
+                       "let the awkward silence do the work.",
+                       "make the response shorter.",
+                       "make it land as an insult.",
+                       "have him answer like a man who is tired.",
+                       "write a scene where nobody speaks.",
+                       "describe the room in one line.",
+                       "rewrite the ending so it lands.",
+                       "give her a reason to stay.",
+                       "The speaker should sound bored."):
+            with self.subTest(prompt=prompt):
+                self.assertTrue(frs.is_instruction(prompt), prompt)
+
+    def test_naming_the_speaker_or_the_response_is_an_instruction(self):
+        for prompt in ("the speaker should sound bored.",
+                       "the response comes too late to matter.",
+                       "trim the response to one line.",
+                       "what does the speaker want here?"):
+            with self.subTest(prompt=prompt):
+                self.assertTrue(frs.is_instruction(prompt), prompt)
+
+    def test_ordinary_messages_are_not_writer_instructions(self):
+        for prompt in ("let's spend tonight talking about the theater.",
+                       "give me a minute.",
+                       "make sense?",
+                       "let me think about it.",
+                       "have you ever been to algiers?",
+                       "write me back when you can.",
+                       "keep in touch, will you?",
+                       "I wanted to describe the results of my investigation."):
+            with self.subTest(prompt=prompt):
+                self.assertFalse(frs.is_instruction(prompt), prompt)
+
+    def test_instruction_rows_are_counted_and_not_sent_to_the_model(self):
+        rows = [row("keep the speaker's response clipped.", "Anything at all."),
+                row("tell me something.", "The world does not care about us.")]
+        survivors, dropped, _ = frs.apply_rules(rows)
+        self.assertEqual([r["src_id"] for r in survivors], ["s1"])
+        self.assertEqual(dropped[frs.RULE_LABELS[4]], 1)
+
+
 class TitleResponseTest(unittest.TestCase):
     """A bare title survives the rules and is left to the model pass."""
 
@@ -342,8 +422,27 @@ class RuleCountingTest(unittest.TestCase):
         self.assertEqual(dropped[frs.RULE_LABELS[2]], 1)
 
     def test_every_rule_has_a_label_in_the_report_order(self):
-        self.assertEqual(len(frs.RULE_LABELS), 3)
+        self.assertEqual(len(frs.RULE_LABELS), 5)
         self.assertTrue(all(label for label in frs.RULE_LABELS))
+        # The original three keep their indices; the two new rules are appended, so the
+        # rule report and the per-rule counters never move under an old test.
+        self.assertIn("dated", frs.RULE_LABELS[0])
+        self.assertIn("citation", frs.RULE_LABELS[1])
+        self.assertIn("crisis", frs.RULE_LABELS[2])
+        self.assertIn("dialogue", frs.RULE_LABELS[3])
+        self.assertIn("instruction", frs.RULE_LABELS[4])
+
+    def test_the_two_new_rules_are_counted_like_the_old_ones(self):
+        rows = [row("what did he say?", "S.—Yes."),
+                row("keep the speaker's response clipped.", "Anything at all."),
+                row("tell me something.", "The world does not care about us.")]
+        survivors, dropped, matched = frs.apply_rules(rows)
+        self.assertEqual(len(survivors), 1)
+        self.assertEqual(dropped[frs.RULE_LABELS[3]], 1)
+        self.assertEqual(dropped[frs.RULE_LABELS[4]], 1)
+        self.assertEqual(matched[frs.RULE_LABELS[3]], 1)
+        self.assertEqual(matched[frs.RULE_LABELS[4]], 1)
+        self.assertEqual(sum(dropped.values()), len(rows) - len(survivors))
 
 
 class NormaliseTest(unittest.TestCase):
@@ -1124,6 +1223,174 @@ class EndToEndTest(unittest.TestCase):
                 path = os.path.join(tmp, "d.jsonl")
                 call, _ = all_keep(25)
                 quietly(frs.run, survivors, {}, path, key=KEY, call=call)
+
+
+class FakeResponse:
+    """The shape jz.judge reads off requests.post: a status and a chat/completions body."""
+
+    status_code = 200
+    text = ""
+
+    def __init__(self, payload):
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+class SecondOpinionTest(unittest.TestCase):
+    """--second-opinion: a second model is asked the identical question about the rows
+    the first pass kept, and only rows both passes keep reach the filtered file."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = tmp.name
+        self.src = os.path.join(self.tmp, "rows.jsonl")
+        self.decisions = os.path.join(self.tmp, "decisions.jsonl")
+        self.decisions2 = os.path.join(self.tmp, "decisions2.jsonl")
+        self.out = os.path.join(self.tmp, "filtered.jsonl")
+
+    def write_rows(self, rows):
+        with open(self.src, "w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    def write_decisions(self, path, pairs):
+        with open(path, "w", encoding="utf-8") as fh:
+            for key, keep in pairs:
+                fh.write(json.dumps({"key": key, "keep": keep, "reason": "pass"}) + "\n")
+
+    def run_main_printed(self, call, *extra):
+        argv = ["--in", self.src, "--decisions", self.decisions,
+                "--decisions2", self.decisions2, "--out", self.out,
+                "--second-opinion", "second-model", "--samples", "0"] + list(extra)
+        with mock.patch.object(frs, "model_call", return_value=call), \
+                mock.patch.object(frs.jz, "load_key", return_value=KEY), \
+                mock.patch("sys.argv", ["filter_reply_suitability.py"] + argv), \
+                contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()):
+            code = frs.main()
+        return code, out.getvalue()
+
+    def run_main(self, call, *extra):
+        return self.run_main_printed(call, *extra)[0]
+
+    def test_only_rows_kept_by_both_passes_are_written(self):
+        self.write_rows(passages(4))
+        self.write_decisions(self.decisions, [(f"passage {i}", i < 3) for i in range(4)])
+        call = ContentKeyedCall(keep_for=lambda r: r in ("passage 0", "passage 2"))
+        self.assertEqual(self.run_main(call), 0)
+        self.assertEqual([r["response"] for r in frs.load_rows(self.out)],
+                         ["passage 0", "passage 2"])
+        # The second model is asked only about the first pass's keeps.
+        asked = [r for sig in call.signatures for r in sig]
+        self.assertEqual(sorted(asked), ["passage 0", "passage 1", "passage 2"])
+
+    def test_a_rule_dropped_row_is_excluded_even_when_both_passes_kept_it(self):
+        rows = [row("q0", "The world does not care about us."),
+                row("q1", "S.—Yes.")]                    # rule 4 drops this one
+        self.write_rows(rows)
+        self.write_decisions(self.decisions,
+                             [("the world does not care about us.", True),
+                              ("s.—yes.", True)])
+        # The dropped row was kept by a second pass in some earlier run; it still must
+        # not reappear, because the rules already threw it out.
+        self.write_decisions(self.decisions2, [("s.—yes.", True)])
+        call = ContentKeyedCall()
+        self.assertEqual(self.run_main(call), 0)
+        self.assertEqual([r["response"] for r in frs.load_rows(self.out)],
+                         ["The world does not care about us."])
+        # A row the rules dropped never reaches the second model at all.
+        self.assertEqual([r for sig in call.signatures for r in sig],
+                         ["The world does not care about us."])
+
+    def test_a_row_the_second_model_has_not_decided_is_excluded(self):
+        self.write_rows(passages(2))
+        self.write_decisions(self.decisions, [("passage 0", True), ("passage 1", True)])
+        call = ContentKeyedCall(failing={"passage 1"})
+        self.assertEqual(self.run_main(call, "--batch", "1", "--workers", "1"), 0)
+        self.assertEqual([r["response"] for r in frs.load_rows(self.out)], ["passage 0"])
+        self.assertEqual({d["key"] for d in frs.load_rows(self.decisions2)}, {"passage 0"})
+
+    def test_the_second_pass_resumes_from_its_own_checkpoint(self):
+        self.write_rows(passages(3))
+        self.write_decisions(self.decisions, [(f"passage {i}", True) for i in range(3)])
+        self.write_decisions(self.decisions2, [("passage 0", True)])
+        call = ContentKeyedCall()
+        self.assertEqual(self.run_main(call), 0)
+        asked = [r for sig in call.signatures for r in sig]
+        self.assertNotIn("passage 0", asked)
+        self.assertEqual(sorted(asked), ["passage 1", "passage 2"])
+        self.assertEqual([r["response"] for r in frs.load_rows(self.out)],
+                         ["passage 0", "passage 1", "passage 2"])
+
+    def test_second_opinion_batches_default_to_twenty_five(self):
+        self.write_rows(passages(26))
+        self.write_decisions(self.decisions, [(f"passage {i}", True) for i in range(26)])
+        call = ContentKeyedCall()
+        self.assertEqual(self.run_main(call), 0)
+        self.assertEqual(sorted(len(sig) for sig in call.signatures), [1, 25])
+
+    def test_the_first_model_is_never_called_in_this_mode(self):
+        self.write_rows(passages(2))
+        self.write_decisions(self.decisions, [("passage 0", True), ("passage 1", False)])
+        with mock.patch.object(frs, "call_model",
+                               side_effect=AssertionError("first pass made a call")):
+            self.assertEqual(self.run_main(ContentKeyedCall()), 0)
+
+    def test_agreement_is_measured_over_rows_the_second_model_decided(self):
+        self.write_rows(passages(3))
+        self.write_decisions(self.decisions, [(f"passage {i}", True) for i in range(3)])
+        call = ContentKeyedCall(keep_for=lambda r: r == "passage 2")
+        _, printed = self.run_main_printed(call)
+        self.assertIn("first-pass keeps 3", printed)
+        self.assertIn("agreement rate 33.3%", printed)
+        self.assertIn("keep 1", printed)
+        self.assertIn("(1 rows", printed)
+
+    def _http_reply(self, posts):
+        def fake_post(url, **kwargs):
+            payload = kwargs["json"]
+            posts.append(payload)
+            items = json.loads(payload["messages"][1]["content"])
+            content = json.dumps([{"id": item["id"], "keep": True, "reason": "ok"}
+                                  for item in items])
+            return FakeResponse({"choices": [{"message": {"content": content}}]})
+        return fake_post
+
+    def test_max_tokens_is_16000_for_the_second_opinion_only(self):
+        self.write_rows(passages(2))
+        self.write_decisions(self.decisions, [("passage 0", True), ("passage 1", True)])
+        self.assertEqual(jz.MAX_TOKENS, 4000)
+        posts = []
+        with mock.patch.object(frs.jz.requests, "post", side_effect=self._http_reply(posts)), \
+                mock.patch.object(frs.jz, "load_key", return_value=KEY), \
+                mock.patch("sys.argv", ["filter_reply_suitability.py",
+                                        "--in", self.src,
+                                        "--decisions", self.decisions,
+                                        "--decisions2", self.decisions2,
+                                        "--out", self.out,
+                                        "--second-opinion", "second-model",
+                                        "--workers", "1", "--samples", "0"]), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            frs.main()
+        self.assertTrue(posts)
+        self.assertTrue(all(p["max_tokens"] == 16000 for p in posts))
+        self.assertEqual(jz.MAX_TOKENS, 4000)   # restored after the run
+
+    def test_the_first_pass_still_uses_the_default_token_budget(self):
+        posts = []
+        rows = passages(1)
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(frs.jz.requests, "post", side_effect=self._http_reply(posts)), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            frs.run(rows, {}, os.path.join(tmp, "d1.jsonl"), batch_size=1, key=KEY,
+                    call=frs.call_model)
+        self.assertEqual(posts[-1]["max_tokens"], 4000)
+        self.assertEqual(jz.MAX_TOKENS, 4000)
 
 
 class SamplePrintTest(unittest.TestCase):
