@@ -55,7 +55,7 @@ class FilterTests(unittest.TestCase):
 
 
 class JunkFilterTests(unittest.TestCase):
-    """The three filters that drop passages which are not Camus talking."""
+    """The filters that drop passages which are not Camus talking."""
 
     def test_editorial_note_names_camus(self):
         for passage in ("The editor notes that Camus wrote this in April.",
@@ -144,6 +144,97 @@ class JunkFilterTests(unittest.TestCase):
         self.assertEqual(dict(filtered),
                          {"editorial notes (names Camus)": 1,
                           "front/back matter": 1})
+
+
+class EndnoteMarkerTests(unittest.TestCase):
+    """An endnote opens with its own number; an entry that begins with a figure
+    does not."""
+
+    def test_numbered_endnotes_are_recognized(self):
+        for passage in ("106 This title will continue to appear throughout.",
+                        "152 The Lord's Supper is more often called Communion.",
+                        '97 Alexandre "Marius" Jacob was a French anarchist.',
+                        "1 The entry is heavily edited, with parts crossed out."):
+            self.assertTrue(mp.is_endnote_marker(passage), passage)
+
+    def test_entries_beginning_with_a_figure_survive(self):
+        for passage in ("10 years ago I met him on the train to Algiers.",
+                        "3 o'clock in the morning and still no word from her.",
+                        "1937 was the year everything changed for us.",
+                        "A single entry of plain prose follows here.",
+                        "1201 was the year the guild was chartered."):
+            self.assertFalse(mp.is_endnote_marker(passage), passage)
+
+    def test_endnote_marker_passage_removed(self):
+        rows = [row("c1", "106 This title will continue to appear throughout the "
+                          "notebooks of the period."),
+                row("c2", "A real entry of the notebook follows here.")]
+        candidates, _, filtered = mp.mine_rows(rows)
+        self.assertEqual([c["chunk_id"] for c in candidates], ["c2"])
+        self.assertEqual(filtered["endnote markers (numbered notes)"], 1)
+
+
+class LifeDatesTests(unittest.TestCase):
+    """The endnotes' stock form of introduction: a lifespan in brackets."""
+
+    def test_parenthesised_lifespans_are_recognized(self):
+        for passage in ("97 Alexandre \"Marius\" Jacob (1879–1954), a French anarchist.",
+                        "152 André Gide (1869-1951) turned to the Bible late in life.",
+                        "He met Lucien Rebatet (1903–1972) in the early summer."):
+            self.assertTrue(mp.is_life_dates(passage), passage)
+
+    def test_bracketed_numbers_that_are_not_lifespans_survive(self):
+        for passage in ("The siege lasted (2) years, he wrote, and no longer.",
+                        "See chapter (3) for the argument in full.",
+                        "It rained (a little) and then it cleared completely.",
+                        "A real entry of the notebook follows here."):
+            self.assertFalse(mp.is_life_dates(passage), passage)
+
+    def test_life_dates_passage_removed(self):
+        rows = [row("c1", "Alexandre \"Marius\" Jacob (1879–1954), a French "
+                          "anarchist and a friend of the editor's father."),
+                row("c2", "A real entry of the notebook follows here.")]
+        candidates, _, filtered = mp.mine_rows(rows)
+        self.assertEqual([c["chunk_id"] for c in candidates], ["c2"])
+        self.assertEqual(filtered["life-dates brackets"], 1)
+
+    def test_a_numbered_note_with_dates_is_counted_under_the_marker(self):
+        # The two endnote filters overlap; the first match wins, so this note is
+        # reported as a marker and not counted again as a lifespan.
+        rows = [row("c1", "106 This title will continue to appear throughout the "
+                          "notebooks of the period, and Alexandre Jacob "
+                          "(1879–1954) also used it in his own work.")]
+        candidates, _, filtered = mp.mine_rows(rows)
+        self.assertEqual(candidates, [])
+        self.assertEqual(filtered["endnote markers (numbered notes)"], 1)
+        self.assertEqual(filtered["life-dates brackets"], 0)
+
+
+class LowercaseStartTests(unittest.TestCase):
+    """A passage opening mid-sentence is a fragment, not a whole thought."""
+
+    def test_lowercase_openings_are_recognized(self):
+        for passage in ("and the rain came down without stopping that night.",
+                        "the tide went out and left the boats on their keels.",
+                        "or Indochina."):
+            self.assertTrue(mp.is_lowercase_start(passage), passage)
+
+    def test_whole_thoughts_survive(self):
+        for passage in ("The tide went out and left the boats on their keels.",
+                        "“Up to now, you see, I still had something.”",
+                        ". . . Run away. Smash it all. But no, I stay.",
+                        "—Goes to the balcony and pours his whole being out.",
+                        "“You’re a Marxist now?”",
+                        "10 years ago I met him on the train to Algiers."):
+            self.assertFalse(mp.is_lowercase_start(passage), passage)
+
+    def test_lowercase_fragment_passage_removed(self):
+        rows = [row("c1", "and the rain came down without stopping that night, "
+                          "and the river rose another foot by morning."),
+                row("c2", "A real entry of the notebook follows here.")]
+        candidates, _, filtered = mp.mine_rows(rows)
+        self.assertEqual([c["chunk_id"] for c in candidates], ["c2"])
+        self.assertEqual(filtered["lowercase-opening fragments"], 1)
 
 
 class HeaderTests(unittest.TestCase):
@@ -255,3 +346,15 @@ class EntryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestStripNoteRefs(unittest.TestCase):
+    def test_glued_refs_removed(self):
+        from mine_primary import strip_note_refs
+        self.assertEqual(strip_note_refs("Lunch at the embassy. Tiempo perdido.70"), "Lunch at the embassy. Tiempo perdido.")
+        self.assertEqual(strip_note_refs("At the hospital, alone.166 Then rain."), "At the hospital, alone. Then rain.")
+
+    def test_real_numbers_kept(self):
+        from mine_primary import strip_note_refs
+        self.assertEqual(strip_note_refs("He was 46 in 1960."), "He was 46 in 1960.")
+
