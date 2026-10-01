@@ -107,7 +107,8 @@ large enough to need Git LFS belongs on the Hub instead.
 `pipeline/hooks/pre-commit` refuses any commit that stages:
 
 - a file larger than **5 MB**,
-- anything under the root `archive/`,
+- anything under the root `archive/` or `build/` (staged upload bundles, e.g.
+  `build/training_v3/` — `phase1_old`/`phase1_new` carry published book text),
 - `*.npy`, `*.gguf`, or `*.safetensors`,
 - any `*.jsonl` other than `data/camus_*.jsonl` and the tracked eval probe scores,
 - `profile.md` and `memory*.jsonl` — local conversation memory and the per-user
