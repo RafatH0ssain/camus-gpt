@@ -9,11 +9,14 @@ only strings that look like Camus are one-line stubs written for this file.
     python -m unittest pipeline/test_filter_reply_suitability.py -v
 """
 import contextlib
+import inspect
 import io
 import json
 import os
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -25,6 +28,26 @@ import filter_reply_suitability as frs  # noqa: E402
 import judge_opencode as jz  # noqa: E402
 
 KEY = "fake-key-must-never-be-used-0123456789"
+
+_BLOCKED_NETWORK = []
+
+
+def setUpModule():
+    """Block the real transport for every test in this file.
+
+    The model call is always injected, and this makes a mistake loud instead of quiet: a
+    test that reaches past the injection would spend the key and hide behind a live 401,
+    which looks like a failing batch rather than a broken test."""
+    patcher = mock.patch.object(frs.jz.requests, "post",
+                                side_effect=AssertionError("a test reached the network"))
+    patcher.start()
+    _BLOCKED_NETWORK.append(patcher)
+
+
+def tearDownModule():
+    for patcher in _BLOCKED_NETWORK:
+        patcher.stop()
+    _BLOCKED_NETWORK.clear()
 
 
 def row(prompt, response, src_id="s1", source="Source"):
@@ -58,6 +81,94 @@ def quietly(fn, *args, **kwargs):
     with contextlib.redirect_stdout(io.StringIO()), \
             contextlib.redirect_stderr(io.StringIO()):
         return fn(*args, **kwargs)
+
+
+@contextlib.contextmanager
+def held_stderr():
+    """Keep swallowing stderr for the whole block, not just for the call inside it.
+
+    A run that stops early leaves the batch beside it in flight, and that worker prints
+    its failure after the run has returned — past the point where quietly() would have
+    restored the real stderr."""
+    with mock.patch("sys.stderr", io.StringIO()):
+        yield
+
+
+def passages(count):
+    """`count` rows whose responses are passage 0, passage 1, ... — unique, so a test can
+    tell which batch a call carried no matter which order the batches were asked in."""
+    return [row(f"q{i}", f"passage {i}") for i in range(count)]
+
+
+class ContentKeyedCall:
+    """A fake call whose verdict is a function of the rows themselves, so it answers the
+    same whichever order batches are scheduled in, and it is safe in two threads at once.
+
+    `failing` names the batches to fail, by the first response they carry; a failing batch
+    answers with prose, which is the unparseable-reply failure. Every call is recorded by
+    the responses it carried, not by when it arrived: with two workers in flight the
+    second batch can land first, and what a test compares is the order a run *sends* them
+    in, not the order two threads happen to reach this.
+    """
+
+    def __init__(self, failing=(), keep_for=None):
+        self.failing = set(failing)
+        self.keep_for = keep_for or (lambda response: True)
+        self.lock = threading.Lock()
+        self.calls = 0
+        self.sent = []
+
+    def __call__(self, system, user, key=None):
+        items = json.loads(user)
+        first = items[0]["response"] if items else ""
+        with self.lock:
+            self.calls += 1
+            self.sent.append((system, tuple(item["response"] for item in items)))
+        if first in self.failing:
+            return "I am not going to answer in that format."
+        return json.dumps([{"id": item["id"], "keep": self.keep_for(item["response"]),
+                            "reason": "reads as a reply"} for item in items])
+
+    @property
+    def signatures(self):
+        """The batches this call was handed, in the order it was handed them."""
+        return [responses for _, responses in self.sent]
+
+
+class OverlapProbe:
+    """Counts the calls in flight at once, and holds a call at the door until a second one
+    is running beside it, so "two workers" is observed rather than assumed."""
+
+    def __init__(self, wait=2.0):
+        self.wait = wait
+        self.lock = threading.Lock()
+        self.in_flight = 0
+        self.max_in_flight = 0
+        self.paired = threading.Event()
+
+    def enter(self):
+        with self.lock:
+            self.in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self.in_flight)
+            if self.in_flight >= 2:
+                self.paired.set()
+        return self.paired.wait(timeout=self.wait)
+
+    def leave(self):
+        with self.lock:
+            self.in_flight -= 1
+
+
+def with_overlap_probe(probe, call):
+    """`call` wrapped to register with the probe, so a batch only answers once the window
+    beside it is full — which a one-worker run never manages, by construction."""
+    def wrapped(system, user, key=None):
+        probe.enter()
+        try:
+            return call(system, user, key=key)
+        finally:
+            probe.leave()
+    return wrapped
 
 
 class DatedResponseTest(unittest.TestCase):
@@ -369,11 +480,11 @@ class UsageCapTest(unittest.TestCase):
 
     def test_a_cap_in_the_middle_keeps_what_was_decided(self):
         rows = [row(f"q{i}", f"passage {i}") for i in range(4)]
-        sent = []
 
         def call(system, user, key=None):
-            sent.append(user)
-            if len(sent) == 1:
+            # Keyed on the batch's own contents, not on which call arrives first: two
+            # batches are in flight, so "the first call" is not a thing any more.
+            if json.loads(user)[0]["prompt"] == "q0":
                 return decisions((0, True), (1, False))
             raise jz.UsageCapReached("cap reached")
 
@@ -385,6 +496,196 @@ class UsageCapTest(unittest.TestCase):
         self.assertEqual(len(on_disk), 2)                 # the first batch stands
         self.assertEqual([d["keep"] for d in on_disk], [True, False])
         self.assertEqual(stats["decided"], 2)
+
+
+class FailFastTest(unittest.TestCase):
+    """Three batches in a row left undecided is a dead gateway, not three unlucky batches:
+    the run gives up rather than paying the deadline again for every batch left."""
+
+    def test_three_failures_in_a_row_stop_the_run(self):
+        rows = passages(10)                    # 5 batches of 2
+        call = ContentKeyedCall(failing={"passage 0", "passage 2", "passage 4",
+                                         "passage 6", "passage 8"})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, stop = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                                  workers=1)
+        self.assertIsNone(stop)                 # not a cap: a cap would be in stop
+        self.assertEqual(stats["attempted"], 3)     # the run stopped on the third
+        self.assertEqual(stats["failures"], 3)
+        self.assertIsNotNone(stats["fail_reason"])
+        self.assertEqual(stats["decided"], 0)
+        self.assertEqual(stats["batches"], 0)
+        self.assertEqual(stats["undecided"], 6)      # the three batches it did ask about
+        self.assertEqual(call.calls, 6)              # each retried once, never more
+        asked = list(dict.fromkeys(call.signatures))  # a retry repeats its batch
+        self.assertEqual(asked, [("passage 0", "passage 1"),
+                                 ("passage 2", "passage 3"),
+                                 ("passage 4", "passage 5")])
+
+    def test_the_run_stops_cleanly_and_leaves_the_decided_rows_on_disk(self):
+        # The rows decided before the failures must stand: a rerun resumes from them, and
+        # a stop is not a reason to throw away the answers already paid for.
+        rows = passages(10)
+        call = ContentKeyedCall(failing={"passage 2", "passage 4", "passage 6"},
+                                keep_for=lambda response: response != "passage 1")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                               workers=1)
+            on_disk = frs.load_rows(path)
+        self.assertEqual([d["key"] for d in on_disk], ["passage 0", "passage 1"])
+        self.assertEqual([d["keep"] for d in on_disk], [True, False])
+        self.assertEqual(stats["decided"], 2)
+        self.assertEqual(stats["kept"], 1)
+        self.assertEqual(stats["dropped"], 1)
+        self.assertEqual(stats["undecided"], 6)
+
+    def test_two_failures_do_not_stop_the_run(self):
+        rows = passages(10)                    # batches 1 and 2 fail, 3 to 5 go through
+        call = ContentKeyedCall(failing={"passage 0", "passage 2"})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                               workers=1)
+            on_disk = frs.load_rows(path)
+        self.assertEqual(stats["attempted"], 5)
+        self.assertEqual(stats["failures"], 2)
+        self.assertIsNone(stats["fail_reason"])
+        self.assertEqual(stats["decided"], 6)
+        self.assertEqual(len(on_disk), 6)
+
+    def test_a_success_in_between_resets_the_streak(self):
+        # Three failures with a success between them are not three in a row, and a run
+        # that stopped there would be giving up on a gateway that is answering.
+        rows = passages(20)                    # 10 batches of 2
+        call = ContentKeyedCall(failing={"passage 0", "passage 2",     # batches 1, 2
+                                         "passage 6"})                  # batch 4
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                               workers=1)
+        self.assertEqual(stats["attempted"], 10)
+        self.assertIsNone(stats["fail_reason"])
+        self.assertEqual(stats["decided"], 14)
+
+    def test_the_stop_also_holds_with_two_workers_in_flight(self):
+        rows = passages(10)
+        call = ContentKeyedCall(failing={"passage 0", "passage 2", "passage 4",
+                                         "passage 6", "passage 8"})
+        with held_stderr(), tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, stop = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call)
+        self.assertIsNone(stop)
+        self.assertEqual(stats["attempted"], 3)   # the third failure, not the fourth call
+        self.assertEqual(stats["failures"], 3)
+        self.assertEqual(stats["decided"], 0)
+        self.assertEqual(stats["undecided"], 6)
+
+    def test_a_cap_still_stops_at_the_first_batch_with_workers_in_flight(self):
+        rows = passages(6)
+        seen = []
+
+        def call(system, user, key=None):
+            seen.append(json.loads(user)[0]["response"])
+            raise jz.UsageCapReached("cap reached")
+
+        with held_stderr(), tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, stop = quietly(frs.run, rows, {}, path, batch_size=1, key=KEY, call=call)
+        self.assertIsNotNone(stop)
+        self.assertEqual(stats["attempted"], 1)      # a cap does not wait for a streak
+        self.assertEqual(stats["undecided"], 1)
+        self.assertEqual(seen[0], "passage 0")
+
+    def test_the_summary_says_which_stop_it_was(self):
+        rows = passages(10)
+        call = ContentKeyedCall(failing={"passage 0", "passage 2", "passage 4",
+                                         "passage 6", "passage 8"})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, stop = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                                  workers=1)
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                frs.print_summary(stats, stop, path, os.path.join(tmp, "f.jsonl"), 0)
+        printed = out.getvalue()
+        self.assertIn("3 batches in a row", printed)
+        self.assertIn("re-run the same command", printed)
+        self.assertIn("4 rows still to decide", printed)   # the two batches never asked
+        self.assertNotIn("usage cap", printed)
+
+
+class ResumeAfterStopTest(unittest.TestCase):
+    """A stopped run is a paused run: the rerun asks about the rows that are still
+    undecided and nothing else, and never writes a line twice."""
+
+    def test_a_resume_decides_only_the_rows_the_stop_left_behind(self):
+        rows = passages(10)                    # 5 batches of 2
+        with held_stderr(), tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            first = ContentKeyedCall(failing={"passage 2", "passage 4", "passage 6"})
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=first,
+                               workers=2)
+            self.assertEqual(stats["decided"], 2)      # batch 1 stood
+            self.assertEqual(stats["undecided"], 6)
+
+            second = ContentKeyedCall()
+            stats2, _ = quietly(frs.run, rows, frs.load_decisions(path), path, batch_size=2,
+                                key=KEY, call=second)
+            on_disk = frs.load_rows(path)
+
+        # batch 1 was decided before the stop, so the rerun never asks about it again
+        self.assertEqual(second.signatures,
+                         [("passage 2", "passage 3"), ("passage 4", "passage 5"),
+                          ("passage 6", "passage 7"), ("passage 8", "passage 9")])
+        self.assertEqual(stats2["todo"], 8)
+        self.assertEqual(stats2["already"], 2)
+        self.assertEqual(stats2["decided"], 8)
+        self.assertEqual([d["key"] for d in on_disk], [f"passage {i}" for i in range(10)])
+
+    def test_a_resumed_run_writes_no_duplicate_decision_line(self):
+        rows = passages(10)
+        with held_stderr(), tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            first = ContentKeyedCall(failing={"passage 2", "passage 4", "passage 6"})
+            quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=first, workers=2)
+            quietly(frs.run, rows, frs.load_decisions(path), path, batch_size=2, key=KEY,
+                    call=ContentKeyedCall())
+            with open(path, encoding="utf-8") as fh:
+                lines = [line for line in fh.read().splitlines() if line.strip()]
+        keys = [json.loads(line)["key"] for line in lines]
+        self.assertEqual(len(keys), len(set(keys)))     # one line per row, no more
+        self.assertEqual(sorted(keys), sorted(f"passage {i}" for i in range(10)))
+
+    def test_a_rerun_after_a_complete_run_adds_nothing(self):
+        rows = passages(10)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            quietly(frs.run, rows, {}, path, batch_size=2, key=KEY,
+                    call=ContentKeyedCall())
+            again = ContentKeyedCall()
+            stats, _ = quietly(frs.run, rows, frs.load_decisions(path), path, batch_size=2,
+                               key=KEY, call=again)
+            with open(path, encoding="utf-8") as fh:
+                lines = [line for line in fh.read().splitlines() if line.strip()]
+        self.assertEqual(again.calls, 0)
+        self.assertEqual(len(lines), 10)
+
+    def test_duplicate_responses_never_get_two_lines_under_two_workers(self):
+        # The resume key is the response text, so a repeated passage is asked about once
+        # and written once however many workers are in flight.
+        rows = [row("q1", "Talk on theater."), row("q2", "Talk on theater."),
+                row("q3", "A passing thought."), row("q4", "Talk on theater."),
+                row("q5", "Another passing thought."), row("q6", "A passing thought.")]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            call = ContentKeyedCall()
+            quietly(frs.run, rows, {}, path, batch_size=1, key=KEY, call=call)
+            keys = [d["key"] for d in frs.load_rows(path)]
+        self.assertEqual(len(keys), 3)
+        self.assertEqual(sorted(keys), ["a passing thought.", "another passing thought.",
+                                        "talk on theater."])
+        self.assertEqual(call.calls, 3)
 
 
 class ResumeTest(unittest.TestCase):
@@ -461,6 +762,199 @@ class BatchingTest(unittest.TestCase):
             self.assertIn(excluded, frs.SYSTEM)
 
 
+class WorkerCountTest(unittest.TestCase):
+    """Two batches in flight, and never three: the gateway is the bottleneck."""
+
+    def test_the_default_and_the_ceiling_are_both_two(self):
+        self.assertEqual(frs.WORKERS, 2)
+        self.assertEqual(frs.MAX_WORKERS, 2)
+        self.assertEqual(inspect.signature(frs.run).parameters["workers"].default,
+                         frs.WORKERS)
+
+    def test_a_requested_worker_count_is_clamped(self):
+        self.assertEqual(frs.resolve_workers(1), 1)
+        self.assertEqual(frs.resolve_workers(2), 2)
+        self.assertEqual(frs.resolve_workers(5), 2)      # a wish the gateway cannot grant
+        self.assertEqual(frs.resolve_workers(0), 1)
+        self.assertEqual(frs.resolve_workers(-4), 1)
+        self.assertEqual(frs.resolve_workers("2"), 2)
+        self.assertEqual(frs.resolve_workers(None), frs.WORKERS)
+
+    def test_two_workers_really_run_two_batches_at_once(self):
+        rows = passages(6)
+        probe = OverlapProbe()
+        call = with_overlap_probe(probe, ContentKeyedCall())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call)
+        self.assertTrue(probe.paired.is_set(), "no two calls were ever in flight together")
+        self.assertEqual(probe.max_in_flight, 2)
+        self.assertEqual(stats["batches"], 3)
+
+    def test_asking_for_more_workers_than_the_ceiling_still_means_two(self):
+        rows = passages(12)
+        probe = OverlapProbe()
+        call = with_overlap_probe(probe, ContentKeyedCall())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                               workers=8)
+        self.assertEqual(probe.max_in_flight, 2)     # the ceiling holds inside run()
+        self.assertEqual(stats["batches"], 6)
+
+    def test_one_worker_never_has_two_calls_in_flight(self):
+        rows = passages(6)
+        probe = OverlapProbe(wait=0.2)
+        call = with_overlap_probe(probe, ContentKeyedCall())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, _ = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                               workers=1)
+        self.assertEqual(probe.max_in_flight, 1)
+        self.assertEqual(stats["batches"], 3)
+
+
+class TwoWorkerEquivalenceTest(unittest.TestCase):
+    """The whole point of the window: two workers decide what one worker would have
+    decided, in the same order, to the same file."""
+
+    def test_two_workers_write_exactly_what_one_worker_writes(self):
+        rows = passages(10)                    # 5 batches of 2
+        keep_for = lambda response: response not in ("passage 3", "passage 7", "passage 9")
+        with tempfile.TemporaryDirectory() as tmp:
+            one_path = os.path.join(tmp, "one.jsonl")
+            two_path = os.path.join(tmp, "two.jsonl")
+            one = ContentKeyedCall(keep_for=keep_for)
+            two = ContentKeyedCall(keep_for=keep_for)
+            stats_one, stop_one = quietly(frs.run, rows, {}, one_path, batch_size=2,
+                                          key=KEY, call=one, workers=1)
+            stats_two, stop_two = quietly(frs.run, rows, {}, two_path, batch_size=2,
+                                          key=KEY, call=two, workers=2)
+            with open(one_path, encoding="utf-8") as fh:
+                written_one = fh.read()
+            with open(two_path, encoding="utf-8") as fh:
+                written_two = fh.read()
+
+        self.assertEqual(written_one, written_two)     # byte for byte, not just as a set
+        # The same batches, each asked once — but not in the same arrival order, which is
+        # the whole reason the file above is the comparison and not the call order.
+        self.assertEqual(sorted(two.signatures), sorted(one.signatures))
+        self.assertEqual(len(two.signatures), len(set(two.signatures)))
+        self.assertEqual(one.signatures, [("passage 0", "passage 1"),
+                                          ("passage 2", "passage 3"),
+                                          ("passage 4", "passage 5"),
+                                          ("passage 6", "passage 7"),
+                                          ("passage 8", "passage 9")])
+        self.assertEqual(stats_one, stats_two)
+        self.assertIsNone(stop_one)
+        self.assertIsNone(stop_two)
+        self.assertEqual(stats_two["decided"], 10)
+
+    def test_the_decisions_stay_in_the_input_order_under_two_workers(self):
+        rows = passages(20)                    # 10 batches of 2
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=ContentKeyedCall())
+            keys = [d["key"] for d in frs.load_rows(path)]
+        self.assertEqual(keys, [f"passage {i}" for i in range(20)])
+
+    def test_a_whole_run_is_written_by_the_main_thread_alone(self):
+        # The workers' only job is the call, so a call that runs while the main thread is
+        # mid-write cannot interleave a line into the file: every line is well-formed and
+        # the file parses whole.
+        rows = passages(30)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=ContentKeyedCall())
+            with open(path, encoding="utf-8") as fh:
+                raw = fh.read()
+        self.assertEqual(raw.count("\n"), 30)
+        self.assertTrue(all(json.loads(line) for line in raw.splitlines()))
+
+
+class RequestTimeoutTest(unittest.TestCase):
+    """60 s a call, down from the 120 s jz.judge spends on a silent socket, enforced from
+    outside because jz.judge takes no timeout argument."""
+
+    def test_the_deadline_is_sixty_seconds_down_from_the_transport_default(self):
+        self.assertEqual(frs.REQUEST_TIMEOUT, 60)
+        self.assertEqual(jz.TIMEOUT, 120)   # what the wrapper is here to shorten
+
+    def test_the_gateway_transport_takes_no_timeout_so_the_call_is_wrapped(self):
+        # If this ever changes, the passthrough below takes over and the wrapper goes
+        # unused: jz.judge would then set the deadline itself.
+        self.assertFalse(frs._takes_timeout(jz.judge))
+        self.assertFalse(frs._takes_timeout(frs.call_model))
+
+    def test_a_client_that_takes_a_timeout_is_handed_one(self):
+        asked = []
+
+        def call(system, user, key=None, timeout=None):
+            asked.append(timeout)
+            return "handed over"
+
+        self.assertEqual(frs.call_with_deadline(call, "s", "u", KEY, 60), "handed over")
+        self.assertEqual(asked, [60])      # not wrapped: the client sets its own deadline
+
+    def test_a_call_that_outruns_the_deadline_fails_its_batch(self):
+        # Three batches of a call that never comes back: each is abandoned at the
+        # deadline, retried once, and the third one is what gives the run away.
+        rows = passages(6)
+
+        def call(system, user, key=None):
+            time.sleep(0.5)
+            return decisions(*((i, True) for i in range(len(json.loads(user)))))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, stop = quietly(frs.run, rows, {}, path, batch_size=2, key=KEY, call=call,
+                                  workers=1, timeout=0.05)
+            on_disk = frs.load_rows(path)
+        self.assertIsNone(stop)
+        self.assertEqual(stats["attempted"], 3)
+        self.assertEqual(stats["decided"], 0)
+        self.assertEqual(stats["undecided"], 6)
+        self.assertIn("no reply within", stats["fail_reason"])
+        self.assertEqual(on_disk, [])
+
+    def test_the_deadline_reaches_a_call_that_takes_its_time(self):
+        def call(system, user, key=None):
+            time.sleep(0.05)
+            return "in time"
+
+        started = time.monotonic()
+        self.assertEqual(frs.call_with_deadline(call, "s", "u", KEY, 5), "in time")
+        self.assertLess(time.monotonic() - started, 5)
+
+    def test_a_usage_cap_escapes_the_wrapper_as_itself(self):
+        # UsageCapReached is a SystemExit: crossing a thread boundary must not turn it into
+        # an ordinary exception, or the cap would look like a failed batch and the run
+        # would carry on until the fail streak stopped it.
+        cap = jz.UsageCapReached("cap reached")
+
+        def call(system, user, key=None):
+            raise cap
+
+        with self.assertRaises(jz.UsageCapReached) as raised:
+            frs.call_with_deadline(call, "s", "u", KEY, 5)
+        self.assertIs(raised.exception, cap)
+
+    def test_an_empty_reply_is_a_failed_batch(self):
+        rows = [row("q1", "a passage")]
+
+        def call(system, user, key=None):
+            return ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "d.jsonl")
+            stats, stop = quietly(frs.run, rows, {}, path, batch_size=1, key=KEY, call=call,
+                                  workers=1)
+        self.assertIsNone(stop)
+        self.assertEqual(stats["failures"], 1)     # retried once, then given up on
+        self.assertEqual(stats["calls"], 2)
+        self.assertEqual(stats["decided"], 0)
+
+
 class WriteFilteredTest(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -519,11 +1013,18 @@ class EndToEndTest(unittest.TestCase):
                 fh.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     def run_main(self, argv, call):
+        """main() with the transport replaced by `call`, its progress swallowed. Every
+        path through main() goes through here, so no test can reach the gateway."""
+        return self.run_main_printed(argv, call)[0]
+
+    def run_main_printed(self, argv, call):
+        """The same, but the progress lines come back so a test can read what was said."""
         with mock.patch.object(frs, "call_model", call), \
                 mock.patch.object(frs.jz, "load_key", return_value=KEY), \
-                mock.patch("sys.argv", ["filter_reply_suitability.py"] + argv):
-            code = quietly(frs.main)
-        return code
+                mock.patch("sys.argv", ["filter_reply_suitability.py"] + argv), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            code = frs.main()
+        return code, out.getvalue()
 
     def test_dry_run_touches_no_file_and_makes_no_call(self):
         def call(system, user, key=None):
@@ -588,6 +1089,29 @@ class EndToEndTest(unittest.TestCase):
         self.assertEqual(len(seen), 1)
         self.assertEqual(len(frs.load_rows(self.out)), 1)
         self.assertEqual(len(frs.load_rows(self.decisions)), 1)
+
+    def test_the_workers_flag_runs_the_default_two_batches_at_once(self):
+        # Two survivors, batch of 1: two batches, and the probe only sees them overlap if
+        # the flag's default is really the pool the run uses.
+        probe = OverlapProbe()
+        call = with_overlap_probe(probe, ContentKeyedCall())
+        self.assertEqual(self.run_main(["--in", self.src, "--out", self.out,
+                                        "--decisions", self.decisions, "--batch", "1",
+                                        "--samples", "0"], call), 0)
+        self.assertTrue(probe.paired.is_set())
+        self.assertEqual(probe.max_in_flight, 2)
+        self.assertEqual(len(frs.load_rows(self.decisions)), 2)
+
+    def test_a_worker_count_above_the_ceiling_is_clamped_and_says_so(self):
+        probe = OverlapProbe()
+        call = with_overlap_probe(probe, ContentKeyedCall())
+        code, printed = self.run_main_printed(
+            ["--in", self.src, "--out", self.out, "--decisions", self.decisions,
+             "--batch", "1", "--workers", "9", "--samples", "0"], call)
+        self.assertEqual(code, 0)
+        self.assertLessEqual(probe.max_in_flight, 2)     # never more than the ceiling
+        self.assertIn("clamped to 2", printed)
+        self.assertEqual(len(frs.load_rows(self.decisions)), 2)
 
     def test_the_real_transport_is_never_reached_with_no_network(self):
         # A guard on the whole file: nothing in the module calls requests at import, and
