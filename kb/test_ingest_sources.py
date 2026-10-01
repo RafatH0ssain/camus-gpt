@@ -65,6 +65,55 @@ class DateHeadingTests(unittest.TestCase):
         self.assertEqual(ing.split_entries(text), [text])
 
 
+class NoteStartTests(unittest.TestCase):
+    """The combined volume sets the editor's footnotes in the text flow with no
+    blank line between them, so a note opening is an entry boundary."""
+
+    def test_note_openings_are_recognized(self):
+        for line in ("11 In “The Nearby Sea” the syntax holds,",
+                     "35 Almost all the elements of this entry",
+                     "2 Gay-Crosier, in Albert Camus, Œuvres complètes,",
+                     '120 One illegible word.',
+                     "7 “Yes,” he answered."):
+            self.assertTrue(ing.is_note_start(line), line)
+
+    def test_prose_is_not_a_note(self):
+        for line in ("10 years ago I met him", "3 o'clock in the morning",
+                     ". . . Run away. Smash it all.", "5 was the number of the bus",
+                     "1 the day, 2 the night", "It was 1942 that changed things",
+                     "“You’re a Marxist now?”", "", "Two friends: both very sick."):
+            self.assertFalse(ing.is_note_start(line), line)
+
+    def test_a_note_ends_the_entry_above_it(self):
+        text = lines("The entry Camus wrote that day, ending here.",
+                     "11 In “The Nearby Sea” the syntax of the two French",
+                     "sentences has been maintained.")
+        self.assertEqual(ing.split_entries(text), [
+            "The entry Camus wrote that day, ending here.",
+            lines("11 In “The Nearby Sea” the syntax of the two French",
+                  "sentences has been maintained."),
+        ])
+
+    def test_a_run_of_notes_does_not_fuse(self):
+        text = lines("1 The first note opens the run here.",
+                     "2 The second note follows with no blank line.",
+                     "3 The third note closes the run.")
+        self.assertEqual(ing.split_entries(text), [
+            "1 The first note opens the run here.",
+            "2 The second note follows with no blank line.",
+            "3 The third note closes the run.",
+        ])
+
+    def test_a_leading_note_is_not_a_boundary(self):
+        text = lines("120 One illegible word.")
+        self.assertEqual(ing.split_entries(text), [text])
+
+    def test_an_entry_starting_with_a_number_is_kept_whole(self):
+        text = lines("10 years ago I met him on the train to",
+                     "Algiers and we spoke of nothing else.")
+        self.assertEqual(ing.split_entries(text), [text])
+
+
 class SeparatorTests(unittest.TestCase):
     def test_separator_lines(self):
         for line in ("*", "***", "—", "——", "===", "~~~", "-"):
@@ -75,6 +124,28 @@ class SeparatorTests(unittest.TestCase):
             if line == "—":
                 continue
             self.assertFalse(ing.is_separator(line), line)
+
+    def test_a_rule_glued_to_the_text_it_divides_still_splits(self):
+        text = lines("The entry before the rule ends here.",
+                     "——————A test of daily concentration, intellectual",
+                     "asceticism, and extreme consciousness.")
+        self.assertEqual(ing.split_entries(text), [
+            "The entry before the rule ends here.",
+            lines("A test of daily concentration, intellectual",
+                  "asceticism, and extreme consciousness."),
+        ])
+
+    def test_a_single_leading_dash_is_prose_and_stays(self):
+        text = lines("—Goes to the balcony and pours his whole being",
+                     "into the world of flesh and of symbols.")
+        self.assertEqual(ing.split_entries(text), [text])
+
+    def test_a_glued_rule_at_the_top_of_a_page_leaves_no_empty_entry(self):
+        text = PB.join([lines("The entry before the rule ends here."),
+                        lines("———— Modern art. They rediscover objects")])
+        entries = ing.split_entries(text)
+        self.assertEqual(entries, ["The entry before the rule ends here.",
+                                   "Modern art. They rediscover objects"])
 
     def test_separator_ends_both_sides(self):
         text = lines("First entry line one.", "***", "Second entry line one.")
