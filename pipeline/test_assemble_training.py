@@ -17,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PIPELINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PIPELINE_DIR))
@@ -26,11 +27,22 @@ import assemble_training as at  # noqa: E402
 GIT = shutil.which("git")
 needs_git = unittest.skipIf(GIT is None, "git is not on PATH")
 
+# What phase1_old.jsonl and phase2.jsonl hashed to on the reweighting fixture
+# before pipeline/assemble_training.py gained the phase1_new weighting: the
+# byte-identity lock, re-checked by
+# test_phase1_old_and_phase2_are_byte_identical_to_the_pre_change_output.
+PHASE1_OLD_SHA256 = "fd5e285efa878d83df3ed3044dd3a479ec6e16c70837699ce6a574d91b77d162"
+PHASE2_SHA256 = "2af609548ccc577b9baeb0376bb2ccfd276f8b336bb79a53163ea4677a119d92"
+
 
 def write_jsonl(path, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
                     encoding="utf-8")
+
+
+def json_of(content):
+    return [json.loads(line) for line in content.splitlines() if line.strip()]
 
 
 def qa(prompt, response, **extra):
@@ -91,6 +103,61 @@ def make_temp_repo(test, files, tag=at.CORPUS_TAG):
     repo = make_repo(files, tag=tag)
     test.addCleanup(shutil.rmtree, repo, ignore_errors=True)
     return repo
+
+
+def make_temp_dir(test, files):
+    """A temp folder holding `files` ({relpath: rows}) — no git, for the sets
+    that are read from the worktree rather than from a tag."""
+    root = Path(tempfile.mkdtemp(prefix="assemble_test_"))
+    test.addCleanup(shutil.rmtree, root, ignore_errors=True)
+    for rel, rows in files.items():
+        write_jsonl(root / rel, rows)
+    return root
+
+
+def phase1_new_files(n_conv=30, n_essayist=5, n_short=4, n_primary=3):
+    """The four worktree inputs phase1_new reads. Generated conversational rows
+    are numbered `gen 0..` and prose `essay 0..`, so a test can tell them
+    apart; `hm`/`bye`/`coffee`/`ok` are the curated short replies."""
+    return {
+        "data/camus_sft.jsonl": (
+            [qa("gen %d" % i, "Generated reply %d." % i, type="conversational",
+                source="generated") for i in range(n_conv)]
+            + [qa("essay %d" % i, "Essayist prose %d. " % i * 30, type="essayist",
+                  source="The Rebel") for i in range(n_essayist)]),
+        "data/camus_conversational.jsonl": [
+            qa("hey", "Hello.", kind="greeting"),
+            qa("the sea", "A long answer about the sea that goes on.", kind="substantive"),
+            qa("silence", "Another long meditation on silence.", kind="meditation")],
+        "data/camus_short.jsonl": [
+            qa("hm", "...", kind="short"),
+            qa("bye", "Bye.", kind="goodbye"),
+            qa("coffee", "Coffee. Always.", kind="short"),
+            qa("ok", "Right.", kind="short")][:n_short],
+        "data/primary_rows.filtered.jsonl": [
+            qa("reparations", "They deserve them.", kind="primary", source="Algerian Chronicles"),
+            qa("the heat", "It was unbearable.", kind="primary", source="Algerian Chronicles"),
+            qa("his mother", "She died young.", kind="primary", source="The Plague")][:n_primary],
+    }
+
+
+def reweight_files(**kwargs):
+    """Everything assemble() reads: the four phase1_new inputs plus the seven
+    phase2 ones, so one fixture can drive a whole run."""
+    files = phase2_files()
+    files.update(phase1_new_files(**kwargs))
+    return files
+
+
+def prompt_counts(rows, predicate):
+    """How many times each (prompt, response) pair matching `predicate` appears."""
+    counts = {}
+    for row in rows:
+        messages = row["messages"]
+        if messages[0]["role"] == "user" and len(messages) == 2 and predicate(messages[0]["content"]):
+            key = (messages[0]["content"], messages[1]["content"])
+            counts[key] = counts.get(key, 0) + 1
+    return counts
 
 
 # ── normalisation ────────────────────────────────────────────────────────────
@@ -299,8 +366,137 @@ class Phase1Tests(unittest.TestCase):
                       str(caught.exception))
 
 
+# ── phase1_new reweighting (downsample + curated x2) ─────────────────────────
+
+class ReweightTests(unittest.TestCase):
+    """phase1_new only: every essayist row, the generated conversational rows cut
+    to CONV_KEEP, the curated sets repeated CURATED_WEIGHT times. Caps are patched
+    down so the fixtures stay small; the wiring is checked at the real constants
+    in test_real_constants_cap_at_1500()."""
+
+    def build(self, **kwargs):
+        root = make_temp_dir(self, phase1_new_files(**kwargs))
+        with mock.patch.object(at, "CONV_KEEP", 10), mock.patch.object(at, "CONV_SEED", 13):
+            return at.build_phase1_new(root)
+
+    def prompts(self, rows, prefix):
+        return sorted(row["messages"][0]["content"] for row in rows
+                      if row["messages"][0]["content"].startswith(prefix))
+
+    def all_prompts(self, rows):
+        return [row["messages"][0]["content"] for row in rows]
+
+    def per_source(self, inputs):
+        """The input entries by label, without the trailing '(set)' summary."""
+        return {entry["input"]: entry for entry in inputs["inputs"] if entry["input"] != "(set)"}
+
+    def test_every_essayist_row_survives_and_conversational_is_capped(self):
+        rows, _ = self.build(n_conv=30, n_essayist=5)
+        self.assertEqual(self.prompts(rows, "essay"),
+                         ["essay 0", "essay 1", "essay 2", "essay 3", "essay 4"])
+        self.assertEqual(len(self.prompts(rows, "gen")), 10)
+        self.assertEqual(rows[-1]["kind"], "primary")
+
+    def test_the_sampled_rows_are_a_subset_of_the_generated_ones(self):
+        rows, _ = self.build(n_conv=30)
+        available = {"gen %d" % i for i in range(30)}
+        self.assertTrue(set(self.prompts(rows, "gen")) <= available)
+
+    def test_downsampling_is_deterministic_for_a_seed(self):
+        first = at.serialize(self.build()[0])
+        second = at.serialize(self.build()[0])
+        self.assertEqual(first, second)
+        # the exact sample, not merely a stable one: seed 13, 10 of 30
+        self.assertEqual(self.prompts(json_of(first), "gen"),
+                         ["gen %d" % i for i in (20, 21, 25, 26, 27, 4, 5, 7, 8, 9)])
+
+    def test_a_different_seed_picks_different_rows(self):
+        root = make_temp_dir(self, phase1_new_files(n_conv=30))
+        with mock.patch.object(at, "CONV_KEEP", 10), mock.patch.object(at, "CONV_SEED", 13):
+            seeded = self.all_prompts(at.build_phase1_new(root)[0])
+        with mock.patch.object(at, "CONV_KEEP", 10), mock.patch.object(at, "CONV_SEED", 99):
+            other = self.all_prompts(at.build_phase1_new(root)[0])
+        self.assertNotEqual(seeded, other)
+        # only the generated sample moves: prose and curated rows are seed-independent
+        self.assertEqual([p for p in seeded if not p.startswith("gen")],
+                         [p for p in other if not p.startswith("gen")])
+
+    def test_the_sampled_rows_keep_the_input_order(self):
+        order = [row["prompt"] for row in phase1_new_files(n_conv=30)["data/camus_sft.jsonl"]]
+        kept = [prompt for prompt in self.all_prompts(self.build(n_conv=30)[0])
+                if prompt.startswith(("gen", "essay"))]
+        self.assertEqual(kept, [prompt for prompt in order if prompt in set(kept)])
+
+    def test_under_the_cap_nothing_is_dropped(self):
+        rows, _ = self.build(n_conv=7, n_essayist=5)
+        self.assertEqual(len(self.prompts(rows, "gen")), 7)
+        self.assertEqual(len(self.prompts(rows, "essay")), 5)
+
+    def test_curated_rows_appear_exactly_curated_weight_times(self):
+        rows, _ = self.build(n_conv=30, n_essayist=5)
+        for prompt in ("hm", "bye", "coffee", "ok", "reparations", "the heat", "his mother"):
+            counts = prompt_counts(rows, lambda text, p=prompt: text == p)
+            self.assertEqual(list(counts.values()), [at.CURATED_WEIGHT],
+                             "%s should appear x%d, got %s" % (prompt, at.CURATED_WEIGHT, counts))
+
+    def test_generated_and_handbuilt_rows_are_included_once(self):
+        rows, _ = self.build(n_conv=30, n_essayist=5)
+        self.assertEqual(set(prompt_counts(rows, lambda t: t.startswith("gen")).values()), {1})
+        for prompt in ("hey", "the sea", "silence"):
+            counts = prompt_counts(rows, lambda text, p=prompt: text == p)
+            self.assertEqual(list(counts.values()), [1], "%s: %s" % (prompt, counts))
+
+    def test_dedup_runs_before_the_weighting(self):
+        files = phase1_new_files(n_conv=4, n_essayist=1, n_short=4, n_primary=3)
+        files["data/camus_short.jsonl"].append(qa("hm", "...", kind="short"))  # exact repeat
+        root = make_temp_dir(self, files)
+        with mock.patch.object(at, "CONV_KEEP", 10):
+            rows, inputs = at.build_phase1_new(root)
+        # one unique pair in the file, still x2: dedup cannot eat the deliberate x2
+        self.assertEqual(prompt_counts(rows, lambda t: t == "hm"),
+                         {("hm", "..."): at.CURATED_WEIGHT})
+        short = self.per_source(inputs)[at.SHORT_FILE]
+        self.assertEqual((short["rows_read"], short["rows_after_dedup"],
+                          short["rows_after_weight"]), (5, 4, 4 * at.CURATED_WEIGHT))
+        self.assertEqual(inputs["inputs"][-1]["rows_dropped"], 1)
+
+    def test_per_source_counts_before_and_after_weighting(self):
+        rows, inputs = self.build(n_conv=30, n_essayist=5, n_short=4, n_primary=3)
+        entries = self.per_source(inputs)
+        self.assertEqual(sorted(entries), sorted(at.PHASE1_NEW_INPUTS))
+        sft = entries[at.SFT_FILE]
+        self.assertEqual((sft["rows_read"], sft["rows_after_dedup"]), (35, 35))
+        self.assertEqual(sft["rows_selected"], 15)             # 5 essayist + 10 generated
+        self.assertEqual(sft["weight"], 1)
+        self.assertEqual(sft["rows_after_weight"], 15)
+        for label in (at.SHORT_FILE, at.PRIMARY_ROWS):
+            entry = entries[label]
+            self.assertEqual(entry["weight"], at.CURATED_WEIGHT)
+            self.assertEqual(entry["rows_after_weight"],
+                             entry["rows_selected"] * at.CURATED_WEIGHT)
+        entry = entries["data/camus_conversational.jsonl"]
+        self.assertEqual((entry["weight"], entry["rows_after_weight"]), (1, 3))
+        self.assertEqual(sum(e["rows_after_weight"] for e in entries.values()), len(rows))
+        self.assertEqual((inputs["conv_keep"], inputs["curated_weight"], inputs["seed"]),
+                         (10, at.CURATED_WEIGHT, at.CONV_SEED))
+
+    def test_row_total_adds_up(self):
+        rows, _ = self.build(n_conv=30, n_essayist=5, n_short=4, n_primary=3)
+        # 5 essayist + 10 sampled + 3 hand-built + (4 + 3) curated x2
+        self.assertEqual(len(rows), 5 + 10 + 3 + (4 + 3) * at.CURATED_WEIGHT)
+
+    def test_real_constants_cap_at_1500(self):
+        rows, _ = at.build_phase1_new(
+            make_temp_dir(self, phase1_new_files(n_conv=at.CONV_KEEP + 100, n_essayist=3)))
+        self.assertEqual(len(self.prompts(rows, "gen")), at.CONV_KEEP)
+        self.assertEqual(len(self.prompts(rows, "essay")), 3)
+        self.assertEqual(at.CONV_SEED, 13)
+        self.assertEqual(at.CURATED_WEIGHT, 2)
+
+
 @needs_git
 class TagReadTests(unittest.TestCase):
+
     def test_tag_rows_are_used_not_the_worktree(self):
         repo = make_temp_repo(self, {
             "data/camus_sft.jsonl": [qa("old", "From the tag.")],
@@ -518,11 +714,12 @@ class AssembleTests(unittest.TestCase):
                (out / "phase1_new.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertEqual(manifest["sets"]["phase1_old"]["corpus_tag"], at.CORPUS_TAG)
         self.assertTrue(all(row["source"].startswith("%s:" % at.CORPUS_TAG) for row in old))
-        # worktree adds the short corpus and the primary-text rows
-        self.assertEqual(manifest["sets"]["phase1_new"]["rows"], manifest["sets"]["phase1_old"]["rows"] + 2)
-        self.assertEqual([row["messages"][0]["content"] for row in new[-2:]],
-                         ["hm", "reparations"])
-        self.assertEqual(sum(1 for row in new if row["kind"] == "primary"), 1)
+        # worktree adds the short corpus and the primary-text rows, each x CURATED_WEIGHT
+        self.assertEqual(manifest["sets"]["phase1_new"]["rows"],
+                         manifest["sets"]["phase1_old"]["rows"] + 2 * at.CURATED_WEIGHT)
+        self.assertEqual([row["messages"][0]["content"] for row in new[-2 * at.CURATED_WEIGHT:]],
+                         ["hm", "hm", "reparations", "reparations"])
+        self.assertEqual(sum(1 for row in new if row["kind"] == "primary"), at.CURATED_WEIGHT)
 
     def test_output_rows_are_exactly_the_shared_schema(self):
         repo, out = self.repo_and_out()
@@ -553,6 +750,66 @@ class AssembleTests(unittest.TestCase):
             self.assertIn(entry["file"], readme)
         self.assertIn("rclone copy", readme)
         self.assertIn("shasum -a 256", readme)
+
+
+@needs_git
+class ReweightedAssembleTests(unittest.TestCase):
+    """A whole assemble() over the reweighting fixture: the manifest records the
+    constants and the per-source counts, and the other two sets are untouched."""
+
+    def setUp(self):
+        self.repo = make_temp_repo(self, reweight_files())
+        self.out = self.repo / "build" / "training_v3"
+
+    def test_phase1_old_and_phase2_are_byte_identical_to_the_pre_change_output(self):
+        at.assemble(self.repo, self.out)
+        for name, expected in (("phase1_old.jsonl", PHASE1_OLD_SHA256),
+                               ("phase2.jsonl", PHASE2_SHA256)):
+            self.assertEqual(hashlib.sha256((self.out / name).read_bytes()).hexdigest(),
+                             expected, name)
+
+    def test_manifest_records_the_phase1_new_reweighting(self):
+        with mock.patch.object(at, "CONV_KEEP", 10):
+            manifest = at.assemble(self.repo, self.out)
+        entry = manifest["sets"]["phase1_new"]
+        self.assertEqual((entry["conv_keep"], entry["curated_weight"], entry["seed"]),
+                         (10, at.CURATED_WEIGHT, at.CONV_SEED))
+        self.assertEqual(entry["rows"], 5 + 10 + 3 + (4 + 3) * at.CURATED_WEIGHT)
+        inputs = {item["input"]: item for item in entry["inputs"] if item["input"] != "(set)"}
+        self.assertEqual(inputs[at.SFT_FILE]["rows_selected"], 15)
+        self.assertEqual(inputs[at.SFT_FILE]["rows_after_weight"], 15)
+        self.assertEqual(inputs[at.SFT_FILE]["weight"], 1)
+        for label in (at.SHORT_FILE, at.PRIMARY_ROWS):
+            self.assertEqual(inputs[label]["rows_after_weight"],
+                             inputs[label]["rows_after_dedup"] * at.CURATED_WEIGHT)
+        self.assertEqual(sum(item["rows_after_weight"] for item in inputs.values()),
+                         entry["rows"])
+        on_disk = json.loads((self.out / "MANIFEST.json").read_text(encoding="utf-8"))
+        self.assertEqual(on_disk["sets"]["phase1_new"], entry)
+
+    def test_the_input_totals_add_up_to_the_row_count(self):
+        at.assemble(self.repo, self.out)
+        entry = json.loads((self.out / "MANIFEST.json").read_text(
+            encoding="utf-8"))["sets"]["phase1_new"]
+        self.assertEqual(sum(item["rows_after_weight"] for item in entry["inputs"]
+                             if item["input"] != "(set)"), entry["rows"])
+
+    def test_the_reweighting_is_scoped_to_phase1_new(self):
+        with mock.patch.object(at, "CONV_KEEP", 10):
+            manifest = at.assemble(self.repo, self.out)
+        for name in ("phase1_old", "phase2"):
+            entry = manifest["sets"][name]
+            for field in ("conv_keep", "curated_weight", "seed"):
+                self.assertNotIn(field, entry, name)
+        self.assertEqual(manifest["sets"]["phase1_old"]["rows"], 38)
+        self.assertEqual(manifest["sets"]["phase2"]["rows"], 53)
+
+    def test_the_cap_actually_cuts_the_generated_rows(self):
+        with mock.patch.object(at, "CONV_KEEP", 10):
+            capped = at.assemble(self.repo, self.out)["sets"]["phase1_new"]["rows"]
+        unweighted = at.assemble(self.repo, self.out)["sets"]["phase1_new"]["rows"]
+        # 35 sft rows, 3 hand-built, (4 short + 3 primary) x2: the cap drops 20 of them
+        self.assertEqual((capped, unweighted), (32, 52))
 
 
 class ShortCorpusTests(unittest.TestCase):

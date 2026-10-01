@@ -21,8 +21,25 @@ file and line number rather than being skipped.
   phase1_new.jsonl  the same two files as they stand today, plus
                     data/camus_short.jsonl (hand-authored short + goodbye
                     replies) and data/primary_rows.filtered.jsonl (mined primary
-                    text). Book text: build/ only, never tracked.
+                    text), reweighted — see below. Book text: build/ only, never
+                    tracked.
   phase2.jsonl      the Step-3.5 guardrail mix (see below).
+
+phase1_new reweighting (CONV_KEEP, CONV_SEED, CURATED_WEIGHT at the top of this
+file):
+
+  data/camus_sft.jsonl           every `essayist` row kept in full; the uniform
+                                 generated `conversational` rows sampled down to
+                                 CONV_KEEP with random.Random(CONV_SEED), the
+                                 sampled rows left in input order.
+  data/camus_short.jsonl         x CURATED_WEIGHT — hand-authored, and the only
+  data/primary_rows.filtered     rows that speak in the notebook's register.
+  data/camus_conversational      x1.
+
+Deduplication: exact duplicate rows are dropped, first occurrence wins — and it
+runs BEFORE the upweighting, so a deliberate 2x/3x/4x still reaches the set
+while an accidental repeat inside one input file does not. phase1_new applies
+that per source file, then weights, for the same reason.
 
 Also written: MANIFEST.json (row count, kind histogram, sha256, assistant-turn
 metrics, the commit each set was built from, whether the defects files were
@@ -57,9 +74,8 @@ the mixing that trained camus2's guardrail pass (`random.seed(3407)`):
                             are excluded.
 
 Deduplication: exact duplicate rows are dropped, first occurrence wins — and it
-runs BEFORE the upweighting above, so a deliberate 2x/3x/4x still reaches the
-set while an accidental repeat inside one input file does not.
-
+runs BEFORE the upweighting above and in phase1_new, so a deliberate 2x/3x/4x
+still reaches the set while an accidental repeat inside one input file does not.
 Provenance: `kind` is the row's own "kind", else "category" (refusals), else
 "type" (sft: essayist/conversational; phase3: fidelity/attribution/...), else the
 input file's stem. `source` is the row's own "source", else the input label —
@@ -96,8 +112,21 @@ SHORT_DRAFTS = ("data/drafts/short_goodbye.deepseek.jsonl",
                 "data/drafts/short_goodbye.space-bunny.jsonl")
 PRIMARY_ROWS = "data/primary_rows.filtered.jsonl"
 
-PHASE1_OLD_INPUTS = ("data/camus_sft.jsonl", "data/camus_conversational.jsonl")
-PHASE1_NEW_INPUTS = PHASE1_OLD_INPUTS + (SHORT_FILE, PRIMARY_ROWS)
+SFT_FILE = "data/camus_sft.jsonl"
+SFT_ESSAYIST = "essayist"
+SFT_CONVERSATIONAL = "conversational"
+
+PHASE1_OLD_INPUTS = (SFT_FILE, "data/camus_conversational.jsonl")
+CURATED_INPUTS = (SHORT_FILE, PRIMARY_ROWS)
+PHASE1_NEW_INPUTS = PHASE1_OLD_INPUTS + CURATED_INPUTS
+
+# phase1_new reweighting: the uniform generated conversational rows dominate
+# the mix and are near-identical to each other, so they are sampled down to
+# CONV_KEEP; the curated sets (hand-authored short replies, mined primary text)
+# are few and carry the register the notebook reads, so they go in twice.
+CONV_KEEP = 1500
+CONV_SEED = 13
+CURATED_WEIGHT = 2
 
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
@@ -138,6 +167,13 @@ What each set is
                      on, for a same-inputs A/B against phase1_new.
   phase1_new.jsonl   today's corpus: the two above, plus the hand-authored
                      short/goodbye pairs and the mined primary-text rows.
+                     Reweighted: every essayist row, the uniform generated
+                     conversational rows sampled down to {conv_keep} (seed
+                     {conv_seed}), and the two curated sets (short/goodbye,
+                     primary text) x{curated_weight} — exact duplicates are
+                     dropped per source file first, so the x{curated_weight}
+                     survives. The constants and the per-source counts before
+                     and after weighting are in MANIFEST.json.
   phase2.jsonl       the Step-3.5 guardrail mix, mirroring cell 4 of
                      training/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb:
                      refusals (seeded 400-row sample) + conversational
@@ -334,9 +370,12 @@ def dedup_key(row):
     return tuple((message["role"], message["content"]) for message in messages)
 
 
-def dedup(rows):
-    """Exact duplicates out, first occurrence kept. -> (kept, dropped_count)."""
-    seen = set()
+def dedup(rows, seen=None):
+    """Exact duplicates out, first occurrence kept. -> (kept, dropped_count).
+    `seen` lets a caller drop each input's repeats against the ones already
+    accepted from earlier inputs, without re-deriving the keys."""
+    if seen is None:
+        seen = set()
     kept = []
     for row in rows:
         key = dedup_key(row)
@@ -349,18 +388,73 @@ def dedup(rows):
 
 # ── sets ─────────────────────────────────────────────────────────────────────
 
-def build_phase1(repo_root, labels):
-    """Concatenation in the order given, deduped across the whole set."""
+def build_phase1(repo_root, labels, weight_of=None, prepare=None):
+    """Concatenation in the order given, deduped, then each input's rows repeated
+    `weight_of(label)` times. Dedup runs before the weights, so a deliberate x2
+    still reaches the set while an accidental repeat inside one input does not.
+
+    `weight_of` defaults to 1 and `prepare` to the identity: phase1_old takes
+    both at face value, phase1_new supplies the reweighting."""
+    seen = set()
+    dropped = 0
     rows = []
     inputs = []
     for label in labels:
         part = load_input(label, repo_root)
-        inputs.append({"input": label, "rows_read": len(part)})
-        rows.extend(part)
-    kept, dropped = dedup(rows)
+        kept, gone = dedup(part, seen)
+        dropped += gone
+        note = None
+        if prepare is not None:
+            kept, note = prepare(label, kept)
+        weight = weight_of(label) if weight_of is not None else 1
+        entry = {"input": label, "rows_read": len(part), "rows_after_dedup": len(part) - gone,
+                 "rows_selected": len(kept), "weight": weight,
+                 "rows_after_weight": len(kept) * weight}
+        if note:
+            entry["note"] = note
+        elif weight != 1:
+            entry["note"] = "x%d" % weight
+        inputs.append(entry)
+        rows.extend(row for _ in range(weight) for row in kept)
     inputs.append({"input": "(set)", "note": "exact duplicate rows dropped",
-                    "rows_dropped": dropped})
-    return kept, {"inputs": inputs}
+                   "rows_dropped": dropped})
+    return rows, {"inputs": inputs}
+
+
+def downsample_conversational(rows, keep, seed):
+    """The generated conversational rows cut to `keep`, drawn uniformly at random
+    from `seed`; every other row — the essayist prose — is kept untouched. The
+    chosen rows stay in input order, so the sample is a stable subset.
+
+    -> (kept, available, kept_conversational)"""
+    positions = [index for index, row in enumerate(rows) if row["kind"] == SFT_CONVERSATIONAL]
+    drawn = set(random.Random(seed).sample(positions, min(keep, len(positions))))
+    conversational = set(positions)
+    kept = [row for index, row in enumerate(rows)
+            if index not in conversational or index in drawn]
+    return kept, len(positions), len(drawn)
+
+
+def build_phase1_new(repo_root, labels=PHASE1_NEW_INPUTS):
+    """Today's corpus, reweighted for phase 1: every essayist row, the uniform
+    generated conversational rows sampled down to CONV_KEEP with CONV_SEED, the
+    two curated sets at CURATED_WEIGHT, the hand-built conversational set once.
+    Dedup runs per source before any of it, so the deliberate x2 survives."""
+    def weight_of(label):
+        return CURATED_WEIGHT if label in CURATED_INPUTS else 1
+
+    def prepare(label, rows):
+        if label != SFT_FILE:
+            return rows, None
+        kept, available, drawn = downsample_conversational(rows, CONV_KEEP, CONV_SEED)
+        return kept, ("%s rows kept in full, %s rows %d -> %d (uniform sample, seed %d)"
+                      % (SFT_ESSAYIST, SFT_CONVERSATIONAL, available, drawn, CONV_SEED))
+
+    rows, inputs = build_phase1(repo_root, labels, weight_of=weight_of, prepare=prepare)
+    inputs["conv_keep"] = CONV_KEEP
+    inputs["curated_weight"] = CURATED_WEIGHT
+    inputs["seed"] = CONV_SEED
+    return rows, inputs
 
 
 def build_phase2(repo_root):
@@ -524,7 +618,8 @@ def readme_text(manifest):
                         " (no %s marker)." % DEFECTS_MARKER)
     return README_TEMPLATE.format(
         n_sets=len(sets), n_rows=n_rows, total_mb=n_bytes / 1048576,
-        file_table="\n".join(lines), defects_note=defects_note)
+        file_table="\n".join(lines), defects_note=defects_note,
+        conv_keep=CONV_KEEP, conv_seed=CONV_SEED, curated_weight=CURATED_WEIGHT)
 
 
 def assemble(repo_root, out_dir, dry_run=False):
@@ -534,7 +629,7 @@ def assemble(repo_root, out_dir, dry_run=False):
 
     old_rows, old_inputs = build_phase1(repo_root, [f"{CORPUS_TAG}:{label}"
                                                   for label in PHASE1_OLD_INPUTS])
-    new_rows, new_inputs = build_phase1(repo_root, PHASE1_NEW_INPUTS)
+    new_rows, new_inputs = build_phase1_new(repo_root)
     phase2_rows, phase2_inputs = build_phase2(repo_root)
 
     sets = [
@@ -542,7 +637,12 @@ def assemble(repo_root, out_dir, dry_run=False):
          {"note": "read from git tag %s, not the worktree" % CORPUS_TAG,
           "corpus_tag": CORPUS_TAG, "corpus_tag_commit": tag_commit}),
         ("phase1_new", new_rows, new_inputs, False,
-         {"note": "contains book text (primary_rows.filtered.jsonl) — build/ only"}),
+         {"note": "contains book text (primary_rows.filtered.jsonl) — build/ only; "
+                  "every input once except the curated sets, x%d "
+                  "(rows_after_weight per input is in 'inputs')" % CURATED_WEIGHT,
+          "conv_keep": new_inputs["conv_keep"],
+          "curated_weight": new_inputs["curated_weight"],
+          "seed": new_inputs["seed"]}),
         ("phase2", phase2_rows, phase2_inputs, defects_included(repo_root),
          {"note": "mirrors %s cell 4" % "training/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb",
           "notebook_seed": NB_SEED}),
