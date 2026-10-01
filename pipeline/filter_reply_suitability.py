@@ -81,7 +81,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rag"))
 import judge_opencode as jz  # noqa: E402  (key loading, headers, transport, 429 abort)
 
 MODEL = jz.DEFAULT_MODEL   # the same model the opencode-go provider calls space-bunny-free
-BATCH = 25
+BATCH = 10
 # Batches asked about at once. Two is both the default and the ceiling: the gateway is the
 # bottleneck, not this script, and a third request in flight only buys a rate cap.
 WORKERS = 2
@@ -89,7 +89,7 @@ MAX_WORKERS = 2
 # Seconds for one judge call, down from jz.TIMEOUT's 120. A batch that times out is
 # retried once, so a dead gateway costs 2 minutes per batch, not 4 — and the fail streak
 # below ends the run on the third one.
-REQUEST_TIMEOUT = 60
+REQUEST_TIMEOUT = 150   # space-bunny takes ~23 s on a 10-row batch; 25-row batches exhaust its token budget
 FAIL_STREAK = 3        # batches in a row left undecided, then the run gives up
 SAMPLES = 10
 SAMPLE_CHARS = 90

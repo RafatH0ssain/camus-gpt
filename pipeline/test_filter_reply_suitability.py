@@ -734,8 +734,8 @@ class ResumeTest(unittest.TestCase):
 
 
 class BatchingTest(unittest.TestCase):
-    def test_batch_size_is_twenty_five_and_batches_do_not_overlap(self):
-        self.assertEqual(frs.BATCH, 25)
+    def test_batch_size_is_ten_and_batches_do_not_overlap(self):
+        self.assertEqual(frs.BATCH, 10)
         chunks = frs.batches(list(range(60)), 25)
         self.assertEqual([len(c) for c in chunks], [25, 25, 10])
         flat = [n for c in chunks for n in c]
@@ -876,8 +876,8 @@ class RequestTimeoutTest(unittest.TestCase):
     """60 s a call, down from the 120 s jz.judge spends on a silent socket, enforced from
     outside because jz.judge takes no timeout argument."""
 
-    def test_the_deadline_is_sixty_seconds_down_from_the_transport_default(self):
-        self.assertEqual(frs.REQUEST_TIMEOUT, 60)
+    def test_the_deadline_is_a_hundred_and_fifty_seconds(self):
+        self.assertEqual(frs.REQUEST_TIMEOUT, 150)
         self.assertEqual(jz.TIMEOUT, 120)   # what the wrapper is here to shorten
 
     def test_the_gateway_transport_takes_no_timeout_so_the_call_is_wrapped(self):
