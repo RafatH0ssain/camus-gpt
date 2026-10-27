@@ -2,16 +2,16 @@
 # llama-cpp-python is CPU-only here (nomic query embeddings):
 --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
 --prefer-binary
-spaces
-transformers
-accelerate
-llama-cpp-python
-numpy
-huggingface_hub
-gradio
+spaces==0.51.3
+transformers==5.21.0
+accelerate==1.15.0
+llama-cpp-python==0.3.36
+numpy==2.5.4
+huggingface_hub==2.3.0
+gradio==6.30.0
 # per-message logging to a Google Sheet (optional; only used if LOG_SHEET_ID + creds are set)
-gspread
-google-auth
+gspread==6.2.1
+google-auth==2.62.0
 # Phase 2 hybrid retrieval: BM25 channel + cross-encoder reranker (CPU)
-rank-bm25
-sentence-transformers
+rank-bm25==0.2.2
+sentence-transformers==6.2.0
