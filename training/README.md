@@ -1,6 +1,6 @@
 # training/
 
-Makes the weights. The Phase-2 notebook (`CamusGPT_Step3_5_RefusalSFT.ipynb`) runs on Colab
+Makes the weights. The Phase-2 notebook (`archive/CamusGPT_Step3_5_RefusalSFT.ipynb`) runs on Colab
 and reads/writes a **Google Drive** working folder — stage the repo's `data/` and `adapters/`
 there first:
 
@@ -18,3 +18,6 @@ the base model → export GGUF (q4_k_m) + Modelfile to `deploy/`.
 
 `train_camus_8b.py` is the standalone Unsloth port (3B or 8B via `BASE_MODEL`).
 `merge_8b.py` / `make_gguf_colab.py` produce the safetensors / GGUF deployment artifacts.
+
+The older v1 and v2 notebooks (8B and Gemma-3 pipelines) are in `archive/`. The current
+Gemma-4 notebooks stay here and are covered by `test_v3_notebooks.py`.
