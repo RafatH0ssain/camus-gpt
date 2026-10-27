@@ -276,7 +276,7 @@ def ask(cr, turn_messages, turn_opts, temperature, timeout=300):
     response = requests.post(
         f"{cr.OLLAMA}/api/chat",
         json={"model": cr.GEN_MODEL, "messages": turn_messages,
-              "stream": False, "options": opts},
+              "stream": False, "options": opts, "think": False},
         timeout=timeout)
     response.raise_for_status()
     return response.json().get("message", {}).get("content", "")

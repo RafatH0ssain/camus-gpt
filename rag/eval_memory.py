@@ -195,7 +195,7 @@ def run_probe(probe, tmpdir, cr, judge_fn=None):
                              bm25=run_probe.bm25, ce=run_probe.ce, memory=ctx)
         r = requests.post(f"{cr.OLLAMA}/api/chat",
                           json={"model": cr.GEN_MODEL, "messages": turn.messages,
-                                "stream": False, "options": turn.opts}, timeout=300)
+                                "stream": False, "options": turn.opts, "think": False}, timeout=300)
         r.raise_for_status()
         answer = r.json()["message"]["content"].strip()
         recalled = [m["text"] for m in getattr(turn, "memories", [])]
