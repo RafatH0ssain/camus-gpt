@@ -184,7 +184,7 @@ def ask(turns):
         n_hits = len(turn.hits)
         r = requests.post(f"{cr.OLLAMA}/api/chat",
                           json={"model": cr.GEN_MODEL, "messages": messages, "stream": False,
-                                "options": opts}, timeout=300)
+                                "options": opts, "think": False}, timeout=300)
         r.raise_for_status()
         answer = r.json()["message"]["content"].strip()
         history += [{"role": "user", "content": user}, {"role": "assistant", "content": answer}]

@@ -38,7 +38,7 @@ class CamusClient:
 
     def _generate(self, messages, opts):
         r = requests.post(f"{OLLAMA}/api/chat",
-                          json={"model":GEN_MODEL,"messages":messages,"stream":False,"options":opts},
+                          json={"model":GEN_MODEL,"messages":messages,"stream":False,"options":opts,"think":False},
                           timeout=300)
         try:
             r.raise_for_status()
