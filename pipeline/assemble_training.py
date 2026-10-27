@@ -45,7 +45,7 @@ Also written: MANIFEST.json (row count, kind histogram, sha256, assistant-turn
 metrics, the commit each set was built from, whether the defects files were
 included) and README.txt (how to get the folder onto Google Drive).
 
-Phase 2 mirrors training/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb, cell 4 —
+Phase 2 mirrors training/archive/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb, cell 4 —
 the mixing that trained camus2's guardrail pass (`random.seed(3407)`):
 
   camus_refusals.jsonl      shuffled with that seed, first 400 rows only.
@@ -175,7 +175,7 @@ What each set is
                      survives. The constants and the per-source counts before
                      and after weighting are in MANIFEST.json.
   phase2.jsonl       the Step-3.5 guardrail mix, mirroring cell 4 of
-                     training/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb:
+                     training/archive/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb:
                      refusals (seeded 400-row sample) + conversational
                      (substantive/meditation x3) + a 450-row short-SFT
                      preservation sample + epistemic x2 + analysis x3/x2 +
@@ -644,7 +644,7 @@ def assemble(repo_root, out_dir, dry_run=False):
           "curated_weight": new_inputs["curated_weight"],
           "seed": new_inputs["seed"]}),
         ("phase2", phase2_rows, phase2_inputs, defects_included(repo_root),
-         {"note": "mirrors %s cell 4" % "training/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb",
+         {"note": "mirrors %s cell 4" % "training/archive/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb",
           "notebook_seed": NB_SEED}),
     ]
 

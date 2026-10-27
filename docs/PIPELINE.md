@@ -27,7 +27,7 @@ the repo's `data/` and `adapters/` mirror these.
 - **Pass 1 — SFT (voice):** installs the Camus register from `data/camus_sft.jsonl`,
   `data/camus_conversational.jsonl`, `data/camus_refusals.jsonl`. Output: the LoRA adapter
   `adapters/camus_sft_lora` (the INPUT to Pass 2).
-- **Pass 2 — Refusal-SFT / "Step 3.5":** `training/CamusGPT_Step3_5_RefusalSFT.ipynb` merges
+- **Pass 2 — Refusal-SFT / "Step 3.5":** `training/archive/CamusGPT_Step3_5_RefusalSFT.ipynb` merges
   `camus_sft_lora`, attaches a FRESH guardrail adapter, and runs a second balanced SFT pass
   over the refusals (2×), conversational/meditation (3×), SFT-source-preservation, plus the
   three NEW capabilities — `data/camus_epistemic.jsonl`, `data/camus_analysis.jsonl` (3×),
@@ -137,7 +137,7 @@ rag/camus_rag.py           retrieval-augmented chat
 | Path | Role |
 |---|---|
 | `training/build_epistemic.py` · `build_analysis.py` · `build_multiturn.py` | SFT data generators |
-| `training/CamusGPT_Step3_5_RefusalSFT.ipynb` | original 8B refusal-SFT (3 gate cells) |
+| `training/archive/CamusGPT_Step3_5_RefusalSFT.ipynb` | original 8B refusal-SFT (3 gate cells) |
 | `training/train_camus_8b.py` | Unsloth trainer (3B or 8B via `BASE_MODEL`) |
 | `training/merge_8b.py` | merge 8B LoRA → fp16 safetensors |
 | `training/make_gguf_colab.py` | safetensors → Q4_K_M GGUF in Colab (tokenizer refresh) |
