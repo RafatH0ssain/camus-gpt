@@ -2,7 +2,7 @@
 
 This folder mirrors the Google Drive path the Step-3.5 notebook reads from:
 `MyDrive/CamusGPT_Training/data/`. Before running
-`training/CamusGPT_Step3_5_RefusalSFT.ipynb`, upload these files to that Drive folder.
+`training/archive/CamusGPT_Step3_5_RefusalSFT.ipynb`, upload these files to that Drive folder.
 
 ## Required by the notebook (CHECK 1 pre-flight, cell 3)
 The notebook will refuse to start unless all six are present:
@@ -11,7 +11,7 @@ The notebook will refuse to start unless all six are present:
 |---|---|---|
 | `camus_refusals.jsonl` | adversarial-attack → in-voice refusal pairs (subsampled, ~400) | hand-built (Phase-1/earlier) |
 | `camus_conversational.jsonl` | warm/short + substantive/meditation replies (latter upweighted 3×) | hand-built |
-| `camus_sft.jsonl` | Phase-1 voice SFT rows (short ones reused to preserve voice, ≤60 words) | Phase-1 corpus |
+| `camus_sft.jsonl` | Phase-1 voice SFT rows (short ones reused to preserve voice, ≤60 words) | Phase-1 corpus (`pipeline/fetch_batch.py sft`; not in git, see below) |
 | `camus_epistemic.jsonl` | anti-sycophancy / anti-confabulation, balanced correction:affirmation | `training/build_epistemic.py` |
 | `camus_analysis.jsonl` | analyze-provided-text engage + injection-seam refuse | `training/build_analysis.py` |
 | `camus_multiturn.jsonl` | hand-composed multi-turn conversations | `training/build_multiturn.py` |
@@ -28,5 +28,8 @@ are **not** committed. The deployable KB (`camus_kb_full.jsonl`) and its vectors
 Hugging Face dataset repo, not in git.
 
 ## What git tracks here
-The six training `camus_*.jsonl` files above and this README. Everything else
+Five of the six training `camus_*.jsonl` files above and this README. `camus_sft.jsonl`
+is 10 MB and stays out of git: rebuild it with the Phase-1 batch pipeline in `pipeline/`
+(`camus_pdf_pipeline.py` chunks the raw books, `submit_batch.py` submits the SFT batch,
+`fetch_batch.py sft` writes the file), then copy it here. Everything else
 (`source_chunks.jsonl`, `kb_extracted.jsonl`, any `camus_kb*.jsonl`, `*.npy`) is ignored.
