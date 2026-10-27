@@ -27,7 +27,18 @@ raises what the first attempt's failure would have raised.
 """
 import argparse, json, os, re, secrets
 
-import requests
+try:
+    import requests
+except ImportError:  # tests mock jz.requests.post; a stub keeps them runnable before install
+    class _RequestsStub:
+        class RequestException(Exception):
+            pass
+
+        @staticmethod
+        def post(*args, **kwargs):
+            raise RuntimeError("requests is not installed; run: pip install -r requirements.txt")
+
+    requests = _RequestsStub()
 
 ENDPOINT      = "https://opencode.ai/zen/go/v1/chat/completions"
 DEFAULT_MODEL = "space-bunny-free"
