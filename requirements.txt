@@ -1,0 +1,7 @@
+# Runtime dependencies for rag/camus_rag.py (chat, retrieval, judge harnesses).
+# sentence-transformers pulls in torch; skip it if you only run the pipeline tests:
+#   pip install numpy requests rank-bm25
+numpy==2.5.4
+requests==2.34.2
+rank-bm25==0.2.2
+sentence-transformers==6.2.0
