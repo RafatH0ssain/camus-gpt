@@ -54,8 +54,10 @@ data/kb_extracted.jsonl
 # it; covered by *.npy above, named here so the intent is explicit.
 camus_kb_vectors.llamacpp.npy
 
-# NOTE: the six training-corpus files (data/camus_*.jsonl) ARE tracked on purpose.
-# If you'd rather not publish the corpus, add this line:  # data/camus_*.jsonl
+# NOTE: the five small training-corpus files (data/camus_*.jsonl) ARE tracked on
+# purpose. camus_sft.jsonl (10 MB) is not — rebuild it with the Phase-1 batch
+# pipeline in pipeline/ (see the README) if you need to retrain.
+data/camus_sft.jsonl
 
 # Staged upload bundles — assembled from tracked sources, never committed.
 build/

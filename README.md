@@ -49,10 +49,15 @@ persistent memory layer (off by default).
 | `rag/` | the chat layer: retrieval, the persona prompt, memory, and the eval harnesses |
 | `kb/` | builds the knowledge base: ingest sources → extract → merge → embed → trim |
 | `training/` | makes the weights: dataset builders and the Colab fine-tuning notebooks |
-| `data/` | the training corpus (tracked) and KB intermediates (ignored) |
+| `data/` | the training corpus (most of it tracked) and KB intermediates (ignored) |
 | `eval/` | the scored baseline and archived runs behind each released build |
 | `space/` | the Gradio app for hosted deployment |
 | `pipeline/` | dataset tooling and the commit guard |
+
+`data/camus_sft.jsonl` (10 MB, the Phase-1 voice corpus) is not in git. Rebuild it with
+the batch pipeline in `pipeline/`: `camus_pdf_pipeline.py` chunks the raw books,
+`submit_batch.py` submits the SFT batch, `fetch_batch.py sft` writes the file. The
+training notebooks expect it under `data/`; see [data/README.md](data/README.md).
 
 ## Evaluation
 
