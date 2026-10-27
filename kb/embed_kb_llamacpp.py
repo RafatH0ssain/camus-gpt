@@ -6,8 +6,8 @@ so the uploaded index matches the Space's query embedder exactly (no retrieval d
   pip install llama-cpp-python huggingface_hub numpy
   python embed_kb_llamacpp.py
   # then upload BOTH files together (same order!):
-  huggingface-cli upload your-username/camus-kb camus_kb_full.jsonl   --repo-type dataset
-  huggingface-cli upload your-username/camus-kb camus_kb_vectors.npy  --repo-type dataset
+  huggingface-cli upload rafatho/camus-kb camus_kb_full.jsonl   --repo-type dataset
+  huggingface-cli upload rafatho/camus-kb camus_kb_vectors.npy  --repo-type dataset
 
 Must match the Space's EMBED_REPO / EMBED_FILE variables.
 """
