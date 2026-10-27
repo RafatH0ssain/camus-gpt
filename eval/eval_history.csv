@@ -8,3 +8,9 @@ timestamp,commit,gen_model,judge,n,voice,factuality,engagement,composite
 2026-08-13 06:08 UTC,dfb435e,camus2,anthropic:claude-sonnet-4-6,34,4.618,4.029,4.294,4.314
 2026-10-01 03:08 UTC,d486d91,camus2,opencode:space-bunny-free,34,4.471,4.176,4.588,4.412
 2026-10-01 00:14 UTC,9701562,camus2,opencode:space-bunny-free,34,4.676,4.441,4.882,4.667
+2026-10-11 07:45 UTC,1484792,camus2,opencode:deepseek-v4.1-flash,34,4.324,3.971,4.441,4.245
+2026-10-11 07:55 UTC,1484792,camus2,opencode:deepseek-v4.1-flash,34,4.676,4.324,4.794,4.598
+2026-10-11 10:43 UTC,1484792,gemma4-base-misexport,opencode:deepseek-v4.1-flash,34,4.206,4.235,4.824,4.422
+2026-10-11 11:04 UTC,1484792,gemma4-base-misexport,opencode:deepseek-v4.1-flash,34,4.118,4.206,4.676,4.333
+2026-10-11 21:54 UTC,1484792,camus3,opencode:deepseek-v4.1-flash,34,4.735,4.529,4.618,4.627
+2026-10-11 22:06 UTC,1484792,camus3,opencode:deepseek-v4.1-flash,34,4.706,4.353,4.794,4.618

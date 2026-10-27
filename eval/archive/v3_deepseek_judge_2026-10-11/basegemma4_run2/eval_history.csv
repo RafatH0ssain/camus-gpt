@@ -1,0 +1,2 @@
+timestamp,commit,gen_model,judge,n,voice,factuality,engagement,composite
+2026-10-11 11:04 UTC,1484792,gemma4-base-misexport,opencode:deepseek-v4.1-flash,34,4.118,4.206,4.676,4.333
