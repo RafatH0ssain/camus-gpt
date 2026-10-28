@@ -12,6 +12,8 @@ base, so a wrong fact is a retrieval bug, not a retraining job.
 > Camus, and not professional advice.** If you are in crisis, call or text
 > **988** (US & Canada) or find a local helpline at **findahelpline.com**.
 
+![Starting CamusGPT in a terminal and asking it two questions; its answers stream back in Camus's voice (sped up 2x)](docs/camus-demo.gif)
+
 ## Quickstart
 
 Needs [Ollama](https://ollama.com), Python 3.10+, plus the weights and knowledge
