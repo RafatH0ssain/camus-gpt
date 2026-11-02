@@ -11,6 +11,7 @@ Run:
     python3 training/test_v3_notebooks.py
 """
 
+import ast
 import json
 import os
 import unittest
@@ -211,6 +212,51 @@ class TestV3Notebooks(unittest.TestCase):
                 self.assertIn(needle, text, f"export notebook lost {needle!r}")
         self.assertIn("mmproj", text,
                       "export notebook does not mention the projector it does not need")
+
+    def test_no_notebook_uses_unsloth_merged_save(self):
+        """save_pretrained_merged reported success on this Gemma 4 base while writing the
+        base weights unchanged. Comments explaining why are fine; calls are not."""
+        for name in NOTEBOOKS:
+            nb = load(name)
+            for i, cell in enumerate(nb["cells"]):
+                if cell["cell_type"] == "code":
+                    with self.subTest(notebook=name, cell=i):
+                        self.assertNotIn(".save_pretrained_merged(", "".join(cell["source"]))
+
+    def test_export_notebook_proves_the_merge_changed_the_model(self):
+        text = cell_text(load(NOTEBOOKS[2]))
+        for needle in ("merge_and_unload", "delta > 0", "wrapped > 300",
+                       "same == 0", "identical to base"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text, f"export notebook lost {needle!r}")
+
+    def test_phase2_setup_cell_merges_with_peft(self):
+        nb = load(NOTEBOOKS[1])
+        cells = ["".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code"]
+        setup = [c for c in cells if "Rebuild merged Phase-1" in c]
+        self.assertEqual(len(setup), 1, "expected exactly one Phase 2 setup cell")
+        text = setup[0]
+        for needle in ("merge_and_unload", "PeftModel.from_pretrained", "uninstall -y -q torchao",
+                       "architectures[0]", "torch.bfloat16", "wrapped > 300", "delta > 0",
+                       "language_model.layers[0].self_attn.q_proj.weight",
+                       "load_in_4bit=True", "FastModel.get_peft_model"):
+            with self.subTest(needle=needle):
+                self.assertIn(needle, text)
+        self.assertLess(text.index("merge_and_unload"), text.index("FastModel.get_peft_model"))
+
+    def test_code_cells_parse(self):
+        """Colab is the only place these run, so a syntax error would surface mid-session.
+        Magics and shell escapes are not Python; blank them out before parsing."""
+        for name in NOTEBOOKS:
+            nb = load(name)
+            for i, cell in enumerate(nb["cells"]):
+                if cell["cell_type"] != "code":
+                    continue
+                code = "".join(
+                    "pass\n" if l.lstrip().startswith(("!", "%")) else l
+                    for l in "".join(cell["source"]).splitlines(keepends=True))
+                with self.subTest(notebook=name, cell=i):
+                    ast.parse(code)
 
 
 if __name__ == "__main__":
