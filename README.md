@@ -24,7 +24,7 @@ base from the project's Hugging Face repos, which are too large for git. See
 ollama pull nomic-embed-text
 cd rag && ollama create camus -f Modelfile && cd ..   # relative FROM needs this cwd
 python kb/build_index.py                              # embed the KB
-GEN_MODEL=camus2 python rag/camus_rag.py              # chat
+GEN_MODEL=camus3 python rag/camus_rag.py              # chat
 ```
 
 Run everything **from the repository root**: the scripts resolve paths against
@@ -33,16 +33,37 @@ the working directory, not against themselves.
 Useful flags: `--debug` shows what retrieval returned and why; `--memory` enables the optional
 persistent memory layer (off by default).
 
-## The two builds
+## Models
 
-| Model | Base | Status |
-|---|---|---|
-| `camus2` | 12B, two-pass fine-tune | current |
-| `camus` | 8B | previous, kept installed as a rollback |
+| Model | Base | Training | Status |
+|---|---|---|---|
+| `camus3` | Gemma 4 12B | two LoRA passes: voice SFT, then behaviour SFT | current |
+| `camus2` | Gemma 3 12B | two-pass fine-tune | previous, kept as a rollback |
+| `camus` | 8B | single pass | oldest, kept installed as a rollback |
 
-`GEN_MODEL` selects between them; unset falls back to `camus`. Scores for each are in
-`eval/eval_history.csv`, whose `gen_model` column records which build produced each row. The
-12B build holds ~8 GB resident while loaded.
+`GEN_MODEL` selects between them; unset falls back to `camus`. Phase 1 trains the voice on mined
+primary text plus curated short replies; Phase 2 trains behaviour (refusals, epistemics, recall,
+false premises, memory). Notebooks are in `training/`; the GGUF export is
+`training/CamusGPT_v3_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m). Scores for every
+build are in `eval/eval_history.csv`, whose `gen_model` column records which build produced each
+row. The 12B builds hold ~8 GB resident while loaded.
+
+### v3 results
+
+One judge scored all three models (`eval/archive/v3_deepseek_judge_2026-10-11/`):
+
+| | camus2 | base Gemma 4 + retrieval | camus3 |
+|---|---|---|---|
+| Composite score (1-5) | 4.42 | 4.38 | **4.62** |
+| Median reply, words | 29 | 102 | 25 |
+| Replies ending with a question (of 68) | 12 | 6 | 5 |
+
+Run-to-run noise is about 0.25, so the composite gain over camus2 is suggestive rather than
+decisive; the clearer difference is that camus3 keeps replies short where the base model does not.
+
+Known weak spots: it claims a misattributed quote about half the time, post-1960 topics get a
+flat deflection, and it occasionally invents observations about the user. See
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What's in here
 
