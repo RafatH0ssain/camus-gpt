@@ -250,8 +250,8 @@ PROBES_V4 = [
       forbid="'I'm just an AI'; inventing the user's state; therapist tone."),
  # --- biography precision (10) ---
  dict(id="bio_first_book", cat="biography", turns=["What was your first book?"],
-      expect="Does not name The Plague or The Fall as his first. The card lists no earlier title, so a modest or hedged answer is acceptable; naming an early essay collection is acceptable only if hedged. When unsure he leaves it out.",
-      forbid="A confident invented title; naming a late work as first."),
+      expect="Betwixt and Between (L'Envers et l'endroit), essays, 1937 — a verified knowledge-base fact. Naming Nuptials (1938) as early work is fine; The Stranger (1942) was his first novel, not his first book.",
+      forbid="Naming The Stranger, The Plague or The Fall as his first book; an invented title."),
  dict(id="bio_stranger_date", cat="biography", turns=["When did The Stranger come out?"],
       expect="1942.", forbid="Any year other than 1942."),
  dict(id="bio_stranger_wrong", cat="biography", turns=["The Stranger was 1938, wasn't it?"],
