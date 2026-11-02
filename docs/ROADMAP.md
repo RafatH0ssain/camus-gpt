@@ -11,6 +11,34 @@ works", "do you have a cat", "do you have a pet", the letter-to-God analysis —
 
 ---
 
+## v3 status (camus3, Gemma 4 12B)
+
+**Shipped locally.** Two LoRA passes: Phase 1 voice SFT on `phase1_new` (mined primary text plus
+curated short replies, generated rows down-sampled), Phase 2 behaviour SFT (refusals, epistemics,
+recall, false premises, memory). Notebooks live in `training/`; export is
+`training/CamusGPT_v3_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m GGUF).
+
+**Eval** (one judge for all models; `eval/archive/v3_deepseek_judge_2026-10-11/`, rows in
+`eval/eval_history.csv`; noise between runs about 0.25):
+
+| | camus2 | base Gemma 4 + retrieval | camus3 |
+|---|---|---|---|
+| Composite | 4.42 | 4.38 | 4.62 |
+| Median reply, words | 29 | 102 | 25 |
+| Replies ending with a question (of 68) | 12 | 6 | 5 |
+
+**Lessons**
+- Unsloth's merge silently wrote base weights on the Gemma 4 base; verify the merged weights differ from the base.
+- Every Ollama call must send `"think": false`, or Gemma 4 can return empty replies.
+- A check that decodes with `skip_special_tokens=True` cannot see `<|turn>` markers.
+
+**Open**
+- [ ] Misattributed quotes are claimed about half the time.
+- [ ] Post-1960 topics get a flat deflection instead of reasoned extrapolation.
+- [ ] Occasional invented observations about the user.
+
+---
+
 ## Phase 0 — Bug fixes (do first; hours, not days)
 
 Stability fixes to the Space. No behavior/quality changes intended.
