@@ -23,6 +23,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import fix_ligatures as fl  # noqa: E402
 
+# The system word list is absent on minimal machines (CI); skip the whole module then.
+if not os.path.exists(fl.DICT_PATH):
+    raise unittest.SkipTest(f"dictionary not found: {fl.DICT_PATH}")
+
 WORDS = fl.load_words()
 
 # every one of these has a joined form that is a dictionary word
