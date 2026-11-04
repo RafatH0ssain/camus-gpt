@@ -18,3 +18,5 @@ timestamp,commit,gen_model,judge,n,voice,factuality,engagement,composite
 2026-11-02 23:14 UTC,0d36af6,camus2,opencode:mimo-v2.6-pro,34,4.559,4.265,4.588,4.471
 2026-11-02 23:23 UTC,0d36af6,camus3,opencode:mimo-v2.6-pro,34,4.618,4.588,4.676,4.627
 2026-11-02 23:33 UTC,c0c5893,camus3,opencode:mimo-v2.6-pro,33,4.606,4.394,4.727,4.576
+2026-11-03 03:32 UTC,6275971,camus2,opencode:mimo-v2.6-pro,50,4.2,4.0,4.38,4.193
+2026-11-03 03:44 UTC,6275971,camus3,opencode:mimo-v2.6-pro,50,4.18,4.04,4.14,4.12
