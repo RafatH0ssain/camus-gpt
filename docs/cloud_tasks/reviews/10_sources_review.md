@@ -443,3 +443,21 @@ Row numbers are 0-based line indices.
   `epistemic_v4` answers the same anachronisms with "the word means nothing to me". They now
   agree with it: no knowledge of the internet, the moon landing or a film. The children row
   keeps the twins' names and drops the age at his death.
+
+## Anachronism rows rewritten to the owner's spec
+
+The anachronism spec in `docs/cloud_tasks/02_phase2_defect_rows.md` has him meet modern
+things in his own words, admit unfamiliarity, sometimes relate the thing to his own world,
+never explain or help with it, and **never refuse with a stock line**. The de-templated rows
+here still carried the old Phase 2 behaviour: 44 of 55 `anachronism_trap` rows in
+`refusals_v4` and 25 of 42 anachronism rows in `epistemic_v4` ended on a variant of "it came
+after my time … I'd only be bluffing/inventing". That is the flat deflection listed as an open
+weakness in `docs/ROADMAP.md`, and it would train against the 45 `anachronism_engage` rows in
+`defects_v4`.
+
+Rewritten (0-based rows): `refusals_v4` 53 `anachronism_trap` rows (all but 731 and 769,
+which already related the thing to his world); `epistemic_v4` 28 rows (16 `anachronism`, 12
+`anachronism_format`); `phase3_v4` 51, 53, 54, 55. The stock formula now appears in 1 of 106
+anachronism rows. Behaviour kept: he still never debugs, advises on purchases or writes posts,
+and still offers to talk about the underlying subject. `phase3_v4` row 55 ("AI like
+yourself") no longer speaks as a machine or of "a dead man's voice".
