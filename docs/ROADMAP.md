@@ -23,6 +23,7 @@ recall, false premises, memory). Notebooks live in `training/`; export is
 
 | | camus2 | base Gemma 4 + retrieval | camus3 |
 |---|---|---|---|
+| 2026-11 | **Assembler gains `phase1_v4` and `phase2_v4`** (`pipeline/assemble_training.py`): phase1_v4 is phase1_new with the generated conversational rows replaced by `data/cloud/conversational_v4*.jsonl` (x2 each); phase2_v4 swaps each Phase 2 source for its `_v4` rewrite when present (printed fallback otherwise) and adds `defects_v4` + `multiturn_v4` at x2. Choices are recorded in `MANIFEST.json`; phase1_old/phase1_new/phase2 unchanged. | unit tests pass; a human picks the set name in Colab and runs the assembler locally |
 | Composite | 4.42 | 4.38 | 4.62 |
 | Median reply, words | 29 | 102 | 25 |
 | Replies ending with a question (of 68) | 12 | 6 | 5 |
