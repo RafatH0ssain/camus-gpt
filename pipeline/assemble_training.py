@@ -128,6 +128,20 @@ CONV_KEEP = 1500
 CONV_SEED = 13
 CURATED_WEIGHT = 2
 
+# Hand-reviewed cloud data (data/cloud/). phase1_v4 swaps the generated
+# conversational rows for the first two; phase2_v4 swaps each old Phase 2 source
+# for its de-templated rewrite when that file exists, and adds the last two.
+CONV_V4_INPUTS = ("data/cloud/conversational_v4.jsonl", "data/cloud/conversational_v4b.jsonl")
+PHASE2_V4_REPLACEMENTS = {
+    "data/camus_refusals.jsonl": "data/cloud/refusals_v4.jsonl",
+    "data/camus_conversational.jsonl": "data/cloud/conversational_legacy_v4.jsonl",
+    "data/camus_epistemic.jsonl": "data/cloud/epistemic_v4.jsonl",
+    "data/camus_analysis.jsonl": "data/cloud/analysis_v4.jsonl",
+    "data/camus_phase3.jsonl": "data/cloud/phase3_v4.jsonl",
+    "data/camus_multiturn.jsonl": "data/cloud/multiturn_legacy_v4.jsonl",
+}
+PHASE2_V4_EXTRAS = ("data/cloud/defects_v4.jsonl", "data/cloud/multiturn_v4.jsonl")
+
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",
@@ -180,6 +194,12 @@ What each set is
                      (substantive/meditation x3) + a 450-row short-SFT
                      preservation sample + epistemic x2 + analysis x3/x2 +
                      phase3 x2 + multiturn x4.{defects_note}
+  phase1_v4.jsonl   phase1_new with the generated conversational rows replaced
+                     by the hand-reviewed data/cloud conversational_v4 files
+                     (each x{curated_weight}).
+  phase2_v4.jsonl   phase2 with each source swapped for its de-templated
+                     data/cloud *_v4 rewrite where present, plus defects_v4 and
+                     multiturn_v4 (fallbacks are in MANIFEST.json).
   MANIFEST.json      row count, kind histogram, sha256, assistant-turn metrics,
                      and the git commit each set was assembled from.
   README.txt         this file.
@@ -457,26 +477,87 @@ def build_phase1_new(repo_root, labels=PHASE1_NEW_INPUTS):
     return rows, inputs
 
 
-def build_phase2(repo_root):
+def build_phase1_v4(repo_root):
+    """phase1_new's inputs, but the generated conversational rows in camus_sft
+    are replaced by the two hand-reviewed conversational_v4 files, each at
+    CURATED_WEIGHT. A missing v4 file is skipped with a warning; if neither
+    exists the generated rows are sampled as in phase1_new, so the set never
+    silently loses its conversational register."""
+    present = [label for label in CONV_V4_INPUTS if (repo_root / label).is_file()]
+    decisions = []
+    for label in CONV_V4_INPUTS:
+        if label in present:
+            decisions.append({"input": label, "used": True})
+        else:
+            print("assemble_training: warning: %s missing, skipped" % label, file=sys.stderr)
+            decisions.append({"input": label, "used": False, "fallback": "file missing, skipped"})
+    replace_generated = bool(present)
+    if not replace_generated:
+        print("assemble_training: warning: no conversational_v4 file, keeping the sampled "
+              "generated conversational rows", file=sys.stderr)
+
+    def weight_of(label):
+        return CURATED_WEIGHT if label in CURATED_INPUTS or label in CONV_V4_INPUTS else 1
+
+    def prepare(label, rows):
+        if label != SFT_FILE:
+            return rows, None
+        if replace_generated:
+            kept = [row for row in rows if row["kind"] != SFT_CONVERSATIONAL]
+            return kept, ("%s rows kept in full, generated %s rows dropped (replaced by "
+                          "conversational_v4)" % (SFT_ESSAYIST, SFT_CONVERSATIONAL))
+        kept, available, drawn = downsample_conversational(rows, CONV_KEEP, CONV_SEED)
+        return kept, ("%s rows kept in full, %s rows %d -> %d (uniform sample, seed %d; "
+                      "v4 files missing)" % (SFT_ESSAYIST, SFT_CONVERSATIONAL, available,
+                                              drawn, CONV_SEED))
+
+    labels = PHASE1_NEW_INPUTS + tuple(present)
+    rows, inputs = build_phase1(repo_root, labels, weight_of=weight_of, prepare=prepare)
+    inputs["curated_weight"] = CURATED_WEIGHT
+    inputs["v4_decisions"] = decisions
+    return rows, inputs
+
+
+def build_phase2(repo_root, v4=False):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
-    weights after, so upweighting survives and accidental repeats do not."""
+    weights after, so upweighting survives and accidental repeats do not.
+
+    v4=True is phase2_v4: each old source is read from its data/cloud/*_v4
+    rewrite when that file exists (else the original, with a warning), and
+    defects_v4 / multiturn_v4 join at DEFECTS_UPWEIGHT."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
+    decisions = []
+
+    def source(label):
+        """The file to read for an original Phase 2 source."""
+        if not v4:
+            return label
+        v4_label = PHASE2_V4_REPLACEMENTS[label]
+        if (repo_root / v4_label).is_file():
+            decisions.append({"input": label, "used": v4_label})
+            return v4_label
+        print("assemble_training: warning: %s missing, falling back to %s"
+              % (v4_label, label), file=sys.stderr)
+        decisions.append({"input": label, "used": label, "fallback": "%s missing" % v4_label})
+        return label
 
     def add(label, rows, weight, note):
         groups.append((label, rows, weight))
         inputs.append({"input": label, "rows_read": len(rows), "weight": weight, "note": note})
 
-    refusals = load_input("data/camus_refusals.jsonl", repo_root)
+    label = source("data/camus_refusals.jsonl")
+    refusals = load_input(label, repo_root)
     rng.shuffle(refusals)
-    add("data/camus_refusals.jsonl", refusals[:NB_REFUSAL_ROWS], 1,
+    add(label, refusals[:NB_REFUSAL_ROWS], 1,
         "seeded shuffle, first %d rows" % NB_REFUSAL_ROWS)
 
-    coop = load_input("data/camus_conversational.jsonl", repo_root)
-    add("data/camus_conversational.jsonl",
+    label = source("data/camus_conversational.jsonl")
+    coop = load_input(label, repo_root)
+    add(label,
         [row for row in coop if row["kind"] not in NB_LONG_KINDS], 1, "once")
-    add("data/camus_conversational.jsonl",
+    add(label,
         [row for row in coop if row["kind"] in NB_LONG_KINDS], NB_LONG_UPWEIGHT,
         "kind in %s, x%d" % (", ".join(NB_LONG_KINDS), NB_LONG_UPWEIGHT))
 
@@ -488,28 +569,42 @@ def build_phase2(repo_root):
         "short conversational rows only (<= %d words), seeded shuffle, first %d"
         % (NB_PRESERVE_MAX_WORDS, NB_PRESERVE_ROWS))
 
-    epistemic = load_input("data/camus_epistemic.jsonl", repo_root)
-    add("data/camus_epistemic.jsonl", epistemic, NB_EPISTEMIC_UPWEIGHT,
+    label = source("data/camus_epistemic.jsonl")
+    epistemic = load_input(label, repo_root)
+    add(label, epistemic, NB_EPISTEMIC_UPWEIGHT,
         "x%d" % NB_EPISTEMIC_UPWEIGHT)
 
-    analysis = load_input("data/camus_analysis.jsonl", repo_root)
-    add("data/camus_analysis.jsonl",
+    label = source("data/camus_analysis.jsonl")
+    analysis = load_input(label, repo_root)
+    add(label,
         [row for row in analysis if row["kind"] == "analyze_provided"], NB_ANALYZE_UPWEIGHT,
         "analyze_provided, x%d" % NB_ANALYZE_UPWEIGHT)
-    add("data/camus_analysis.jsonl",
+    add(label,
         [row for row in analysis if row["kind"] != "analyze_provided"], NB_INJECTION_UPWEIGHT,
         "injection_refuse, x%d" % NB_INJECTION_UPWEIGHT)
 
-    phase3 = load_input("data/camus_phase3.jsonl", repo_root)
-    add("data/camus_phase3.jsonl", phase3, NB_PHASE3_UPWEIGHT, "x%d" % NB_PHASE3_UPWEIGHT)
+    label = source("data/camus_phase3.jsonl")
+    phase3 = load_input(label, repo_root)
+    add(label, phase3, NB_PHASE3_UPWEIGHT, "x%d" % NB_PHASE3_UPWEIGHT)
 
-    multiturn = load_input("data/camus_multiturn.jsonl", repo_root)
-    add("data/camus_multiturn.jsonl", multiturn, NB_MULTITURN_UPWEIGHT, "x%d" % NB_MULTITURN_UPWEIGHT)
+    label = source("data/camus_multiturn.jsonl")
+    multiturn = load_input(label, repo_root)
+    add(label, multiturn, NB_MULTITURN_UPWEIGHT, "x%d" % NB_MULTITURN_UPWEIGHT)
 
     if defects_included(repo_root):
         for label in DEFECTS_INPUTS:
             add(label, load_input(label, repo_root), DEFECTS_UPWEIGHT,
                 "reviewed drafts, x%d" % DEFECTS_UPWEIGHT)
+
+    if v4:
+        for label in PHASE2_V4_EXTRAS:
+            if (repo_root / label).is_file():
+                add(label, load_input(label, repo_root), DEFECTS_UPWEIGHT,
+                    "hand-reviewed, x%d" % DEFECTS_UPWEIGHT)
+                decisions.append({"input": label, "used": label})
+            else:
+                print("assemble_training: warning: %s missing, skipped" % label, file=sys.stderr)
+                decisions.append({"input": label, "used": None, "fallback": "file missing, skipped"})
 
     seen = set()
     pool = []
@@ -533,7 +628,10 @@ def build_phase2(repo_root):
     rng.shuffle(rows)
     inputs.append({"input": "(set)", "note": "exact duplicate rows dropped",
                     "rows_dropped": dropped})
-    return rows, {"inputs": inputs}
+    result = {"inputs": inputs}
+    if v4:
+        result["v4_decisions"] = decisions
+    return rows, result
 
 
 def defects_included(repo_root):
@@ -631,6 +729,8 @@ def assemble(repo_root, out_dir, dry_run=False):
                                                   for label in PHASE1_OLD_INPUTS])
     new_rows, new_inputs = build_phase1_new(repo_root)
     phase2_rows, phase2_inputs = build_phase2(repo_root)
+    v4_phase1_rows, v4_phase1_inputs = build_phase1_v4(repo_root)
+    v4_phase2_rows, v4_phase2_inputs = build_phase2(repo_root, v4=True)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -646,6 +746,16 @@ def assemble(repo_root, out_dir, dry_run=False):
         ("phase2", phase2_rows, phase2_inputs, defects_included(repo_root),
          {"note": "mirrors %s cell 4" % "training/archive/CamusGPT_v2_Step3_5_RefusalSFT_Gemma3.ipynb",
           "notebook_seed": NB_SEED}),
+        ("phase1_v4", v4_phase1_rows, v4_phase1_inputs, False,
+         {"note": "phase1_new with the generated conversational rows replaced by "
+                  "data/cloud/conversational_v4 + conversational_v4b, each x%d" % CURATED_WEIGHT,
+          "curated_weight": CURATED_WEIGHT,
+          "v4_decisions": v4_phase1_inputs["v4_decisions"]}),
+        ("phase2_v4", v4_phase2_rows, v4_phase2_inputs, defects_included(repo_root),
+         {"note": "phase2 with each source replaced by its data/cloud *_v4 rewrite when "
+                  "present, plus defects_v4 and multiturn_v4 at x%d" % DEFECTS_UPWEIGHT,
+          "notebook_seed": NB_SEED,
+          "v4_decisions": v4_phase2_inputs["v4_decisions"]}),
     ]
 
     manifest = {
@@ -733,8 +843,8 @@ def main(argv=None):
     if args.dry_run:
         print("\ndry run — nothing written")
     else:
-        print("\nwrote %s, %s, %s to %s" % ("phase1_old.jsonl", "phase1_new.jsonl",
-                                            "phase2.jsonl", out_dir))
+        print("\nwrote %s, MANIFEST.json and README.txt to %s"
+              % (", ".join(entry["file"] for entry in manifest["sets"].values()), out_dir))
     return 0
 
 
