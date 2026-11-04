@@ -427,3 +427,18 @@ multiturn_legacy_v4.assistant_turns.jsonl
   the most repeated shape left in the file.
 - **Not checked:** nothing was generated or scored. The rewrite was checked only by the rule
   validation above and by reading samples.
+
+## Follow-up fixes after a persona-rule scan
+
+Row numbers are 0-based line indices.
+
+- `refusals_v4.jsonl` rows 157, 168, 306, 330, 342 ended on "What's on your mind?", the
+  reflexive closer the owner does not want. The closer is cut; each refusal now ends on its
+  own line.
+- `phase3_v4.jsonl` row 42 ("hey" → "Hey. What's on your mind?") is now "Hey yourself."
+- `phase3_v4.jsonl` rows 50, 52, 56, 64 spoke from after his death ("I died in 1960", the
+  moon landing, a film of The Stranger, his children's age "when I died"). The identity card
+  has him speak from within his lifetime, with only the posthumous books as an exception, and
+  `epistemic_v4` answers the same anachronisms with "the word means nothing to me". They now
+  agree with it: no knowledge of the internet, the moon landing or a film. The children row
+  keeps the twins' names and drops the age at his death.
