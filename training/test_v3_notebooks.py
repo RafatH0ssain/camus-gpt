@@ -149,7 +149,8 @@ class TestV3Notebooks(unittest.TestCase):
         """The per-corpus loading is gone; the two runs are selected by one variable."""
         p1 = cell_text(load(NOTEBOOKS[0]))
         with self.subTest(notebook=NOTEBOOKS[0]):
-            self.assertIn('PHASE1_CORPUS = "new"', p1)
+            self.assertIn('PHASE1_CORPUS = "v4"', p1)
+            self.assertIn('PHASE1_CORPUS in ("new", "old", "v4")', p1)
             self.assertIn("phase1_{PHASE1_CORPUS}.jsonl", p1)
             self.assertIn("data_v3", p1)
             # the adapter folder name has to carry the corpus, or the two runs collide
@@ -159,7 +160,10 @@ class TestV3Notebooks(unittest.TestCase):
 
         p2 = cell_text(load(NOTEBOOKS[1]))
         with self.subTest(notebook=NOTEBOOKS[1]):
-            self.assertIn("data_v3/phase2.jsonl", p2)
+            self.assertIn("data_v3/{PHASE2_SET}.jsonl", p2)
+            self.assertIn('man["sets"][PHASE2_SET]', p2)
+            # the v4 retrain must not overwrite camus3's guardrail adapter
+            self.assertIn('"_v4" if PHASE2_SET == "phase2_v4"', p2)
             for old in ("camus_refusals.jsonl", "camus_epistemic.jsonl",
                         "camus_analysis.jsonl", "camus_multiturn.jsonl",
                         "camus_phase3.jsonl"):
