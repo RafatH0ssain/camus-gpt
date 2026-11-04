@@ -134,9 +134,12 @@ if CORE_VARIANT not in _CORE_PROSE:
     raise SystemExit(f"CORE_VARIANT must be one of {sorted(_CORE_PROSE)}, got {CORE_VARIANT!r}")
 CORE = _CORE_PROSE[CORE_VARIANT] + _IDENTITY_CARD
 
-TASK_CUES = ("analyze","analyse","deduce","interpret","critique","what can you",
-             "what do you make","what does this","this is a letter","this is a poem",
-             "this is a text","the person who wrote","the author")
+# "what can you", "what do you make" and "the author" alone also open ordinary questions
+# about his life ("What can you tell me about Louis Germain?"), which then lost retrieval.
+TASK_CUES = ("analyze","analyse","deduce","interpret","critique","what can you tell from",
+             "what can you tell about this","what can you say about this",
+             "what do you make of this","what does this","this is a letter","this is a poem",
+             "this is a text","the person who wrote","the author of this")
 
 # NOTE (documented tradeoff): a *biographical* question longer than 280 chars also trips this
 # gate and gets no facts. Accepted — exempting questions that end in "?" would break the gate
@@ -580,7 +583,9 @@ def main():
         print(f"[memory] on — {len(memctx.store.rows)} stored, "
               f"profile.md {'loaded' if profile else 'absent'}, session {session_id}")
 
-    history = []
+    # history is trimmed to HIST_WINDOW for the prompt; `pending` keeps every exchange since
+    # the last memory flush, so extraction never misses turns that were evicted.
+    history, pending, n_exchanges = [], [], 0
     print("\nCamus is here. Type and press enter; Ctrl-C to leave.\n")
     try:
         while True:
@@ -589,9 +594,12 @@ def main():
             turn = build_turn(user, history, facts, vecs, bm25=bm25, ce=ce,
                               debug=args.debug, memory=memctx)
             reply = stream_chat(turn.messages, turn.opts)
-            history += [{"role":"user","content":user},{"role":"assistant","content":reply}]
+            exchange = [{"role":"user","content":user},{"role":"assistant","content":reply}]
+            history += exchange
+            n_exchanges += 1
 
             if memctx is not None:
+                pending += exchange
                 # Turns falling out of HIST_WINDOW are compressed rather than dropped.
                 if len(history) > HIST_WINDOW:
                     evicted = history[:len(history) - HIST_WINDOW]
@@ -602,11 +610,12 @@ def main():
                             print(f"  [memory] summary now {len(memctx.summary.split())} words")
                     except Exception as e:
                         print(f"[memory] summarisation failed ({e}) — dropping evicted turns")
-                if len(history) // 2 and len(history) // 2 % EXTRACT_EVERY == 0:
-                    _flush_memories(mem, memctx, history, session_id, "mid-session flush")
+                if n_exchanges % EXTRACT_EVERY == 0:
+                    _flush_memories(mem, memctx, pending, session_id, "mid-session flush")
+                    pending = []
     except (KeyboardInterrupt, EOFError):
         print("\nUntil next time.")
-        _flush_memories(mem, memctx, history, session_id, "session end")
+        _flush_memories(mem, memctx, pending, session_id, "session end")
         if memctx is not None:
             try:
                 memctx.store.save()      # persist hits/last_seen bumps from retrieval

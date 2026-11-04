@@ -388,7 +388,7 @@ def print_summary(summary, n_factual):
     print("-" * len(head))
     for row in summary:
         per = "  ".join(
-            f"{(str(round(row['per_prompt_clean'][k], 2)) + f' ({row['per_prompt_n'][k]})'):>{width}}"
+            f"{(str(round(row['per_prompt_clean'][k], 2)) + ' (' + str(row['per_prompt_n'][k]) + ')'):>{width}}"
             if k in row["per_prompt_clean"] else f"{'-':>{width}}" for k in keys)
         print(f"{row['temperature']:>5}  {row['n']:>3}  "
               f"{row['factual_clean']:>13.2f}  {row['conversational_clean']:>10.2f}  "

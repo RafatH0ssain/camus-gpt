@@ -34,7 +34,11 @@ from datetime import datetime, timezone
 
 import numpy as np
 import requests
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:   # python-dotenv is optional: without it, .env is not read
+    def load_dotenv():
+        return False
 
 # Load environment variables from the .env file in the current directory
 load_dotenv()
@@ -249,7 +253,7 @@ def judge_opencode(model, probe, convo, answer):
 
 def judge_ollama(model, probe, convo, answer, cr=None):
     r = requests.post(f"{cr.OLLAMA}/api/chat",
-        json={"model": model, "stream": False, "options": {"temperature": 0},
+        json={"model": model, "stream": False, "think": False, "options": {"temperature": 0},
               "messages": [{"role": "system", "content": JUDGE_SYS},
                            {"role": "user", "content": judge_prompt(probe, convo, answer)}]},
         timeout=300)

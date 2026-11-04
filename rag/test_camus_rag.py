@@ -74,6 +74,18 @@ class GateTests(unittest.TestCase):
         self.assertFalse(cr.is_task("Where were you born?"))
         self.assertFalse(cr.is_task("What was your cat called?"))
 
+    def test_is_task_keeps_biographical_questions(self):
+        for q in ("What can you tell me about Louis Germain?",
+                  "What can you tell me about your mother?",
+                  "Who is the author of The Plague?",
+                  "What do you make of your time at Combat?"):
+            with self.subTest(q=q):
+                self.assertFalse(cr.is_task(q))
+        for q in ("What can you tell from this letter?", "What do you make of this poem?",
+                  "Guess the author of this passage."):
+            with self.subTest(q=q):
+                self.assertTrue(cr.is_task(q))
+
     def test_is_followup(self):
         self.assertTrue(cr.is_followup("and why?"))
         self.assertTrue(cr.is_followup(""))
@@ -208,6 +220,23 @@ class ThinkFalseTests(unittest.TestCase):
             self.assertEqual(ts.ask(fake, [], {"temperature": 1}, 0.3), "a")
         self.assertThinkFalse(post)
         self.assertEqual(post.call_args.kwargs["json"]["options"]["temperature"], 0.3)
+
+    def test_eval_camus_judge_ollama(self):
+        import eval_camus as ec
+        with mock.patch.object(ec.requests, "post", return_value=fake_response("{}")) as post, \
+             mock.patch.object(ec, "parse_judge", side_effect=lambda text: text), \
+             mock.patch.object(ec, "judge_prompt", return_value="p"):
+            ec.judge_ollama("judge", {}, [], "a")
+        self.assertThinkFalse(post)
+
+    def test_eval_memory_judge_ollama(self):
+        em = import_eval_memory()
+        fake_cr = types.SimpleNamespace(OLLAMA="http://x")
+        with mock.patch.object(em.requests, "post", return_value=fake_response("{}")) as post, \
+             mock.patch.object(em, "parse_judge", side_effect=lambda text: text), \
+             mock.patch.object(em, "judge_prompt", return_value="p"):
+            em.judge_ollama("judge", {}, [], "a", cr=fake_cr)
+        self.assertThinkFalse(post)
 
 
 class HistoryTests(unittest.TestCase):
