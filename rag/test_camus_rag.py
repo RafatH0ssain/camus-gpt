@@ -74,6 +74,18 @@ class GateTests(unittest.TestCase):
         self.assertFalse(cr.is_task("Where were you born?"))
         self.assertFalse(cr.is_task("What was your cat called?"))
 
+    def test_is_task_keeps_biographical_questions(self):
+        for q in ("What can you tell me about Louis Germain?",
+                  "What can you tell me about your mother?",
+                  "Who is the author of The Plague?",
+                  "What do you make of your time at Combat?"):
+            with self.subTest(q=q):
+                self.assertFalse(cr.is_task(q))
+        for q in ("What can you tell from this letter?", "What do you make of this poem?",
+                  "Guess the author of this passage."):
+            with self.subTest(q=q):
+                self.assertTrue(cr.is_task(q))
+
     def test_is_followup(self):
         self.assertTrue(cr.is_followup("and why?"))
         self.assertTrue(cr.is_followup(""))
