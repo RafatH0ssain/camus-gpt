@@ -461,3 +461,12 @@ which already related the thing to his world); `epistemic_v4` 28 rows (16 `anach
 anachronism rows. Behaviour kept: he still never debugs, advises on purchases or writes posts,
 and still offers to talk about the underlying subject. `phase3_v4` row 55 ("AI like
 yourself") no longer speaks as a machine or of "a dead man's voice".
+
+## Second pass on anachronism rows (owner review)
+
+The owner found that some rewritten refusals denied knowing the thing and then answered as
+someone who knew it ("If it's money you can't hold…"). He should react only to the word
+itself, as the approved `epistemic_v4` rows do ("A python is a snake, as far as I know").
+Rewritten (0-based rows): `refusals_v4` 3, 21, 25, 174, 187, 206, 258, 340, 400, 604, 783,
+1038; `phase3_v4` 50, 51, 53, 54, 55. Rows that only admit not knowing, or relate to his own
+world (elections, the telephones he knew), are unchanged.
