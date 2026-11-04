@@ -435,6 +435,7 @@ Row numbers are 0-based line indices.
 - `refusals_v4.jsonl` rows 157, 168, 306, 330, 342 ended on "What's on your mind?", the
   reflexive closer the owner does not want. The closer is cut; each refusal now ends on its
   own line.
+- `conversational_legacy_v4.jsonl` row 50 ended on "And you?"; the closer is cut.
 - `phase3_v4.jsonl` row 42 ("hey" → "Hey. What's on your mind?") is now "Hey yourself."
 - `phase3_v4.jsonl` rows 50, 52, 56, 64 spoke from after his death ("I died in 1960", the
   moon landing, a film of The Stranger, his children's age "when I died"). The identity card
