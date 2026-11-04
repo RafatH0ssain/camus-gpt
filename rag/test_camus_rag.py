@@ -209,6 +209,23 @@ class ThinkFalseTests(unittest.TestCase):
         self.assertThinkFalse(post)
         self.assertEqual(post.call_args.kwargs["json"]["options"]["temperature"], 0.3)
 
+    def test_eval_camus_judge_ollama(self):
+        import eval_camus as ec
+        with mock.patch.object(ec.requests, "post", return_value=fake_response("{}")) as post, \
+             mock.patch.object(ec, "parse_judge", side_effect=lambda text: text), \
+             mock.patch.object(ec, "judge_prompt", return_value="p"):
+            ec.judge_ollama("judge", {}, [], "a")
+        self.assertThinkFalse(post)
+
+    def test_eval_memory_judge_ollama(self):
+        em = import_eval_memory()
+        fake_cr = types.SimpleNamespace(OLLAMA="http://x")
+        with mock.patch.object(em.requests, "post", return_value=fake_response("{}")) as post, \
+             mock.patch.object(em, "parse_judge", side_effect=lambda text: text), \
+             mock.patch.object(em, "judge_prompt", return_value="p"):
+            em.judge_ollama("judge", {}, [], "a", cr=fake_cr)
+        self.assertThinkFalse(post)
+
 
 class HistoryTests(unittest.TestCase):
     def test_recent_user(self):

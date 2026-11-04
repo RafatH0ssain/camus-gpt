@@ -695,7 +695,8 @@ class FailFastTest(unittest.TestCase):
         self.assertIsNotNone(stop)
         self.assertEqual(stats["attempted"], 1)      # a cap does not wait for a streak
         self.assertEqual(stats["undecided"], 1)
-        self.assertEqual(seen[0], "passage 0")
+        # with two workers in flight either of the first two batches can reach the stub first
+        self.assertIn(seen[0], {"passage 0", "passage 1"})
 
     def test_the_summary_says_which_stop_it_was(self):
         rows = passages(10)
@@ -733,8 +734,9 @@ class ResumeAfterStopTest(unittest.TestCase):
                                 key=KEY, call=second)
             on_disk = frs.load_rows(path)
 
-        # batch 1 was decided before the stop, so the rerun never asks about it again
-        self.assertEqual(second.signatures,
+        # batch 1 was decided before the stop, so the rerun never asks about it again;
+        # two workers can reach the stub in either order, so compare the set of batches
+        self.assertEqual(sorted(second.signatures),
                          [("passage 2", "passage 3"), ("passage 4", "passage 5"),
                           ("passage 6", "passage 7"), ("passage 8", "passage 9")])
         self.assertEqual(stats2["todo"], 8)
