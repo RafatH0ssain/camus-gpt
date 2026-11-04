@@ -248,6 +248,14 @@ class TestV3Notebooks(unittest.TestCase):
                 self.assertIn(needle, text)
         self.assertLess(text.index("merge_and_unload"), text.index("FastModel.get_peft_model"))
 
+    def test_no_dataset_columns_are_concatenated(self):
+        """Recent `datasets` returns a Column for ds["text"], and Column + Column raises
+        TypeError mid-run on Colab. Wrap each side in list() first."""
+        import re
+        for name in NOTEBOOKS[:2]:
+            with self.subTest(notebook=name):
+                self.assertIsNone(re.search(r'_ds\["\w+"\]\s*\+', cell_text(load(name))))
+
     def test_code_cells_parse(self):
         """Colab is the only place these run, so a syntax error would surface mid-session.
         Magics and shell escapes are not Python; blank them out before parsing."""
