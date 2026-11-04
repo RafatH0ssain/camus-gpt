@@ -687,7 +687,8 @@ class AssembleTests(unittest.TestCase):
                          subprocess.run([GIT, "rev-parse", "HEAD"], cwd=str(repo),
                                         stdout=subprocess.PIPE, encoding="utf-8",
                                         check=True).stdout.strip())
-        self.assertEqual(sorted(on_disk["sets"]), ["phase1_new", "phase1_old", "phase2"])
+        self.assertEqual(sorted(on_disk["sets"]),
+                         ["phase1_new", "phase1_old", "phase1_v4", "phase2", "phase2_v4"])
 
     def test_manifest_fields_and_hashes_match_the_files(self):
         repo, out = self.repo_and_out()
@@ -750,6 +751,126 @@ class AssembleTests(unittest.TestCase):
             self.assertIn(entry["file"], readme)
         self.assertIn("rclone copy", readme)
         self.assertIn("shasum -a 256", readme)
+
+
+V4_PHASE2_FILES = {
+    "data/cloud/refusals_v4.jsonl": [qa("v4 attack", "Not that.", category="system_extraction")],
+    "data/cloud/epistemic_v4.jsonl": [qa("v4 nobel", "Yes, 1957.", kind="true_bio_answer")],
+    "data/cloud/defects_v4.jsonl": [qa("v4 defect", "I do not recall.", kind="recall")],
+    "data/cloud/multiturn_v4.jsonl": [
+        {"messages": [{"role": "user", "content": "v4 one"},
+                      {"role": "assistant", "content": "v4 two"}], "kind": "multiturn"}],
+}
+
+
+def prompts_of(rows):
+    return [row["messages"][0]["content"] for row in rows]
+
+
+@needs_git
+class V4SetTests(unittest.TestCase):
+    """phase1_v4 and phase2_v4: the cloud files replace, fall back, and leave
+    the existing sets alone."""
+
+    def phase1_root(self, with_v4=True):
+        files = phase1_new_files(n_conv=5)
+        if with_v4:
+            files["data/cloud/conversational_v4.jsonl"] = [qa("v4 a", "Answer a.", kind="v4")]
+            files["data/cloud/conversational_v4b.jsonl"] = [qa("v4 b", "Answer b.", kind="v4b")]
+        return make_temp_dir(self, files)
+
+    def test_phase1_v4_replaces_generated_rows_and_weights_the_v4_files(self):
+        root = self.phase1_root()
+        rows, inputs = at.build_phase1_v4(root)
+        prompts = prompts_of(rows)
+        self.assertFalse(any(p.startswith("gen ") for p in prompts))
+        self.assertEqual(prompts.count("v4 a"), at.CURATED_WEIGHT)
+        self.assertEqual(prompts.count("v4 b"), at.CURATED_WEIGHT)
+        self.assertEqual(prompts.count("hm"), at.CURATED_WEIGHT)
+        self.assertEqual(prompts.count("essay 0"), 1)
+        self.assertEqual(prompts.count("hey"), 1)
+        weights = {e["input"]: e["weight"] for e in inputs["inputs"] if "weight" in e}
+        for label in at.CONV_V4_INPUTS:
+            self.assertEqual(weights[label], at.CURATED_WEIGHT)
+        self.assertTrue(all(d["used"] for d in inputs["v4_decisions"]))
+
+    def test_phase1_v4_missing_file_is_skipped_and_recorded(self):
+        root = self.phase1_root()
+        (root / at.CONV_V4_INPUTS[1]).unlink()
+        with mock.patch("sys.stderr"):
+            rows, inputs = at.build_phase1_v4(root)
+        self.assertNotIn("v4 b", prompts_of(rows))
+        self.assertIn("v4 a", prompts_of(rows))
+        self.assertEqual([d["used"] for d in inputs["v4_decisions"]], [True, False])
+        self.assertIn("fallback", inputs["v4_decisions"][1])
+
+    def test_phase1_v4_without_any_v4_file_equals_phase1_new(self):
+        root = self.phase1_root(with_v4=False)
+        with mock.patch("sys.stderr"):
+            rows, _ = at.build_phase1_v4(root)
+        expected, _ = at.build_phase1_new(root)
+        self.assertEqual(rows, expected)
+
+    def test_phase2_v4_uses_v4_files_and_falls_back_for_the_rest(self):
+        files = phase2_files()
+        files.update(V4_PHASE2_FILES)
+        root = make_temp_dir(self, files)
+        with mock.patch("sys.stderr"):
+            rows, inputs = at.build_phase2(root, v4=True)
+        prompts = prompts_of(rows)
+        self.assertIn("v4 attack", prompts)
+        self.assertNotIn("attack 0", prompts)
+        self.assertIn("v4 nobel", prompts)
+        self.assertNotIn("did you win nobel", prompts)
+        self.assertIn("do you have a cat", prompts)  # phase3_v4 absent -> original
+        self.assertEqual(prompts.count("v4 defect"), at.DEFECTS_UPWEIGHT)
+        self.assertEqual(prompts.count("v4 one"), at.DEFECTS_UPWEIGHT)
+        decisions = {d["input"]: d for d in inputs["v4_decisions"]}
+        self.assertEqual(decisions["data/camus_epistemic.jsonl"]["used"],
+                         "data/cloud/epistemic_v4.jsonl")
+        self.assertNotIn("fallback", decisions["data/camus_epistemic.jsonl"])
+        self.assertEqual(decisions["data/camus_phase3.jsonl"]["used"], "data/camus_phase3.jsonl")
+        self.assertIn("fallback", decisions["data/camus_phase3.jsonl"])
+
+    def test_phase2_v4_missing_extras_are_skipped(self):
+        root = make_temp_dir(self, phase2_files())
+        with mock.patch("sys.stderr"):
+            rows, inputs = at.build_phase2(root, v4=True)
+        expected, _ = at.build_phase2(root)
+        self.assertEqual(rows, expected)
+        extras = [d for d in inputs["v4_decisions"] if d["input"] in at.PHASE2_V4_EXTRAS]
+        self.assertEqual([d["used"] for d in extras], [None, None])
+
+    def test_existing_sets_do_not_change_when_v4_files_appear(self):
+        base = phase2_files()
+        base.update(phase1_new_files(n_conv=5))
+        plain = make_temp_repo(self, base)
+        with_v4 = dict(base)
+        with_v4.update(V4_PHASE2_FILES)
+        with_v4["data/cloud/conversational_v4.jsonl"] = [qa("v4 a", "Answer a.")]
+        cloud = make_temp_repo(self, with_v4)
+        a = at.assemble(plain, plain / "out")
+        b = at.assemble(cloud, cloud / "out")
+        for name in ("phase1_old", "phase1_new", "phase2"):
+            self.assertEqual(a["sets"][name]["sha256"], b["sets"][name]["sha256"], name)
+            self.assertNotIn("v4_decisions", b["sets"][name])
+        self.assertNotEqual(a["sets"]["phase2_v4"]["sha256"], b["sets"]["phase2_v4"]["sha256"])
+
+    def test_manifest_records_v4_decisions(self):
+        files = phase2_files()
+        files.update(phase1_new_files(n_conv=5))
+        files.update(V4_PHASE2_FILES)
+        files["data/cloud/conversational_v4.jsonl"] = [qa("v4 a", "Answer a.")]
+        repo = make_temp_repo(self, files)
+        with mock.patch("sys.stderr"):
+            manifest = at.assemble(repo, repo / "out")
+        on_disk = json.loads((repo / "out" / "MANIFEST.json").read_text(encoding="utf-8"))
+        self.assertEqual(on_disk["sets"]["phase1_v4"]["v4_decisions"],
+                         manifest["sets"]["phase1_v4"]["v4_decisions"])
+        self.assertFalse(manifest["sets"]["phase1_v4"]["v4_decisions"][1]["used"])
+        p2 = manifest["sets"]["phase2_v4"]
+        self.assertTrue(any("fallback" in d for d in p2["v4_decisions"]))
+        self.assertTrue(all("weight" in e for e in p2["inputs"] if e["input"] != "(set)"))
 
 
 @needs_git
