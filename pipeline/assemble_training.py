@@ -141,6 +141,8 @@ PHASE2_V4_REPLACEMENTS = {
     "data/camus_multiturn.jsonl": "data/cloud/multiturn_legacy_v4.jsonl",
 }
 PHASE2_V4_EXTRAS = ("data/cloud/defects_v4.jsonl", "data/cloud/multiturn_v4.jsonl")
+# phase2_v5 = phase2_v4 + these, for a Phase-2-only retrain on top of the v4 Phase 1 adapter.
+PHASE2_V5_EXTRAS = ("data/cloud/defects_v5.jsonl",)
 
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
@@ -518,13 +520,14 @@ def build_phase1_v4(repo_root):
     return rows, inputs
 
 
-def build_phase2(repo_root, v4=False):
+def build_phase2(repo_root, v4=False, extras=()):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
     v4=True is phase2_v4: each old source is read from its data/cloud/*_v4
     rewrite when that file exists (else the original, with a warning), and
-    defects_v4 / multiturn_v4 join at DEFECTS_UPWEIGHT."""
+    defects_v4 / multiturn_v4 join at DEFECTS_UPWEIGHT. extras are further files
+    joined the same way (phase2_v5 passes PHASE2_V5_EXTRAS)."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -597,7 +600,7 @@ def build_phase2(repo_root, v4=False):
                 "reviewed drafts, x%d" % DEFECTS_UPWEIGHT)
 
     if v4:
-        for label in PHASE2_V4_EXTRAS:
+        for label in PHASE2_V4_EXTRAS + tuple(extras):
             if (repo_root / label).is_file():
                 add(label, load_input(label, repo_root), DEFECTS_UPWEIGHT,
                     "hand-reviewed, x%d" % DEFECTS_UPWEIGHT)
@@ -731,6 +734,7 @@ def assemble(repo_root, out_dir, dry_run=False):
     phase2_rows, phase2_inputs = build_phase2(repo_root)
     v4_phase1_rows, v4_phase1_inputs = build_phase1_v4(repo_root)
     v4_phase2_rows, v4_phase2_inputs = build_phase2(repo_root, v4=True)
+    v5_phase2_rows, v5_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V5_EXTRAS)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -756,6 +760,11 @@ def assemble(repo_root, out_dir, dry_run=False):
                   "present, plus defects_v4 and multiturn_v4 at x%d" % DEFECTS_UPWEIGHT,
           "notebook_seed": NB_SEED,
           "v4_decisions": v4_phase2_inputs["v4_decisions"]}),
+        ("phase2_v5", v5_phase2_rows, v5_phase2_inputs, defects_included(repo_root),
+         {"note": "phase2_v4 plus data/cloud/defects_v5 at x%d (camus4 weak spots: invented "
+                  "biography, reflexive closers, anachronism quips)" % DEFECTS_UPWEIGHT,
+          "notebook_seed": NB_SEED,
+          "v4_decisions": v5_phase2_inputs["v4_decisions"]}),
     ]
 
     manifest = {

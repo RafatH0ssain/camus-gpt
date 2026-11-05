@@ -162,8 +162,9 @@ class TestV3Notebooks(unittest.TestCase):
         with self.subTest(notebook=NOTEBOOKS[1]):
             self.assertIn("data_v3/{PHASE2_SET}.jsonl", p2)
             self.assertIn('man["sets"][PHASE2_SET]', p2)
-            # the v4 retrain must not overwrite camus3's guardrail adapter
-            self.assertIn('"_v4" if PHASE2_SET == "phase2_v4"', p2)
+            # each Phase 2 set writes its own guardrail adapter, so a retrain never
+            # overwrites the adapter behind an earlier model
+            self.assertIn('{"phase2": "", "phase2_v4": "_v4", "phase2_v5": "_v5"}[PHASE2_SET]', p2)
             for old in ("camus_refusals.jsonl", "camus_epistemic.jsonl",
                         "camus_analysis.jsonl", "camus_multiturn.jsonl",
                         "camus_phase3.jsonl"):
