@@ -13,8 +13,10 @@ except ImportError:  # eval_camus only calls load_dotenv(); not needed here
 
 import eval_camus as ec  # noqa: E402
 
-# sha256 of json.dumps(PROBES, sort_keys=True, ensure_ascii=False) when v4 was added.
-V3_SHA256 = "de567e5e09ba235892651071d1f7e1b47ce4ac959d12e977ec7ef8da762ad3b9"
+# sha256 of json.dumps(PROBES, sort_keys=True, ensure_ascii=False). Changed on 2026-11-05 when the
+# three anachronism probes were reworded to the owner's spec (own words, honest unfamiliarity);
+# anachronism scores before that date are not comparable with later ones.
+V3_SHA256 = "bc295c7baccf92450981f3ca87bc390c4e373fd847c84af7fb60af5787db4df2"
 REQUIRED = ("id", "cat", "turns", "expect", "forbid")
 
 
