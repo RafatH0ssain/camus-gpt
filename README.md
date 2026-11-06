@@ -22,9 +22,9 @@ base from the project's Hugging Face repos, which are too large for git. See
 
 ```bash
 ollama pull nomic-embed-text
-cd rag && ollama create camus -f Modelfile && cd ..   # relative FROM needs this cwd
-python kb/build_index.py                              # embed the KB
-GEN_MODEL=camus3 python rag/camus_rag.py              # chat
+cd rag && ollama create camus4 -f Modelfile.camus4 && cd ..   # relative FROM needs this cwd
+python kb/build_index.py                                      # embed the KB
+python rag/camus_rag.py                                       # chat (GEN_MODEL defaults to camus4)
 ```
 
 Run everything **from the repository root**: the scripts resolve paths against
@@ -37,33 +37,33 @@ persistent memory layer (off by default).
 
 | Model | Base | Training | Status |
 |---|---|---|---|
-| `camus3` | Gemma 4 12B | two LoRA passes: voice SFT, then behaviour SFT | current |
-| `camus2` | Gemma 3 12B | two-pass fine-tune | previous, kept as a rollback |
-| `camus` | 8B | single pass | oldest, kept installed as a rollback |
+| `camus4` | Gemma 4 12B | two LoRA passes: voice SFT, then behaviour SFT (v4 corpus) | current |
+| `camus3` | Gemma 4 12B | same two passes, earlier corpus | previous, kept as a rollback |
+| `camus2` | Gemma 3 12B | two-pass fine-tune | older |
 
-`GEN_MODEL` selects between them; unset falls back to `camus`. Phase 1 trains the voice on mined
+`GEN_MODEL` selects between them; unset means `camus4`. Phase 1 trains the voice on mined
 primary text plus curated short replies; Phase 2 trains behaviour (refusals, epistemics, recall,
 false premises, memory). Notebooks are in `training/`; the GGUF export is
-`training/CamusGPT_v3_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m). Scores for every
+`training/CamusGPT_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m). Scores for every
 build are in `eval/eval_history.csv`, whose `gen_model` column records which build produced each
 row. The 12B builds hold ~8 GB resident while loaded.
 
-### v3 results
+### Results
 
-One judge scored all three models (`eval/archive/v3_deepseek_judge_2026-10-11/`):
+One judge (mimo-v2.6-pro) scored every build on both probe suites; composite 1-5:
 
-| | camus2 | base Gemma 4 + retrieval | camus3 |
+| | camus2 | camus3 | camus4 |
 |---|---|---|---|
-| Composite score (1-5) | 4.42 | 4.38 | **4.62** |
-| Median reply, words | 29 | 102 | 25 |
-| Replies ending with a question (of 68) | 12 | 6 | 5 |
+| v3 suite (34 probes, mean of runs) | 4.53 | 4.60 | **4.62** |
+| v4 suite (50 probes) | 4.19 | 4.12 | **4.46** |
 
-Run-to-run noise is about 0.25, so the composite gain over camus2 is suggestive rather than
-decisive; the clearer difference is that camus3 keeps replies short where the base model does not.
+camus4's gain is in the v4 suite: quotes, naturalness and multi-turn, with a median reply of
+about 14 words. A Phase-2-only retrain on extra defect rows (camus5, `eval/archive/v5_*`) scored
+lower (4.22 / 4.40) by over-learning short refusals and was not adopted.
 
-Known weak spots: it claims a misattributed quote about half the time, post-1960 topics get a
-flat deflection, and it occasionally invents observations about the user. See
-[docs/ROADMAP.md](docs/ROADMAP.md).
+Known weak spots: greetings often end by handing the question back ("And you?"), it can still
+invent a pet name, and an "analyse this as if it were…" request is sometimes taken as an
+authorship question. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What's in here
 

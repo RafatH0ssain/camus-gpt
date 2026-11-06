@@ -27,7 +27,7 @@ to the final architecture.
 
 1. **Free CPU + 8B (GGUF, llama.cpp).** Worked end to end, but generation on 2 vCPUs was a
    few tokens/sec — replies took minutes and hit request timeouts.
-2. **Free CPU + 3B (GGUF).** Re-trained Llama-3.2-3B via Unsloth (`training/train_camus_8b.py`);
+2. **Free CPU + 3B (GGUF).** Re-trained Llama-3.2-3B via Unsloth (`training/archive/train_camus_8b.py`);
    several× faster, but still not "fast" on CPU.
 3. **ZeroGPU + 8B (transformers).** A GPU-backed Space brings the 8B's eloquence back with
    replies that stream in seconds. **This is the shipped architecture.** The 3B remains as a
@@ -99,8 +99,8 @@ lives in the **application** (`space/app.py`), so the model never has to improvi
 ---
 
 ## Build / deploy steps (ZeroGPU, 8B)
-1. **Get the 8B as fp16 safetensors** — `training/merge_8b.py` on the Phase-1 LoRA adapter, or
-   re-run `training/train_camus_8b.py` with `BASE_MODEL="unsloth/Meta-Llama-3.1-8B-Instruct"`
+1. **Get the 8B as fp16 safetensors** — `training/archive/merge_8b.py` on the Phase-1 LoRA adapter, or
+   re-run `training/archive/train_camus_8b.py` with `BASE_MODEL="unsloth/Meta-Llama-3.1-8B-Instruct"`
    and `save_pretrained_merged(...)`. Upload the folder to a HF **model repo**.
 2. **Build & upload the trimmed KB index** — from the final `camus_kb_full.jsonl`, run
    `kb/embed_kb_llamacpp.py` to build the llama.cpp `camus_kb_vectors.npy`, then upload both

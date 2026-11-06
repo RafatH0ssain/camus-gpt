@@ -49,18 +49,15 @@ by the hosted Space. It is ignored by name and must never be loaded locally.
 
 ## Model weights
 
-Quantized weights live in `rag/`, beside `rag/Modelfile`, which refers to them
-by a relative `FROM ./<weights>.gguf`. Register the local model with:
+Quantized weights live in `rag/`, beside one Modelfile per release
+(`rag/Modelfile.camus3`, `rag/Modelfile.camus4`), each referring to its weights by a
+relative `FROM ./camus<N>-12b.Q4_K_M.gguf`. Download the GGUF from Drive
+`CamusGPT_Training/deploy_v3/`, check it against its `.sha256`, then register it:
 
-    cd rag && ollama create camus -f Modelfile
+    cd rag && ollama create camus4 -f Modelfile.camus4
 
-Weights are ignored by extension (`*.gguf`, `*.safetensors`).
-
-**The tracked `rag/Modelfile` builds the 8B v1 only** — its `FROM` names the 8B GGUF.
-The current 12B build was registered from a GGUF that is not in the repository, so
-`camus2` cannot be rebuilt from a clone; pull it from the Hub, or recreate a Modelfile
-against the 12B weights. `ollama show camus2 --modelfile` prints the parameters it was
-registered with.
+Weights are ignored by extension (`*.gguf`, `*.safetensors`). camus4 is the current
+release and the default `GEN_MODEL`.
 
 ## Model memory footprint
 

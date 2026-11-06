@@ -16,7 +16,7 @@ works", "do you have a cat", "do you have a pet", the letter-to-God analysis —
 **Shipped locally.** Two LoRA passes: Phase 1 voice SFT on `phase1_new` (mined primary text plus
 curated short replies, generated rows down-sampled), Phase 2 behaviour SFT (refusals, epistemics,
 recall, false premises, memory). Notebooks live in `training/`; export is
-`training/CamusGPT_v3_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m GGUF).
+`training/CamusGPT_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m GGUF).
 
 **Eval** (one judge for all models; `eval/archive/v3_deepseek_judge_2026-10-11/`, rows in
 `eval/eval_history.csv`; noise between runs about 0.25):
