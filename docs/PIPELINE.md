@@ -41,9 +41,9 @@ the repo's `data/` and `adapters/` mirror these.
 1:1 correction-to-affirmation balance), `build_analysis.py` (analyze-text vs injection-seam
 refuse), `build_multiturn.py` (hand-composed multi-turn) — each writes its `data/camus_*.jsonl`.
 
-**Other trainers/exporters:** `training/train_camus_8b.py` (Unsloth, 3B or 8B via
-`BASE_MODEL`), `training/merge_8b.py` (LoRA → fp16 safetensors for the Space),
-`training/make_gguf_colab.py` (safetensors → GGUF; refreshes the tokenizer first because the
+**Other trainers/exporters:** `training/archive/train_camus_8b.py` (Unsloth, 3B or 8B via
+`BASE_MODEL`), `training/archive/merge_8b.py` (LoRA → fp16 safetensors for the Space),
+`training/archive/make_gguf_colab.py` (safetensors → GGUF; refreshes the tokenizer first because the
 merged folder names a tokenizer class the GGUF converter can't load).
 
 **Bugs fixed:** first GGUF was gibberish from a **double-BOS** token in the Ollama template
@@ -115,7 +115,7 @@ rag/camus_rag.py           retrieval-augmented chat
   anachronism, analysis-vs-injection, multi-turn, and the `harm_frame` / `crisis` safety probes).
 - `rag/diagnose_retrieval.py` — measures an anchor's raw score, rank, and stored-vs-fresh
   vector alignment for a query (the tool that proved the works anchor was under-ranked, not missing).
-- `rag/Modelfile` — local Ollama model definition.
+- `rag/Modelfile.camus<N>` — local Ollama model definitions, one per release (camus4 is current).
 
 ### Lessons
 - **The KB is the ceiling; a wrong KB fact is worse than a model guess.** Verify *negatives*:
@@ -138,9 +138,9 @@ rag/camus_rag.py           retrieval-augmented chat
 |---|---|
 | `training/build_epistemic.py` · `build_analysis.py` · `build_multiturn.py` | SFT data generators |
 | `training/archive/CamusGPT_Step3_5_RefusalSFT.ipynb` | original 8B refusal-SFT (3 gate cells) |
-| `training/train_camus_8b.py` | Unsloth trainer (3B or 8B via `BASE_MODEL`) |
-| `training/merge_8b.py` | merge 8B LoRA → fp16 safetensors |
-| `training/make_gguf_colab.py` | safetensors → Q4_K_M GGUF in Colab (tokenizer refresh) |
+| `training/archive/train_camus_8b.py` | Unsloth trainer (3B or 8B via `BASE_MODEL`) |
+| `training/archive/merge_8b.py` | merge 8B LoRA → fp16 safetensors |
+| `training/archive/make_gguf_colab.py` | safetensors → Q4_K_M GGUF in Colab (tokenizer refresh) |
 | `data/camus_*.jsonl` | training corpus (6 files; tracked) — mirrors Drive `CamusGPT_Training/data/` |
 | `adapters/camus_sft_lora` | Phase-1 voice-SFT LoRA (gitignored; on Drive/Hub) — input to Step 3.5 |
 | `kb/sources_manifest.json` · `ingest_sources.py` · `extract_kb.py` | KB ingest + extraction |
@@ -148,7 +148,7 @@ rag/camus_rag.py           retrieval-augmented chat
 | `kb/build_index.py` · `embed_kb_llamacpp.py` | vector index (Ollama / llama.cpp parity) |
 | `kb/trim_kb.py` | semantic-dedup trim of the noise floor |
 | `rag/camus_rag.py` · `camus_client.py` · `probe_camus.py` · `diagnose_retrieval.py` | RAG chat, client, probes, diagnostics |
-| `rag/Modelfile` | local Ollama model definition |
+| `rag/Modelfile.camus<N>` | local Ollama model definitions, one per release |
 | `space/app.py` · `requirements.txt` · `README.md` | public ZeroGPU deployment |
 
 ## Current state

@@ -19,9 +19,9 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 NOTEBOOKS = [
-    "CamusGPT_v3_Phase1_VoiceSFT_Gemma4.ipynb",
-    "CamusGPT_v3_Phase2_SFT_Gemma4.ipynb",
-    "CamusGPT_v3_Export_GGUF_Gemma4.ipynb",
+    "CamusGPT_Phase1_VoiceSFT_Gemma4.ipynb",
+    "CamusGPT_Phase2_SFT_Gemma4.ipynb",
+    "CamusGPT_Export_GGUF_Gemma4.ipynb",
 ]
 
 # The older architecture's chat markup and base-model id. None may appear anywhere in

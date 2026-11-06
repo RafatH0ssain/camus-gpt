@@ -16,8 +16,8 @@ refusals + cooperative + epistemic + analysis + multiturn (CHECK 1 file pre-flig
 CHECK 2 response-masking, CHECK 3 behavioral gate) → merge final → refresh tokenizer from
 the base model → export GGUF (q4_k_m) + Modelfile to `deploy/`.
 
-`train_camus_8b.py` is the standalone Unsloth port (3B or 8B via `BASE_MODEL`).
-`merge_8b.py` / `make_gguf_colab.py` produce the safetensors / GGUF deployment artifacts.
+`archive/train_camus_8b.py` is the standalone Unsloth port (3B or 8B via `BASE_MODEL`).
+`archive/merge_8b.py` / `archive/make_gguf_colab.py` produce the safetensors / GGUF deployment artifacts.
 
 The older v1 and v2 notebooks (8B and Gemma-3 pipelines) are in `archive/`. The current
 Gemma-4 notebooks stay here and are covered by `test_v3_notebooks.py`.
