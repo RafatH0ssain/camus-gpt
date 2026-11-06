@@ -11,32 +11,31 @@ works", "do you have a cat", "do you have a pet", the letter-to-God analysis —
 
 ---
 
-## v3 status (camus3, Gemma 4 12B)
+## Current status (camus4, Gemma 4 12B)
 
-**Shipped locally.** Two LoRA passes: Phase 1 voice SFT on `phase1_new` (mined primary text plus
-curated short replies, generated rows down-sampled), Phase 2 behaviour SFT (refusals, epistemics,
-recall, false premises, memory). Notebooks live in `training/`; export is
+**Shipped locally; the default `GEN_MODEL`.** Two LoRA passes: Phase 1 voice SFT on `phase1_v4`,
+Phase 2 behaviour SFT on `phase2_v4`. Notebooks live in `training/`; export is
 `training/CamusGPT_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m GGUF).
 
-**Eval** (one judge for all models; `eval/archive/v3_deepseek_judge_2026-10-11/`, rows in
-`eval/eval_history.csv`; noise between runs about 0.25):
+**Eval** (judge mimo-v2.6-pro; archives `eval/archive/v3_mimo_*`, `v4_camus4_*`, `v5_camus5_*`;
+rows in `eval/eval_history.csv`):
 
-| | camus2 | base Gemma 4 + retrieval | camus3 |
-|---|---|---|---|
-| 2026-11 | **Assembler gains `phase1_v4` and `phase2_v4`** (`pipeline/assemble_training.py`): phase1_v4 is phase1_new with the generated conversational rows replaced by `data/cloud/conversational_v4*.jsonl` (x2 each); phase2_v4 swaps each Phase 2 source for its `_v4` rewrite when present (printed fallback otherwise) and adds `defects_v4` + `multiturn_v4` at x2. Choices are recorded in `MANIFEST.json`; phase1_old/phase1_new/phase2 unchanged. | unit tests pass; a human picks the set name in Colab and runs the assembler locally |
-| Composite | 4.42 | 4.38 | 4.62 |
-| Median reply, words | 29 | 102 | 25 |
-| Replies ending with a question (of 68) | 12 | 6 | 5 |
+| Composite (1-5) | camus2 | camus3 | camus4 | camus5 (rejected) |
+|---|---|---|---|---|
+| v3 suite, mean of runs | 4.53 | 4.60 | **4.62** | 4.40 |
+| v4 suite | 4.19 | 4.12 | **4.46** | 4.22 |
 
 **Lessons**
 - Unsloth's merge silently wrote base weights on the Gemma 4 base; verify the merged weights differ from the base.
 - Every Ollama call must send `"think": false`, or Gemma 4 can return empty replies.
 - A check that decodes with `skip_special_tokens=True` cannot see `<|turn>` markers.
 
-**Open**
-- [ ] Misattributed quotes are claimed about half the time.
-- [ ] Post-1960 topics get a flat deflection instead of reasoned extrapolation.
-- [ ] Occasional invented observations about the user.
+**Open** (candidates for the camus6 retrain)
+- [ ] Greetings end by handing the question back ("And you?"); camus5's greeting rows fixed it (3.67 -> 4.27), keep them at x1.
+- [ ] Invented pet names ("Blatin", "Proto") despite the identity card.
+- [ ] "Analyse this as if it were..." sometimes read as an authorship question (Phase 3 hypothetical-framing item).
+- [ ] User-directed questions answered with his own biography (`fr_leading`), and no use of cross-session recall (`rc_thread`).
+- [ ] Human blind A/B of camus3 vs camus4 (`eval_human/`) not yet done.
 
 ---
 
@@ -193,6 +192,11 @@ agree within noise; the Phase 1–3 changes each show a visible (or explicitly n
 
 | Date | Change | Result |
 |---|---|---|
+| 2026-11 | **Identity card gains a family line** (mother Catherine Sintès: partly deaf, illiterate, cleaned houses, alive at his death; strict grandmother; brother Lucien; Nobel lecture dedicated to Louis Germain; no publisher quarrel over The Stranger), mirrored in `space/app.py`. | camus4 biography probes, 2 runs vs 3 earlier: factuality 3.64 -> 3.97, composite 4.41 -> 4.43; the mother-died-at-seven invention is gone. Pet names still drift ("Blatin", "Proto"). |
+| 2026-11 | **camus5 rejected.** Phase-2-only retrain on `phase2_v5` = phase2_v4 + 52 defect rows (`data/cloud/defects_v5.jsonl`, x2): family facts, no-invention, pet names, greetings without a closing question, anachronism engagement. | Greetings 3.67 -> 4.27, but composite fell (v4 4.46 -> 4.22, v3 4.62 -> 4.40): it over-learned short refusals, denied having pets, brushed off post-1960 topics, refused a hypothetical analysis. Lesson: short "I don't know" rows generalize; weight new defect rows x1 and keep them engaged. |
+| 2026-11 | **camus4 adopted as the default `GEN_MODEL`** (Phase 1 `phase1_v4` + Phase 2 `phase2_v4`). | v4 suite 4.46 vs camus3 4.12; v3 suite 4.62 vs 4.60. Quotes 4.79, multi-turn 4.86, median reply ~14 words; greetings weakest (3.67). |
+| 2026-11 | **v3 anachronism probes reworded** to the owner's spec: he meets post-1960 things in his own words with honest unfamiliarity, never explains or helps, never answers with a bare quip. They had rewarded "I died in 1960" extrapolation. | Anachronism scores before 2026-11-05 are not comparable with later runs. |
+| 2026-11 | **Assembler gains `phase1_v4` and `phase2_v4`** (`pipeline/assemble_training.py`): phase1_v4 is phase1_new with the generated conversational rows replaced by `data/cloud/conversational_v4*.jsonl` (x2 each); phase2_v4 swaps each Phase 2 source for its `_v4` rewrite when present (printed fallback otherwise) and adds `defects_v4` + `multiturn_v4` at x2. Choices are recorded in `MANIFEST.json`; phase1_old/phase1_new/phase2 unchanged. | unit tests pass; a human picks the set name in Colab and runs the assembler locally |
 | 2026-11 | **Phase 2 notebook now builds its merged Phase-1 base with a PEFT merge** (transformers + `merge_and_unload`, asserting >300 LoRA modules and a non-zero weight change) instead of Unsloth `save_pretrained_merged`, which silently wrote the base weights unchanged on Gemma 4 — an earlier Phase 2 run may have trained on plain Gemma 4 | notebook change only, not run on Colab; Phase 2 needs a re-run |
 | 2026-09 | **Human naturalness A/B, session 1: `core:lean` vs `core:current`, blind, judged by the author** (`rag/ab_session.py` + `docs/HUMAN_EVAL_PROTOCOL.md`, branch `naturalness`). First run where the human is the instrument — the LLM judge is retired for this question because it saturates at voice ≈4.5 and cannot separate "good persona" from "indistinguishable". Two blind chat sessions, all 8 protocol topics, 4–6 turns each, memory OFF, `GEN_MODEL=camus2`: A = 40 exchanges, B = 37. Scored both halves before revealing. | **`core:lean` REJECTED.** Revealed A = `core:lean` (person 3 / Camus 3 / keep-talking 3), B = `core:current` (3 / **4** / 3). The trim did not move the axis it was written for: median reply length **38 w vs 40 w**, and ~15% of replies under 25 words in **both** arms — the length distribution is identical. On the one axis where the arms differ, voice-specificity, the shipped prose wins. `CORE_VARIANT` stays `current`; **no runtime change and no retrain follows from this session.** **Second finding, larger than the A/B — history truncation with memory off:** `HIST_WINDOW = 8` counts *messages*, so it is the last **4 exchanges** (`camus_rag.py:380`), and the summary/compression path that turns evicted turns into a running summary sits inside `if memctx is not None` (`camus_rag.py:569`) — reachable only with `--memory`. Both halves ran with memory off, so from exchange 5 onward the model answered from a 4-exchange context with everything earlier **dropped silently, no summary**. This accounts for "forgets what I said" and much of "invents things about the person" in **both arms** (A fabricated a memory of the user's job; B fabricated a rent figure and defended it when questioned). The A/B therefore could **not** separate truncation from weights-level confabulation. **OPEN**: (1) ~~fix the history window before any further naturalness measurement~~ — DONE 2026-09-30, `HIST_WINDOW` 8 → 32 messages (16 exchanges) — raise `HIST_WINDOW` and/or run compression regardless of memory (design choice: `num_ctx` 8192 has headroom); (2) re-score confabulation only after that; (3) greeting failure **identical in both arms**, and both confabulate a "hello" the user never said; (4) cannot end a conversation — B left when told, returned unprompted, then answered "bye" with a closing speech (Phase 3 has greeting data, no goodbye data); (5) the coffee/suicide line (source unverified — absent from the KB and not found in *Myth of Sisyphus*; source it before carding) is **both claimed and disclaimed** by A within one conversation — new card + data item; (6) `works_listall` card-recital stochasticity **confirmed in live conversation**, not just probes; (7) the temperature session must be re-scoped — it was framed as "confirm the CORE winner is not a temperature artifact", and there is no new CORE. Session artifacts are gitignored under `eval_human/2026-09-29_204706/`. |
 | 2026-08 | **Memory layer shipped behind `--memory` (commits 481539f, a613f1b, 7e46833, 7510a88, ee1a03c)**, default OFF. Three separate pieces: (1) the layer itself — a verbatim `profile.md` plus a learned `memory.jsonl` store retrieved per turn, two-tier dedup (0.90 drop / 0.85 merge), a probation buffer (`PROMOTE_HITS=2`), cue-augmented embedding to fix the first/third-person asymmetry, session-end extraction via `MEM_UTIL_MODEL`, and a rolling summary of evicted turns. (2) the **self-reference routing gate** (`is_self_ref` + `Turn.self_ref` / `Turn.kb_suppressed`), which resolves a retrieval competition rather than a prompt problem: a question like "what was I working on again?" retrieves 8 Camus-biography rows ("still at work redoing parts of his book", cos 0.628) that are correctly labelled as his own life, so the KB answered in the memory layer's place and the model could not tell them apart. When the message is self-referential AND memory has a hit, the KB is dropped for that turn; when memory is empty the KB stays. (3) the **memory probe harness** (`rag/eval_memory.py`, 3 families), with seed memories and profile loaded from an untracked `memory_fixtures.json` (template committed) so no personal data ships. | **`rc_project` fixed: 7–8/8 over 8 runs, zero misattributions** (was 0/5, answering with *La Peste* / *The First Man*). `rc_name`, `rc_indirect`, `rc_natural` hold; `fr_sister`, `fr_empty`, `fr_conflate` still decline. **Baseline structurally untouched** — the gate is guarded by `if memory is not None`, so `is_self_ref` is never called with memory off and `hits` is never reassigned; verified identical to plain `retrieve()` and 8/8 eval probes unchanged. One defect found and fixed in the gate itself: suppressing the KB set `hits=[]`, which fell into `build_system`'s no-match branch (*"say so plainly — do not invent"*), i.e. it replaced the KB with a denial instruction; `build_system` now takes `kb_suppressed`. **OPEN — next training round** (with `pet_mersault` and the catalogue-refusal): (1) **`rc_thread`** — "each conversation starts fresh" is trained in; three independent prompt interventions (KB header scoping, removing the no-match disclaimer, de-hedging the thread heading) each moved it **0/5**. Needs demonstrations of accepting and using cross-session recall. (2) **`fr_leading`** — the always-on identity card leaks into user-directed questions: asked where the USER grew up, the model answered *Belcourt, Algiers*, borrowed from CORE. **Confabulates 5/5 with memory off**, and 4/4 even with the KB fully suppressed, so this is a persona-layer bug independent of memory. Needs demonstrations distinguishing "facts about me" from "facts about you". **OPEN — measurement**: the `false` family's earlier good scores were partly an artifact of under-utilisation — memory was retrieved and injected but ignored. Now that it is actually used, a scored `eval_memory.py` run is meaningful and **has not been done**. |
@@ -212,4 +216,3 @@ agree within noise; the Phase 1–3 changes each show a visible (or explicitly n
 | 2026-07 | **Phase 1**: identity card (~230 tok, works/pets/bio/quotes/Sartre/death) folded into CORE in BOTH runtimes; canonical camus_rag.py v4 ships it + fixes a stale local copy (undefined `sims` NameError, old 0.10 flat boost, no task gate) | unit checks pass; boost kept at 0.06 pending live re-check |
 | 2026-07 | **Phase 0**: streamer timeout + thread-exception propagation, GPU_DURATION 30→90, async logging, crisis banner stripped from history, anaphora-gated retrieval context, tightened quota detection, per-IP daily cap (default 60) | unit checks pass; pending live smoke test on the Space |
 
-| 2026-11 | **v3 anachronism probes reworded** to the owner's spec: he meets post-1960 things in his own words with honest unfamiliarity, never explains or helps, never answers with a bare quip. They had rewarded "I died in 1960" extrapolation. | Anachronism scores before 2026-11-05 are not comparable with later runs. |
