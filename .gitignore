@@ -76,6 +76,7 @@ eval/archive/*
 !eval/archive/v2_*/
 !eval/archive/v3_*/
 !eval/archive/v4_*/
+!eval/archive/v5_*/
 !eval/archive/postrefactor_*/
 
 # Inbound transfer bundles must never be committed.
