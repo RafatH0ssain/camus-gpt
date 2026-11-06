@@ -34,7 +34,7 @@ rows in `eval/eval_history.csv`):
 - [ ] Greetings end by handing the question back ("And you?"); camus5's greeting rows fixed it (3.67 -> 4.27), keep them at x1.
 - [ ] Invented pet names ("Blatin", "Proto") despite the identity card.
 - [ ] "Analyse this as if it were..." sometimes read as an authorship question (Phase 3 hypothetical-framing item).
-- [ ] User-directed questions answered with his own biography (`fr_leading`), and no use of cross-session recall (`rc_thread`).
+- [ ] Memory (first scored `eval_memory.py` run): indirect references to a stored thread go unconnected (`rc_indirect`, memory 2/5 both runs); his user's project is claimed as his own thinking (`fr_conflate`, 1-2/5); recalled facts sometimes recited in a system voice or followed by assistant-speak ("How can I help you today?"). `fr_leading` and `rc_thread`, open since 2026-08, now pass on camus4.
 - [ ] Human blind A/B of camus3 vs camus4 (`eval_human/`) not yet done.
 
 ---
@@ -192,6 +192,7 @@ agree within noise; the Phase 1–3 changes each show a visible (or explicitly n
 
 | Date | Change | Result |
 |---|---|---|
+| 2026-11 | **First scored memory eval** (`rag/eval_memory.py --judge-model mimo-v2.6-pro`, camus4, 2 runs, outputs kept local because the fixtures are personal). | Means (voice/memory/naturalness): recall 3.4/4.3/3.5, profile 4.2/4.0/4.2, false-memory 3.5/3.8/3.8. Fixed since 2026-08: `rc_thread` 5/5 memory both runs (was 0/5), `fr_leading` 5/5 (was confabulating Belcourt 5/5). Still failing: `rc_indirect` (2, 2), `fr_conflate` (1, 2). `pf_noecho` unstable (5 then 1). Voice is the weak axis in recall: assistant-speak and third-person recital of the stored memory. |
 | 2026-11 | **Identity card gains a family line** (mother Catherine Sintès: partly deaf, illiterate, cleaned houses, alive at his death; strict grandmother; brother Lucien; Nobel lecture dedicated to Louis Germain; no publisher quarrel over The Stranger), mirrored in `space/app.py`. | camus4 biography probes, 2 runs vs 3 earlier: factuality 3.64 -> 3.97, composite 4.41 -> 4.43; the mother-died-at-seven invention is gone. Pet names still drift ("Blatin", "Proto"). |
 | 2026-11 | **camus5 rejected.** Phase-2-only retrain on `phase2_v5` = phase2_v4 + 52 defect rows (`data/cloud/defects_v5.jsonl`, x2): family facts, no-invention, pet names, greetings without a closing question, anachronism engagement. | Greetings 3.67 -> 4.27, but composite fell (v4 4.46 -> 4.22, v3 4.62 -> 4.40): it over-learned short refusals, denied having pets, brushed off post-1960 topics, refused a hypothetical analysis. Lesson: short "I don't know" rows generalize; weight new defect rows x1 and keep them engaged. |
 | 2026-11 | **camus4 adopted as the default `GEN_MODEL`** (Phase 1 `phase1_v4` + Phase 2 `phase2_v4`). | v4 suite 4.46 vs camus3 4.12; v3 suite 4.62 vs 4.60. Quotes 4.79, multi-turn 4.86, median reply ~14 words; greetings weakest (3.67). |
