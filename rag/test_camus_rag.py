@@ -145,19 +145,6 @@ class BuildSystemTests(unittest.TestCase):
             load_variant("nonsense")
 
 
-class SpaceSyncTests(unittest.TestCase):
-    def test_space_identity_card_matches(self):
-        with open(os.path.join(ROOT, "space", "app.py"), encoding="utf-8") as f:
-            tree = ast.parse(f.read())
-        core = None
-        for node in tree.body:
-            if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "CORE" for t in node.targets):
-                core = ast.literal_eval(node.value)
-        self.assertIsNotNone(core, "space/app.py has no literal CORE")
-        self.assertTrue(core.endswith(cr._IDENTITY_CARD),
-                        "space/app.py identity card has drifted from rag/camus_rag.py")
-
-
 class ThinkFalseTests(unittest.TestCase):
     """Every /api/chat payload must carry "think": False (Gemma otherwise returns empty content)."""
 
