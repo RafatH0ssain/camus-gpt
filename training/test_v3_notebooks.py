@@ -174,9 +174,11 @@ class TestV3Notebooks(unittest.TestCase):
         p2 = cell_text(load(NOTEBOOKS[1]))
         self.assertIn('DPO_ADAPTER = GUARD_ADAPTER + "_dpo"', p2)
         # the frozen reference is the SFT adapter loaded a second time, not the bare base
-        self.assertIn('model.load_adapter(GUARD_ADAPTER, adapter_name="reference"', p2)
-        self.assertIn('ref_adapter_name = "reference"', p2)
+        # named "ref": TRL 1.x picks that adapter up as the reference by itself
+        self.assertIn('model.load_adapter(GUARD_ADAPTER, adapter_name="ref"', p2)
+        self.assertIn('ref_adapter_name = "ref"', p2)
         self.assertIn("rpo_alpha", p2)
+        self.assertIn('loss_type = ["sigmoid", "sft"]', p2)
         # DPO runs after the SFT adapter is saved and before the behavioural gate
         self.assertLess(p2.index("model.save_pretrained(GUARD_ADAPTER)"), p2.index("PatchDPOTrainer()"))
         self.assertLess(p2.index("PatchDPOTrainer()"), p2.index("CHECK 3"))
