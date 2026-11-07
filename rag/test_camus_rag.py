@@ -254,10 +254,18 @@ class HistoryTests(unittest.TestCase):
             seen.append(msgs[0]["content"])
             return "The user said u0."
         h, s = cr.fold_evicted(history, "", fake_chat)
-        self.assertEqual(len(h), cr.HIST_WINDOW)
-        self.assertEqual(h, history[-cr.HIST_WINDOW:])
+        keep = cr.HIST_WINDOW - 2 * cr.EVICT_EXCHANGES
+        self.assertEqual(h, history[-keep:])
         self.assertEqual(s, "The user said u0.")
         self.assertIn("user: u0", seen[0])
+
+    def test_fold_evicted_summarises_once_per_batch(self):
+        calls, h, s = [], [], ""
+        for i in range(40):
+            h = h + [{"role": "user", "content": f"u{i}"}, {"role": "assistant", "content": f"a{i}"}]
+            h, s = cr.fold_evicted(h, s, lambda m: calls.append(1) or "sum")
+            self.assertLessEqual(len(h), cr.HIST_WINDOW)
+        self.assertEqual(len(calls), (40 - cr.HIST_WINDOW // 2 - 1) // cr.EVICT_EXCHANGES + 1)
 
     def test_fold_evicted_is_noop_inside_window(self):
         history = [{"role": "user", "content": "u"}, {"role": "assistant", "content": "a"}]
@@ -269,7 +277,7 @@ class HistoryTests(unittest.TestCase):
         def boom(msgs): raise RuntimeError("ollama down")
         with contextlib.redirect_stdout(io.StringIO()):
             h, s = cr.fold_evicted(history, "prior", boom)
-        self.assertEqual(len(h), cr.HIST_WINDOW)
+        self.assertEqual(len(h), cr.HIST_WINDOW - 2 * cr.EVICT_EXCHANGES)
         self.assertEqual(s, "prior")
 
     def test_short_history_untrimmed_and_temperature(self):
