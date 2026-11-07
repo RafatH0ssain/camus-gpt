@@ -60,8 +60,9 @@ gitignored, and are a matched pair.
   about his life.
 - **Prompt:** first person, never an AI; retrieved facts are spoken as his own
   memories; "I don't recall" applies only to specific biographical questions.
-- **Conversation:** the last 32 messages stay in context; turns evicted from it
-  fold into a rolling summary (`fold_evicted` in `rag/camus_rag.py`).
+- **Conversation:** the last 8 to 16 exchanges stay verbatim; every 8 turns past that,
+  the oldest 8 fold into a rolling summary written by a small utility model
+  (`fold_evicted` in `rag/camus_rag.py`).
 - **Sampling:** temperature 0.45 on factual turns, 0.6 on task turns.
 - **Memory:** an optional per-user layer behind `--memory` — see `docs/MEMORY.md`.
 

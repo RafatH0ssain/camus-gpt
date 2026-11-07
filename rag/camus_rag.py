@@ -47,6 +47,7 @@ DENSE_FLOOR = 12                    # top-N by cosine ALWAYS enter the pool (RRF
 CE_WEIGHT   = 0.15                  # final = cosine + CE_WEIGHT*sigmoid(ce): CE promotes, never sinks
 THRESHOLD   = 0.55                  # raw-score floor; tune with --debug
 HIST_WINDOW = 32   # messages, i.e. 16 exchanges; ~2.5k tokens of history fits num_ctx 8192
+EVICT_EXCHANGES = 8   # past the window, this many of the oldest exchanges are summarised at once
 GEN_OPTS = {"temperature":0.6, "top_k":40, "min_p":0.05, "repeat_penalty":1.1, "num_ctx":8192}
 # Env-overridable so a temperature sweep needs no edit; defaults are unchanged.
 TEMP_FACTUAL = float(os.environ.get("TEMP_FACTUAL", "0.45"))  # biographical/conversational turns: less sampling drift on names
@@ -414,7 +415,9 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                 self_ref=self_ref, kb_suppressed=kb_suppressed)
 
 def fold_evicted(history, summary, chat_fn=None):
-    """Trim history to HIST_WINDOW, folding the dropped turns into the rolling summary.
+    """Once history passes HIST_WINDOW, fold its oldest EVICT_EXCHANGES exchanges (and any
+    excess) into the rolling summary, so the window swings between 8 and 16 exchanges and the
+    summariser runs every 8th turn instead of every turn.
 
     Runs whether or not the memory layer is on: without it, anything said more than
     HIST_WINDOW messages ago would vanish and the persona would deny it was ever said.
@@ -422,10 +425,11 @@ def fold_evicted(history, summary, chat_fn=None):
     """
     if len(history) <= HIST_WINDOW:
         return history, summary
-    evicted, history = history[:-HIST_WINDOW], history[-HIST_WINDOW:]
+    keep = HIST_WINDOW - 2 * EVICT_EXCHANGES
+    evicted, history = history[:-keep], history[-keep:]
     import memory as _mem
     try:
-        summary = _mem.summarise(evicted, summary, chat_fn or util_chat)
+        summary = _mem.summarise(evicted, summary, chat_fn or summary_chat)
     except Exception as e:
         print(f"[summary] failed ({e}) — dropping evicted turns")
     return history, summary
@@ -468,10 +472,24 @@ def resolve_util_model(pref=None, quiet=False):
 
 UTIL_MODEL = None                      # resolved lazily on first utility call
 
+# The rolling chat summary gets a mid-size model of its own (~3 GB), loaded only for the call:
+# on real transcripts gemma3:4b kept details as faithfully as gemma3:12b, while gemma3:1b
+# dropped them and invented others.
+SUMMARY_MODEL_PREF = os.environ.get("SUMMARY_MODEL", "gemma3:4b")
+SUMMARY_MODEL = None
+
+def summary_chat(messages):
+    """chat_fn for the rolling summary: SUMMARY_MODEL, falling back like util_chat does."""
+    global SUMMARY_MODEL
+    if SUMMARY_MODEL is None:
+        SUMMARY_MODEL = resolve_util_model(SUMMARY_MODEL_PREF)
+    return util_chat(messages, model=SUMMARY_MODEL, keep_alive=0)   # unload right after
+
 UTIL_SYS = ("You are a data-extraction utility, not a persona. Follow the output format "
             "exactly. Never speak in character. Never add commentary.")
 
-def util_chat(messages, temperature=SUMMARY_TEMP, fmt=None, system=None):
+def util_chat(messages, temperature=SUMMARY_TEMP, fmt=None, system=None, model=None,
+              keep_alive=None):
     """UTILITY calls only — routes to MEM_UTIL_MODEL, NOT the persona; never use this
     to generate a user-facing reply (that is stream_chat / GEN_MODEL).
 
@@ -480,13 +498,15 @@ def util_chat(messages, temperature=SUMMARY_TEMP, fmt=None, system=None):
     so anything generated through it will not be in voice.
     """
     global UTIL_MODEL
-    if UTIL_MODEL is None:
+    if model is None and UTIL_MODEL is None:
         UTIL_MODEL = resolve_util_model()
     msgs = ([{"role": "system", "content": system}] if system else []) + messages
-    body = {"model": UTIL_MODEL, "messages": msgs, "stream": False,
+    body = {"model": model or UTIL_MODEL, "messages": msgs, "stream": False,
             "options": dict(GEN_OPTS, temperature=temperature), "think": False}
     if fmt:
         body["format"] = fmt
+    if keep_alive is not None:
+        body["keep_alive"] = keep_alive
     r = requests.post(f"{OLLAMA}/api/chat", json=body, timeout=300)
     r.raise_for_status()
     return r.json()["message"]["content"].strip()

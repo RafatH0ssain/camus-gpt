@@ -35,6 +35,7 @@ Put the exported GGUF there, check it against its `.sha256`, and register it:
 Retrieval also needs the embedding model and the KB index:
 
     ollama pull nomic-embed-text
+    ollama pull gemma3:4b
     python kb/build_index.py
 
 ## Memory footprint
@@ -65,11 +66,12 @@ instruction-follower used only for summarisation and memory extraction;
 user-facing replies go through `stream_chat()` / `GEN_MODEL` and are not in voice
 if they come from the utility helper.
 
-**Long chats load a second model.** Once a chat passes 16 exchanges, the turns that fall out
-of the window are summarised by `MEM_UTIL_MODEL` (default `gemma3:12b`), with or without
-`--memory`, and memory extraction uses the same model. Set `MEM_UTIL_MODEL=camus4` to avoid the
-double load, at some cost to summary quality. Enabling memory also changes the system prompt
-every turn, so runs with and without it are not comparable.
+**Long chats briefly load a second model.** The chat keeps the last 8 to 16 exchanges verbatim;
+every 8 turns past that, the oldest 8 are summarised by `SUMMARY_MODEL` (default `gemma3:4b`,
+about 3 GB), which unloads as soon as the summary is written. Install it with
+`ollama pull gemma3:4b`. With `--memory`, extraction uses `MEM_UTIL_MODEL` (default
+`gemma3:12b`). Enabling memory also changes the system prompt every turn, so runs with and
+without it are not comparable.
 
 ## The memory layer
 
