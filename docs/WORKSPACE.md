@@ -3,31 +3,13 @@
 What lives in git, what lives only on disk, and where each piece has to sit for
 the scripts to find it. All paths are relative to the repository root.
 
-## Run from the repository root
+## Running
 
-`rag/camus_rag.py`, `kb/build_index.py`, and the evaluation scripts resolve
-their data paths relative to the **current working directory**, not to the
-script. Run them from the repository root:
+`rag/camus_rag.py` and the `kb/` scripts resolve their data paths relative to the
+**current working directory**, not to the script — run them from the repository
+root (`python rag/camus_rag.py`, `python kb/build_index.py`).
 
-    python rag/camus_rag.py
-    python rag/eval_camus.py
-    python training/build_phase3.py
-
-Running them from inside `rag/` or `training/` will not find the knowledge base.
-
-## Selecting the model
-
-`GEN_MODEL` overrides which registered model answers; unset falls back to the
-previous build. The evaluation harness inherits it through its `camus_rag`
-import and records the resolved name in the `gen_model` column of
-`eval/eval_history.csv`.
-
-    GEN_MODEL=camus2 python rag/camus_rag.py
-
-**`rag/eval_camus.py` writes to `eval/` by default and will overwrite the
-tracked baseline.** For any exploratory run, redirect it:
-
-    python rag/eval_camus.py --out-dir /tmp/eval_scratch
+`GEN_MODEL` names the Ollama model that answers; unset falls back to `camus4`.
 
 ## Untracked artifacts at the repository root
 
@@ -38,121 +20,62 @@ Two files must be present at the root and are never committed:
 | `camus_kb_full.jsonl` | the merged knowledge base, one record per line |
 | `camus_kb_vectors.npy` | embedding vectors, one row per KB line |
 
-They are a **matched pair**. The vector file's row count must equal the KB's
-line count, and the vectors must have been produced by the same embedding model
-the retrieval code queries at runtime. Mixing a vector file from one embedding
-backend with a KB from another silently degrades retrieval instead of failing
-loudly — regenerate with `kb/build_index.py` if the pair is ever in doubt.
-
-A second vector file in a different embedding family may sit alongside for use
-by the hosted Space. It is ignored by name and must never be loaded locally.
+They are a **matched pair**: the vector file's row count must equal the KB's line
+count, and the vectors must come from the same embedding model the retrieval code
+queries at runtime. If in doubt, regenerate both with `kb/build_index.py`.
 
 ## Model weights
 
-Quantized weights live in `rag/`, beside one Modelfile per release
-(`rag/Modelfile.camus3`, `rag/Modelfile.camus4`), each referring to its weights by a
-relative `FROM ./camus<N>-12b.Q4_K_M.gguf`. Download the GGUF from Drive
-`CamusGPT_Training/deploy_v3/`, check it against its `.sha256`, then register it:
+Quantized weights are ignored by extension (`*.gguf`) and live in `rag/`, beside
+the model definition: `rag/Modelfile.camus4` loads `rag/camus4-12b.Q4_K_M.gguf`.
+Put the exported GGUF there, check it against its `.sha256`, and register it:
 
     cd rag && ollama create camus4 -f Modelfile.camus4
 
-Retrieval also needs the embedding model, and the KB index built once:
+Retrieval also needs the embedding model and the KB index:
 
     ollama pull nomic-embed-text
     python kb/build_index.py
 
-Weights are ignored by extension (`*.gguf`, `*.safetensors`). camus4 is the current
-release and the default `GEN_MODEL`.
+## Memory footprint
 
-## Model memory footprint
-
-The current model is a 12B build and holds **~8 GB resident** in unified memory
-while loaded (the previous 8B build held ~4.9 GB). That memory is GPU-wired and
-cannot be paged out, so on a 24 GB machine with a browser and editor open it is
-enough to push everything else into swap.
-
-The runtime keeps a model loaded after the last request so the next one is fast.
-To release it immediately:
-
-    ollama stop camus2
-
-To shorten the automatic retention, set `OLLAMA_KEEP_ALIVE` (e.g. `2m`) **in the
-environment of the server process** — it is read by `ollama serve`, not by the
-client, so an already-running server keeps its old value until restarted.
-
-Note that `rag/camus_rag.py` separately requests a 15-minute retention for the
-embedding model; that one is small (~370 MB) and not worth shortening.
-
-The previous model is kept installed as a rollback. Do not remove it.
-
-## `archive/` and `eval/archive/`
-
-`archive/` holds local reference material that is not part of the project's
-history — superseded datasets, earlier vector builds, batch job inputs. Nothing
-in it is required to run or rebuild anything.
-
-`eval/archive/` holds superseded evaluation runs. Two subtrees are tracked
-deliberately — `base_selection/` (evidence behind the base-model choice) and
-`v2_*/` (the scored runs backing a released build); the rest stays local. The current baseline
-(`eval/eval_history.csv`, `eval/probe_scores.jsonl`, `eval/probe_report.md`) is
-tracked; `eval/eval_history.csv` is **append-only** — add rows, never edit them.
-
-## Heavy artifacts move through the Hub
-
-Model weights, the knowledge base, and vector files are distributed through the
-project's Hugging Face repositories, never through git. Git carries source,
-configuration, the training corpora, and the evaluation baseline. Anything
-large enough to need Git LFS belongs on the Hub instead.
+The quantized 12B holds about **8 GB resident** in unified memory while loaded;
+that memory is GPU-wired and cannot be paged out. The runtime keeps a model loaded
+after the last request — release it with `ollama stop camus4`, or set
+`OLLAMA_KEEP_ALIVE` (e.g. `2m`) in the environment of the server process, which
+keeps its old value until restarted. `rag/camus_rag.py` requests 15-minute
+retention for the small embedding model; not worth shortening.
 
 ## The commit guard
 
-`pipeline/hooks/pre-commit` refuses any commit that stages:
-
-- a file larger than **5 MB**,
-- anything under the root `archive/` or `build/` (staged upload bundles, e.g.
-  `build/training_v3/` — `phase1_old`/`phase1_new` carry published book text),
-- `*.npy`, `*.gguf`, or `*.safetensors`,
-- any `*.jsonl` other than `data/camus_*.jsonl` and the tracked eval probe scores,
-- `profile.md` and `memory*.jsonl` — local conversation memory and the per-user
-  profile. `.gitignore` covers these too; the hook is a second layer because a
-  `.gitignore` edit would otherwise be the only thing standing between chat
-  content and a public history. A `profile.example.md` template is still
-  committable.
-
-It prints what it blocked and why. Override deliberately with
-`git commit --no-verify`.
-
-Install it in each clone — **git does not version-control hooks**, so cloning
-the repository does not bring it along:
+`pipeline/hooks/pre-commit` refuses any commit that stages a file larger than
+**5 MB**, assembled bundles under `build/`, `*.npy` / `*.gguf` / `*.safetensors`,
+`*.jsonl` outside the allowed corpus paths, or `profile.md` and `memory*.jsonl`
+(local conversation memory — covered by `.gitignore` too, guarded here as a
+second layer). It prints what it blocked; override with `git commit --no-verify`.
+Hooks are not version-controlled — install it in each clone:
 
     cp pipeline/hooks/pre-commit .git/hooks/pre-commit
     chmod +x .git/hooks/pre-commit
 
 ## Gotchas
 
-**`util_chat()` is not the chat path.** It routes to `MEM_UTIL_MODEL` (an
-instruction-follower), not to the persona model, and exists for summarisation and
-memory extraction. Anything generated through it will not be in voice. User-facing
-replies go through `stream_chat()` / `GEN_MODEL`. This has already caught one test
-harness out: replies came back in the wrong voice because the harness reached for the
-utility helper.
+**`util_chat()` is not the chat path.** It routes to `MEM_UTIL_MODEL`, an
+instruction-follower used only for summarisation and memory extraction;
+user-facing replies go through `stream_chat()` / `GEN_MODEL` and are not in voice
+if they come from the utility helper.
 
-**Memory extraction loads a second model.** With `--memory`, session-end extraction
-calls `MEM_UTIL_MODEL` (default `gemma3:12b`, ~8 GB) while the persona model may still
-be resident (~8 GB). On a 24 GB machine that can briefly want both. `OLLAMA_KEEP_ALIVE`
-keeps the overlap short; `ollama stop <model>` frees one immediately. Set
-`MEM_UTIL_MODEL` to the persona model to avoid the second load entirely, at some cost
-to extraction quality.
-
-**Enabling memory makes eval runs non-comparable** to the tracked 34-probe baseline —
-see `docs/MEMORY.md`.
+**Long chats load a second model.** Once a chat passes 16 exchanges, the turns that fall out
+of the window are summarised by `MEM_UTIL_MODEL` (default `gemma3:12b`), with or without
+`--memory`, and memory extraction uses the same model. Set `MEM_UTIL_MODEL=camus4` to avoid the
+double load, at some cost to summary quality. Enabling memory also changes the system prompt
+every turn, so runs with and without it are not comparable.
 
 ## The memory layer
 
-Off by default, behind `--memory`. See **`docs/MEMORY.md`** for the two layers, the
-four gitignored files, the CLI flags, dedup and probation, and the tunables.
+Off by default, behind `--memory`. See `docs/MEMORY.md`.
 
 ## The invariant
 
-`git status` should be clean at all times. Anything untracked is either about
-to be committed or belongs under an ignored path.
+`git status` should be clean at all times. Anything untracked is either about to
+be committed or belongs under an ignored path.

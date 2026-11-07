@@ -1,23 +1,10 @@
 # training/
 
-Makes the weights. The Phase-2 notebook (`archive/CamusGPT_Step3_5_RefusalSFT.ipynb`) runs on Colab
-and reads/writes a **Google Drive** working folder — stage the repo's `data/` and `adapters/`
-there first:
+Makes the weights, in Colab. The corpus comes from `pipeline/assemble_training.py`
+(see `data/README.md`); the full flow is in `docs/PIPELINE.md`.
 
-```
-MyDrive/CamusGPT_Training/
-├── adapters/camus_sft_lora/     (INPUT  — Phase-1 voice-SFT LoRA)
-├── data/                        (INPUT  — the 6 training .jsonl; see ../data/README.md)
-└── deploy/                      (OUTPUT — camus.gguf + Modelfile)
-```
+- `training/CamusGPT_Phase1_VoiceSFT_Gemma4.ipynb` — voice LoRA on `unsloth/gemma-4-12b-it`.
+- `training/CamusGPT_Phase2_SFT_Gemma4.ipynb` — behaviour LoRA on top; the "Phase 2b" cell runs an optional DPO pass (`DPO_SET = None` skips it).
+- `training/CamusGPT_Export_GGUF_Gemma4.ipynb` — merges both LoRAs, exports a q4_k_m GGUF + Modelfile for Ollama.
 
-Flow: load `camus_sft_lora` → merge → attach a fresh guardrail LoRA → train on
-refusals + cooperative + epistemic + analysis + multiturn (CHECK 1 file pre-flight,
-CHECK 2 response-masking, CHECK 3 behavioral gate) → merge final → refresh tokenizer from
-the base model → export GGUF (q4_k_m) + Modelfile to `deploy/`.
-
-`archive/train_camus_8b.py` is the standalone Unsloth port (3B or 8B via `BASE_MODEL`).
-`archive/merge_8b.py` / `archive/make_gguf_colab.py` produce the safetensors / GGUF deployment artifacts.
-
-The older v1 and v2 notebooks (8B and Gemma-3 pipelines) are in `archive/`. The current
-Gemma-4 notebooks stay here and are covered by `test_v3_notebooks.py`.
+`training/test_v3_notebooks.py` checks the notebooks statically.
