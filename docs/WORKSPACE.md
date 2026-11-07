@@ -56,6 +56,11 @@ relative `FROM ./camus<N>-12b.Q4_K_M.gguf`. Download the GGUF from Drive
 
     cd rag && ollama create camus4 -f Modelfile.camus4
 
+Retrieval also needs the embedding model, and the KB index built once:
+
+    ollama pull nomic-embed-text
+    python kb/build_index.py
+
 Weights are ignored by extension (`*.gguf`, `*.safetensors`). camus4 is the current
 release and the default `GEN_MODEL`.
 

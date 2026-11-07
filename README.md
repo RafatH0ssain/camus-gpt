@@ -8,30 +8,18 @@ The model is trained once to *speak and behave* like Camus. Everything it
 *knows about his life* is retrieved at query time from a curated knowledge
 base, so a wrong fact is a retrieval bug, not a retraining job.
 
-> **A fictional AI persona for education and conversation. Not the real Albert
-> Camus, and not professional advice.** If you are in crisis, call or text
-> **988** (US & Canada) or find a local helpline at **findahelpline.com**.
+> A fictional AI persona for education and conversation, not the real Albert Camus.
 
 ![Starting CamusGPT in a terminal and asking it four questions, from the absurd to his cat Cigarette; answers stream back in his voice (sped up 2.5x)](docs/camus-demo.gif)
 
 ## Quickstart
 
-Needs [Ollama](https://ollama.com), Python 3.10+, plus the weights and knowledge
-base from the project's Hugging Face repos, which are too large for git. See
-[docs/WORKSPACE.md](docs/WORKSPACE.md).
+Needs [Ollama](https://ollama.com) and Python 3.10+. The weights and knowledge base are on
+Hugging Face; [docs/WORKSPACE.md](docs/WORKSPACE.md) says where they go. From the repo root:
 
 ```bash
-ollama pull nomic-embed-text
-cd rag && ollama create camus4 -f Modelfile.camus4 && cd ..   # relative FROM needs this cwd
-python kb/build_index.py                                      # embed the KB
-python rag/camus_rag.py                                       # chat (GEN_MODEL defaults to camus4)
+python rag/camus_rag.py
 ```
-
-Run everything **from the repository root**: the scripts resolve paths against
-the working directory, not against themselves.
-
-Useful flags: `--debug` shows what retrieval returned and why; `--memory` enables the optional
-persistent memory layer (off by default).
 
 ## Models
 
