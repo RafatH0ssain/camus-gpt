@@ -14,9 +14,9 @@ when he gets a fact wrong, I fix the knowledge base or the retrieval, not the we
 
 ## Running it
 
-You need [Ollama](https://ollama.com) and Python 3.10+. The weights and knowledge base are on
-Hugging Face, and [docs/WORKSPACE.md](docs/WORKSPACE.md) says where they go. Then, from the repo
-root:
+You need [Ollama](https://ollama.com) and Python 3.10+. The model weights and the knowledge base
+are too big for git, so [docs/WORKSPACE.md](docs/WORKSPACE.md) covers building them and where they
+go. Then, from the repo root:
 
 ```bash
 python rag/camus_rag.py
@@ -42,7 +42,6 @@ quantizes to a q4_k_m GGUF, which takes about 8 GB of memory while it's loaded.
 | `kb/` | builds the knowledge base (ingest sources, extract facts, merge, embed, trim) |
 | `training/` | the Colab notebooks for both passes and the GGUF export |
 | `pipeline/` | assembles the training sets and runs the voice corpus batch jobs |
-| `space/` | a Gradio app for hosting it (the Space is offline for now) |
 
 The training data isn't in the repo. [data/README.md](data/README.md) describes its format, and
 [docs/PIPELINE.md](docs/PIPELINE.md) walks through the whole thing end to end.

@@ -1,14 +1,14 @@
-CamusGPT — license & IP notes
+CamusGPT: license and IP notes
 
-CODE: the scripts in this repository may be released under your chosen open-source license
-(e.g. MIT — add a LICENSE file).
+Code: MIT, see LICENSE.
 
-MODEL: the persona is fine-tuned from Meta's Llama-3.1-8B, which is governed by the Llama
-Community License. Any distribution of the weights/GGUF must comply with that license.
+Model: fine-tuned from Google's Gemma 4 12B (unsloth/gemma-4-12b-it), released under the
+Apache 2.0 license (https://ai.google.dev/gemma/docs/gemma_4_license). Anyone distributing the
+fine-tuned weights or GGUF has to follow those terms.
 
-KNOWLEDGE BASE: the KB stores PARAPHRASED facts and views derived from copyrighted biographies
-and from Camus's own writing — not verbatim text. Keep deployments NON-COMMERCIAL and do not
-redistribute raw source text. The KB .jsonl and vectors are not committed to git.
+Knowledge base: the KB holds paraphrased facts and views drawn from published biographies and
+from Camus's own writing, not verbatim text, plus a few short quotations. It is not in this
+repo. Keep any use of it non-commercial and don't redistribute the source books.
 
-PERSONA: this is a fictional AI persona of a real, deceased public figure, for education and
-conversation. It is not the real person and not professional advice.
+Persona: a fictional AI persona of a real, deceased public figure, for education and
+conversation. It is not the real Albert Camus.
