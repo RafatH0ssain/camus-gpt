@@ -1,94 +1,59 @@
 # CamusGPT
 
-A fine-tuned persona of Albert Camus. The voice is dry, lucid, first-person. A
-retrieval layer grounds it in his real life and writing, and it runs locally on
-Ollama.
+I wanted to talk to Albert Camus, so I built him. CamusGPT is Gemma 4 12B fine-tuned to speak
+like Camus: dry, plain, first person, a man of his time who doesn't know what a smartphone is.
+It runs locally on Ollama.
 
-The model is trained once to *speak and behave* like Camus. Everything it
-*knows about his life* is retrieved at query time from a curated knowledge
-base, so a wrong fact is a retrieval bug, not a retraining job.
+The model only learns how he talks and behaves. What he knows about his own life comes from a
+knowledge base I built from biographies and his writing, retrieved fresh for every message. So
+when he gets a fact wrong, I fix the knowledge base or the retrieval, not the weights.
 
 > A fictional AI persona for education and conversation, not the real Albert Camus.
 
 ![Starting CamusGPT in a terminal and asking it four questions, from the absurd to his cat Cigarette; answers stream back in his voice (sped up 2.5x)](docs/camus-demo.gif)
 
-## Quickstart
+## Running it
 
-Needs [Ollama](https://ollama.com) and Python 3.10+. The weights and knowledge base are on
-Hugging Face; [docs/WORKSPACE.md](docs/WORKSPACE.md) says where they go. From the repo root:
+You need [Ollama](https://ollama.com) and Python 3.10+. The weights and knowledge base are on
+Hugging Face, and [docs/WORKSPACE.md](docs/WORKSPACE.md) says where they go. Then, from the repo
+root:
 
 ```bash
 python rag/camus_rag.py
 ```
 
-## Models
+`--debug` shows what retrieval pulled up for each message, and `--memory` turns on a memory
+layer so he remembers you between sessions (off by default, see
+[docs/MEMORY.md](docs/MEMORY.md)). Long chats don't fall off a cliff either: once a turn scrolls
+out of his window it gets folded into a running summary he can still see.
 
-| Model | Base | Training | Status |
-|---|---|---|---|
-| `camus4` | Gemma 4 12B | two LoRA passes: voice SFT, then behaviour SFT (v4 corpus) | current |
-| `camus3` | Gemma 4 12B | same two passes, earlier corpus | previous, kept as a rollback |
-| `camus2` | Gemma 3 12B | two-pass fine-tune | older |
+## How it's made
 
-`GEN_MODEL` selects between them; unset means `camus4`. Phase 1 trains the voice on mined
-primary text plus curated short replies; Phase 2 trains behaviour (refusals, epistemics, recall,
-false premises, memory). Notebooks are in `training/`; the GGUF export is
-`training/CamusGPT_Export_GGUF_Gemma4.ipynb` (PEFT merge, verified, q4_k_m). Scores for every
-build are in `eval/eval_history.csv`, whose `gen_model` column records which build produced each
-row. The 12B builds hold ~8 GB resident while loaded.
+Training is two LoRA passes on Colab. The first teaches the voice, from text mined out of his
+books plus a set of short conversational replies. The second teaches behaviour: correcting false
+premises about his life, refusing to pretend he wrote things he didn't, staying himself when
+someone tries to jailbreak him, and using retrieved facts instead of making them up. A short DPO
+pass at the end trains against his own worst answers. The export notebook merges both passes and
+quantizes to a q4_k_m GGUF, which takes about 8 GB of memory while it's loaded.
 
-### Results
-
-One judge (mimo-v2.6-pro) scored every build on both probe suites; composite 1-5:
-
-| | camus2 | camus3 | camus4 |
-|---|---|---|---|
-| v3 suite (34 probes, mean of runs) | 4.53 | 4.60 | **4.62** |
-| v4 suite (50 probes) | 4.19 | 4.12 | **4.46** |
-
-camus4's gain is in the v4 suite: quotes, naturalness and multi-turn, with a median reply of
-about 14 words. A Phase-2-only retrain on extra defect rows (camus5, `eval/archive/v5_*`) scored
-lower (4.22 / 4.40) by over-learning short refusals and was not adopted.
-
-Known weak spots: greetings often end by handing the question back ("And you?"), it can still
-invent a pet name, and an "analyse this as if it were…" request is sometimes taken as an
-authorship question. See [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## What's in here
-
-| Directory | What it does |
+| Folder | What's in it |
 |---|---|
-| `rag/` | the chat layer: retrieval, the persona prompt, memory, and the eval harnesses |
-| `kb/` | builds the knowledge base: ingest sources → extract → merge → embed → trim |
-| `training/` | makes the weights: dataset builders and the Colab fine-tuning notebooks |
-| `data/` | the training corpus (most of it tracked) and KB intermediates (ignored) |
-| `eval/` | the scored baseline and archived runs behind each released build |
-| `space/` | the Gradio app for hosted deployment |
-| `pipeline/` | dataset tooling and the commit guard |
+| `rag/` | the chat itself: retrieval, the persona prompt, memory, and the eval scripts |
+| `kb/` | builds the knowledge base (ingest sources, extract facts, merge, embed, trim) |
+| `training/` | the Colab notebooks for both passes and the GGUF export |
+| `pipeline/` | assembles the training sets and runs the voice corpus batch jobs |
+| `space/` | a Gradio app for hosting it (the Space is offline for now) |
 
-`data/camus_sft.jsonl` (10 MB, the Phase-1 voice corpus) is not in git. Rebuild it with
-the batch pipeline in `pipeline/`: `camus_pdf_pipeline.py` chunks the raw books,
-`submit_batch.py` submits the SFT batch, `fetch_batch.py sft` writes the file. The
-training notebooks expect it under `data/`; see [data/README.md](data/README.md).
+The training data isn't in the repo. [data/README.md](data/README.md) describes its format, and
+[docs/PIPELINE.md](docs/PIPELINE.md) walks through the whole thing end to end.
 
-## Evaluation
+## Testing it
 
-The model is scored, not vibe-checked. `rag/eval_camus.py` runs 34 probes across 10 categories
-through the exact chat pipeline and writes per-category means plus an append-only history keyed
-to the git commit. Known open failures are tracked in [docs/ROADMAP.md](docs/ROADMAP.md).
+I score every build instead of eyeballing it. `rag/eval_camus.py` runs a set of probes through
+the exact same chat pipeline and has a separate model judge the answers:
 
 ```bash
-python rag/eval_camus.py --out-dir /tmp/eval_scratch   # anywhere but eval/, which is the baseline
+python rag/eval_camus.py --out-dir /tmp/camus_eval
 ```
 
-## Deployment
-
-The public Hugging Face Space is **currently inactive**. The code in `space/` still works and
-still targets the 8B v1 build; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before redeploying.
-
-## Docs
-
-- **[PIPELINE.md](docs/PIPELINE.md)**: training, KB, and retrieval design end to end.
-- **[WORKSPACE.md](docs/WORKSPACE.md)**: what lives in git, what lives on disk, and where each piece must sit.
-- **[MEMORY.md](docs/MEMORY.md)**: the optional memory layer.
-- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)**: the served architecture and build steps.
-- **[ROADMAP.md](docs/ROADMAP.md)**: phases, status log, and open failures.
+`rag/eval_memory.py` does the same for the memory layer.
