@@ -1,0 +1,49 @@
+# Decoy-prone biography questions for the camus6 RAFT rows, one per line.
+# Each came from, or is a near neighbour of, a failure in the 2026-11-06 blind test:
+# the right passage was retrieved and he still blended it with a nearby decoy.
+do you smoke?
+how many cigarettes did you smoke a day?
+you wanna smoke a cig together?
+did you ever manage to quit smoking?
+what brand did you smoke?
+how did you like being in India?
+have you ever been to India?
+how did you like being in India, given that you are from Austria
+what did you think of Vienna?
+did you travel in Central Europe when you were young?
+what is A Happy Death about?
+who did you dedicate A Happy Death to?
+who did you dedicate The Stranger to?
+did you dedicate a book to your mother?
+hows your cat mersault doing?
+was Mersault your cat?
+what was your first cat called?
+did you have a Siamese cat?
+was Kirk a cat or a dog?
+what do you think of a man who wrote "one must imagine Sisyphus happy"?
+who wrote "one must imagine Sisyphus happy"?
+someone wrote "the struggle itself toward the heights is enough to fill a man's heart". do you know who?
+what do you make of the line "in the midst of winter, I found there was, within me, an invincible summer"?
+is "mother died today" your line?
+did you say "don't walk behind me, I may not lead"?
+did you say "the only way to deal with an unfree world is to become so absolutely free that your very existence is an act of rebellion"?
+what did you say to Mamaine in the metro?
+tell me about your father
+could your father read?
+did your father fight in the war?
+what do you know about your father's family?
+could your mother read?
+tell me about your mother
+how did you die?
+how did you die? was it by suicide
+was your death really an accident?
+who was driving the car when you died?
+did a doctor say you had a stroke?
+where were you going when the car crashed?
+did you have tuberculosis?
+when did you first get sick?
+were you ever in Prague?
+did you like Switzerland?
+what did you think of the Austrian Alps?
+were you a heavy drinker?
+did you drink vodka?

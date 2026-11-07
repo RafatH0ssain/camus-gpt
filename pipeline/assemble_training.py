@@ -146,6 +146,14 @@ PHASE2_V5_EXTRAS = ("data/cloud/defects_v5.jsonl",)
 # phase2_v6 = phase2_v4 + these ONCE: camus5 showed that x2 short-refusal rows generalize.
 PHASE2_V6_EXTRAS = ("data/cloud/defects_v6.jsonl",)
 PHASE2_V6_WEIGHT = 1
+# RAFT rows (gitignored: they carry KB passages). When present, phase2_v6 drops the closed-book
+# versions of the same biography rows (Gekhman et al. 2024) and adds these once instead.
+RAFT_V6 = "data/drafts/raft_v6.jsonl"
+RAFT_V6_REPLACES = {
+    "data/cloud/epistemic_v4.jsonl": {"true_bio_answer", "false_bio_correct", "false_bio_hedge",
+                                      "true_attr_affirm", "false_attr_named", "false_attr_hedge"},
+    "data/cloud/defects_v4.jsonl": {"bio_precision", "true_quote", "false_quote"},
+}
 
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
@@ -523,7 +531,7 @@ def build_phase1_v4(repo_root):
     return rows, inputs
 
 
-def build_phase2(repo_root, v4=False, extras=(), extras_weight=None):
+def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
@@ -531,7 +539,8 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None):
     rewrite when that file exists (else the original, with a warning), and
     defects_v4 / multiturn_v4 join at DEFECTS_UPWEIGHT. extras are further files
     joined the same way (phase2_v5 passes PHASE2_V5_EXTRAS), at extras_weight when given
-    (phase2_v6 passes PHASE2_V6_WEIGHT)."""
+    (phase2_v6 passes PHASE2_V6_WEIGHT). raft, when the file exists, joins once and removes
+    the RAFT_V6_REPLACES rows it supersedes; when it is missing nothing is removed."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -614,6 +623,22 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None):
             else:
                 print("assemble_training: warning: %s missing, skipped" % label, file=sys.stderr)
                 decisions.append({"input": label, "used": None, "fallback": "file missing, skipped"})
+
+    replaces = {}
+    if raft:
+        if (repo_root / raft).is_file():
+            add(raft, load_input(raft, repo_root), 1, "grounded biography rows, x1")
+            decisions.append({"input": raft, "used": raft})
+            replaces = RAFT_V6_REPLACES
+        else:
+            print("assemble_training: warning: %s missing; closed-book bio rows kept" % raft,
+                  file=sys.stderr)
+            decisions.append({"input": raft, "used": None, "fallback": "file missing, nothing swapped"})
+    for i, (label, rows, weight) in enumerate(groups):
+        if label in replaces:
+            kept_rows = [r for r in rows if r.get("kind") not in replaces[label]]
+            inputs[i]["closed_book_dropped"] = len(rows) - len(kept_rows)
+            groups[i] = (label, kept_rows, weight)
 
     seen = set()
     pool = []
@@ -742,7 +767,7 @@ def assemble(repo_root, out_dir, dry_run=False):
     v4_phase2_rows, v4_phase2_inputs = build_phase2(repo_root, v4=True)
     v5_phase2_rows, v5_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V5_EXTRAS)
     v6_phase2_rows, v6_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V6_EXTRAS,
-                                                    extras_weight=PHASE2_V6_WEIGHT)
+                                                    extras_weight=PHASE2_V6_WEIGHT, raft=RAFT_V6)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -775,7 +800,8 @@ def assemble(repo_root, out_dir, dry_run=False):
           "v4_decisions": v5_phase2_inputs["v4_decisions"]}),
         ("phase2_v6", v6_phase2_rows, v6_phase2_inputs, defects_included(repo_root),
          {"note": "phase2_v4 plus data/cloud/defects_v6 at x%d (camus5 lesson: no short-refusal "
-                  "rows, no upweight)" % PHASE2_V6_WEIGHT,
+                  "rows, no upweight); when %s exists its grounded rows replace the closed-book "
+                  "biography rows" % (PHASE2_V6_WEIGHT, RAFT_V6),
           "notebook_seed": NB_SEED,
           "v4_decisions": v6_phase2_inputs["v4_decisions"]}),
     ]
