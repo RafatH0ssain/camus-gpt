@@ -688,7 +688,8 @@ class AssembleTests(unittest.TestCase):
                                         stdout=subprocess.PIPE, encoding="utf-8",
                                         check=True).stdout.strip())
         self.assertEqual(sorted(on_disk["sets"]),
-                         ["phase1_new", "phase1_old", "phase1_v4", "phase2", "phase2_v4", "phase2_v5"])
+                         ["phase1_new", "phase1_old", "phase1_v4", "phase2", "phase2_v4", "phase2_v5",
+                          "phase2_v6"])
 
     def test_manifest_fields_and_hashes_match_the_files(self):
         repo, out = self.repo_and_out()
@@ -853,6 +854,20 @@ class V4SetTests(unittest.TestCase):
         self.assertNotIn("v5 defect", prompts_of(v4_rows))
         self.assertEqual(sorted(prompts_of(v5_rows)),
                          sorted(prompts_of(v4_rows) + ["v5 defect"] * at.DEFECTS_UPWEIGHT))
+
+    def test_phase2_v6_is_phase2_v4_plus_defects_v6_once(self):
+        files = phase2_files()
+        files.update(V4_PHASE2_FILES)
+        files["data/cloud/defects_v5.jsonl"] = [qa("v5 defect", "No.", kind="bio_v5")]
+        files["data/cloud/defects_v6.jsonl"] = [qa("v6 defect", "Yes.", kind="bio_v6")]
+        root = make_temp_dir(self, files)
+        with mock.patch("sys.stderr"):
+            v4_rows, _ = at.build_phase2(root, v4=True)
+            v6_rows, _ = at.build_phase2(root, v4=True, extras=at.PHASE2_V6_EXTRAS,
+                                         extras_weight=at.PHASE2_V6_WEIGHT)
+        self.assertEqual(at.PHASE2_V6_WEIGHT, 1)
+        self.assertNotIn("v5 defect", prompts_of(v6_rows))
+        self.assertEqual(sorted(prompts_of(v6_rows)), sorted(prompts_of(v4_rows) + ["v6 defect"]))
 
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
