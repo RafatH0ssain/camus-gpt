@@ -143,6 +143,9 @@ PHASE2_V4_REPLACEMENTS = {
 PHASE2_V4_EXTRAS = ("data/cloud/defects_v4.jsonl", "data/cloud/multiturn_v4.jsonl")
 # phase2_v5 = phase2_v4 + these, for a Phase-2-only retrain on top of the v4 Phase 1 adapter.
 PHASE2_V5_EXTRAS = ("data/cloud/defects_v5.jsonl",)
+# phase2_v6 = phase2_v4 + these ONCE: camus5 showed that x2 short-refusal rows generalize.
+PHASE2_V6_EXTRAS = ("data/cloud/defects_v6.jsonl",)
+PHASE2_V6_WEIGHT = 1
 
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
@@ -520,14 +523,15 @@ def build_phase1_v4(repo_root):
     return rows, inputs
 
 
-def build_phase2(repo_root, v4=False, extras=()):
+def build_phase2(repo_root, v4=False, extras=(), extras_weight=None):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
     v4=True is phase2_v4: each old source is read from its data/cloud/*_v4
     rewrite when that file exists (else the original, with a warning), and
     defects_v4 / multiturn_v4 join at DEFECTS_UPWEIGHT. extras are further files
-    joined the same way (phase2_v5 passes PHASE2_V5_EXTRAS)."""
+    joined the same way (phase2_v5 passes PHASE2_V5_EXTRAS), at extras_weight when given
+    (phase2_v6 passes PHASE2_V6_WEIGHT)."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -601,9 +605,11 @@ def build_phase2(repo_root, v4=False, extras=()):
 
     if v4:
         for label in PHASE2_V4_EXTRAS + tuple(extras):
+            weight = DEFECTS_UPWEIGHT
+            if label in extras and extras_weight is not None:
+                weight = extras_weight
             if (repo_root / label).is_file():
-                add(label, load_input(label, repo_root), DEFECTS_UPWEIGHT,
-                    "hand-reviewed, x%d" % DEFECTS_UPWEIGHT)
+                add(label, load_input(label, repo_root), weight, "hand-reviewed, x%d" % weight)
                 decisions.append({"input": label, "used": label})
             else:
                 print("assemble_training: warning: %s missing, skipped" % label, file=sys.stderr)
@@ -735,6 +741,8 @@ def assemble(repo_root, out_dir, dry_run=False):
     v4_phase1_rows, v4_phase1_inputs = build_phase1_v4(repo_root)
     v4_phase2_rows, v4_phase2_inputs = build_phase2(repo_root, v4=True)
     v5_phase2_rows, v5_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V5_EXTRAS)
+    v6_phase2_rows, v6_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V6_EXTRAS,
+                                                    extras_weight=PHASE2_V6_WEIGHT)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -765,6 +773,11 @@ def assemble(repo_root, out_dir, dry_run=False):
                   "biography, reflexive closers, anachronism quips)" % DEFECTS_UPWEIGHT,
           "notebook_seed": NB_SEED,
           "v4_decisions": v5_phase2_inputs["v4_decisions"]}),
+        ("phase2_v6", v6_phase2_rows, v6_phase2_inputs, defects_included(repo_root),
+         {"note": "phase2_v4 plus data/cloud/defects_v6 at x%d (camus5 lesson: no short-refusal "
+                  "rows, no upweight)" % PHASE2_V6_WEIGHT,
+          "notebook_seed": NB_SEED,
+          "v4_decisions": v6_phase2_inputs["v4_decisions"]}),
     ]
 
     manifest = {
