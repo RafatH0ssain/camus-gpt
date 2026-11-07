@@ -869,6 +869,30 @@ class V4SetTests(unittest.TestCase):
         self.assertNotIn("v5 defect", prompts_of(v6_rows))
         self.assertEqual(sorted(prompts_of(v6_rows)), sorted(prompts_of(v4_rows) + ["v6 defect"]))
 
+    def test_phase2_v6_swaps_closed_book_bio_rows_for_raft_rows(self):
+        files = phase2_files()
+        files.update(V4_PHASE2_FILES)
+        files["data/cloud/epistemic_v4.jsonl"] = [qa("where were you born", "Mondovi.", kind="true_bio_answer"),
+                                                  qa("do you know me", "No.", kind="other_epistemic")]
+        files["data/cloud/defects_v6.jsonl"] = [qa("v6 defect", "Yes.", kind="greeting_noclose")]
+        without = make_temp_dir(self, files)
+        files[at.RAFT_V6] = [{"messages": [{"role": "system", "content": "facts"},
+                                           {"role": "user", "content": "where were you born"},
+                                           {"role": "assistant", "content": "Mondovi, in Algeria."}],
+                              "kind": "raft_true_bio_answer"}]
+        with_raft = make_temp_dir(self, files)
+        with mock.patch("sys.stderr"):
+            kept, _ = at.build_phase2(without, v4=True, extras=at.PHASE2_V6_EXTRAS,
+                                      extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V6)
+            swapped, info = at.build_phase2(with_raft, v4=True, extras=at.PHASE2_V6_EXTRAS,
+                                            extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V6)
+        replies = lambda rows: [r["messages"][-1]["content"] for r in rows]
+        self.assertIn("Mondovi.", replies(kept))              # no RAFT file: nothing is dropped
+        self.assertNotIn("Mondovi.", replies(swapped))        # closed-book version gone
+        self.assertEqual(replies(swapped).count("Mondovi, in Algeria."), 1)
+        self.assertIn("No.", replies(swapped))                # other kinds untouched
+        self.assertTrue(any(e.get("closed_book_dropped") for e in info["inputs"]))
+
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
         base.update(phase1_new_files(n_conv=5))
