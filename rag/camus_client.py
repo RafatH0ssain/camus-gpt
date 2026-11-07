@@ -21,7 +21,7 @@ Requires the index built once:  python build_index.py
 """
 import json, sys, argparse
 import requests
-from camus_rag import OLLAMA, GEN_MODEL, load_kb, build_bm25, load_reranker, build_turn
+from camus_rag import OLLAMA, GEN_MODEL, load_kb, build_bm25, load_reranker, build_turn, fold_evicted
 
 class CamusClient:
     def __init__(self):
@@ -31,10 +31,10 @@ class CamusClient:
         # retrieval system from the one every other entry point exercises.
         self.bm25 = build_bm25(self.facts)
         self.ce = load_reranker()
-        self.history = []
+        self.history, self.summary = [], ""
 
     def reset(self):
-        self.history = []
+        self.history, self.summary = [], ""
 
     def _generate(self, messages, opts):
         r = requests.post(f"{OLLAMA}/api/chat",
@@ -59,10 +59,11 @@ class CamusClient:
         the eval harness. `retrieved` is empty on task-gated turns by design.
         """
         turn = build_turn(user, self.history, self.facts, self.vecs,
-                          bm25=self.bm25, ce=self.ce, debug=False)
+                          bm25=self.bm25, ce=self.ce, debug=False, summary=self.summary)
         hits = turn.hits
         reply = self._generate(turn.messages, turn.opts)
         self.history += [{"role":"user","content":user}, {"role":"assistant","content":reply}]
+        self.history, self.summary = fold_evicted(self.history, self.summary)
         return {
             "user": user,
             "reply": reply,
