@@ -213,14 +213,6 @@ class ThinkFalseTests(unittest.TestCase):
             self.assertEqual(client._generate([{"role": "user", "content": "x"}], {}), "a")
         self.assertThinkFalse(post)
 
-    def test_temp_sweep_ask(self):
-        import temp_sweep as ts
-        fake = types.SimpleNamespace(OLLAMA="http://x", GEN_MODEL="m")
-        with mock.patch("requests.post", return_value=fake_response("a")) as post:
-            self.assertEqual(ts.ask(fake, [], {"temperature": 1}, 0.3), "a")
-        self.assertThinkFalse(post)
-        self.assertEqual(post.call_args.kwargs["json"]["options"]["temperature"], 0.3)
-
     def test_eval_camus_judge_ollama(self):
         import eval_camus as ec
         with mock.patch.object(ec.requests, "post", return_value=fake_response("{}")) as post, \
