@@ -143,7 +143,7 @@ def run_session(cr, label, idx, res, topics, outdir, use_memory):
               f"<!-- configuration deliberately not recorded here; see key.json -->\n\n")
     log.flush()
 
-    history, turns = [], 0
+    history, turns, summary = [], 0, ""
     while True:
         try:
             user = input("\nyou › ").strip()
@@ -158,12 +158,13 @@ def run_session(cr, label, idx, res, topics, outdir, use_memory):
             log.write("_(topic skipped)_\n\n"); log.flush()
             continue
 
-        turn = cr.build_turn(user, history, facts, vecs, bm25, ce, memory=memctx)
+        turn = cr.build_turn(user, history, facts, vecs, bm25, ce, memory=memctx, summary=summary)
         print()                                  # stream_chat prints its own "camus: " prefix
         answer = "".join(cr.stream_chat(turn.messages, turn.opts)).strip()
 
         history += [{"role": "user", "content": user},
                     {"role": "assistant", "content": answer}]
+        history, summary = cr.fold_evicted(history, summary)
         turns += 1
         log.write(f"**you:** {user}\n\n**camus:** {answer}\n\n---\n\n")
         log.flush()

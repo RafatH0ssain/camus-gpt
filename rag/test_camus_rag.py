@@ -261,6 +261,38 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(msgs[-2], history[-1])
         self.assertEqual(msgs[-1], {"role": "user", "content": "Where were you born?"})
 
+    def test_summary_reaches_system_prompt_without_memory(self):
+        with mock.patch.object(cr, "retrieve", return_value=[]):
+            t = cr.build_turn("what did I drink?", [], [], None, summary="The user drank vodka.")
+        self.assertIn("The user drank vodka.", t.messages[0]["content"])
+
+    def test_fold_evicted_summarises_and_trims(self):
+        history = []
+        for i in range(cr.HIST_WINDOW // 2 + 1):
+            history += [{"role": "user", "content": f"u{i}"}, {"role": "assistant", "content": f"a{i}"}]
+        seen = []
+        def fake_chat(msgs):
+            seen.append(msgs[0]["content"])
+            return "The user said u0."
+        h, s = cr.fold_evicted(history, "", fake_chat)
+        self.assertEqual(len(h), cr.HIST_WINDOW)
+        self.assertEqual(h, history[-cr.HIST_WINDOW:])
+        self.assertEqual(s, "The user said u0.")
+        self.assertIn("user: u0", seen[0])
+
+    def test_fold_evicted_is_noop_inside_window(self):
+        history = [{"role": "user", "content": "u"}, {"role": "assistant", "content": "a"}]
+        h, s = cr.fold_evicted(history, "prior", lambda m: self.fail("must not summarise"))
+        self.assertEqual((h, s), (history, "prior"))
+
+    def test_fold_evicted_keeps_prior_summary_on_failure(self):
+        history = [{"role": "user", "content": "u"}] * (cr.HIST_WINDOW + 2)
+        def boom(msgs): raise RuntimeError("ollama down")
+        with contextlib.redirect_stdout(io.StringIO()):
+            h, s = cr.fold_evicted(history, "prior", boom)
+        self.assertEqual(len(h), cr.HIST_WINDOW)
+        self.assertEqual(s, "prior")
+
     def test_short_history_untrimmed_and_temperature(self):
         with mock.patch.object(cr, "retrieve", return_value=[]):
             t = cr.build_turn("Where were you born?", [], [], None)

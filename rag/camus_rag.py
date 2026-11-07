@@ -343,7 +343,7 @@ class Turn:
     kb_suppressed: bool = False        # self_ref fired AND memory had something -> KB dropped
 
 def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
-               memory=None):
+               memory=None, summary=""):
     """The one place a turn is assembled. Returns a Turn.
 
     History is a list of {"role","content"} in chronological order, and is sliced
@@ -402,8 +402,9 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                   + ("  (KB dropped: memory answers unopposed)" if kb_suppressed else ""))
 
     system = build_system(hits, kb_suppressed) + mem_block   # KB stream: facts + views only
-    if memory is not None and memory.summary:
-        system += _memory_summary_block(memory.summary)
+    summary = summary or (memory.summary if memory is not None else "")
+    if summary:                            # evicted turns, condensed; independent of memory
+        system += _memory_summary_block(summary)
 
     opts = dict(GEN_OPTS, temperature=TEMP_TASK if task else TEMP_FACTUAL)
     messages = ([{"role":"system","content":system}]
@@ -411,6 +412,23 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                 + [{"role":"user","content":user_msg}])
     return Turn(messages=messages, opts=opts, hits=hits, memories=mems,
                 self_ref=self_ref, kb_suppressed=kb_suppressed)
+
+def fold_evicted(history, summary, chat_fn=None):
+    """Trim history to HIST_WINDOW, folding the dropped turns into the rolling summary.
+
+    Runs whether or not the memory layer is on: without it, anything said more than
+    HIST_WINDOW messages ago would vanish and the persona would deny it was ever said.
+    On a failed summary call the prior summary is kept and the turns are dropped.
+    """
+    if len(history) <= HIST_WINDOW:
+        return history, summary
+    evicted, history = history[:-HIST_WINDOW], history[-HIST_WINDOW:]
+    import memory as _mem
+    try:
+        summary = _mem.summarise(evicted, summary, chat_fn or util_chat)
+    except Exception as e:
+        print(f"[summary] failed ({e}) — dropping evicted turns")
+    return history, summary
 
 def _memory_summary_block(summary):
     import memory as _mem
@@ -586,31 +604,25 @@ def main():
 
     # history is trimmed to HIST_WINDOW for the prompt; `pending` keeps every exchange since
     # the last memory flush, so extraction never misses turns that were evicted.
-    history, pending, n_exchanges = [], [], 0
+    history, pending, n_exchanges, summary = [], [], 0, ""
     print("\nCamus is here. Type and press enter; Ctrl-C to leave.\n")
     try:
         while True:
             user = input("you: ").strip()
             if not user: continue
             turn = build_turn(user, history, facts, vecs, bm25=bm25, ce=ce,
-                              debug=args.debug, memory=memctx)
+                              debug=args.debug, memory=memctx, summary=summary)
             reply = stream_chat(turn.messages, turn.opts)
             exchange = [{"role":"user","content":user},{"role":"assistant","content":reply}]
             history += exchange
             n_exchanges += 1
 
+            history, summary = fold_evicted(history, summary)
+            if args.debug and summary:
+                print(f"  [summary] {len(summary.split())} words")
             if memctx is not None:
                 pending += exchange
-                # Turns falling out of HIST_WINDOW are compressed rather than dropped.
-                if len(history) > HIST_WINDOW:
-                    evicted = history[:len(history) - HIST_WINDOW]
-                    history = history[len(history) - HIST_WINDOW:]
-                    try:
-                        memctx.summary = mem.summarise(evicted, memctx.summary, util_chat)
-                        if args.debug:
-                            print(f"  [memory] summary now {len(memctx.summary.split())} words")
-                    except Exception as e:
-                        print(f"[memory] summarisation failed ({e}) — dropping evicted turns")
+                memctx.summary = summary
                 if n_exchanges % EXTRACT_EVERY == 0:
                     _flush_memories(mem, memctx, pending, session_id, "mid-session flush")
                     pending = []

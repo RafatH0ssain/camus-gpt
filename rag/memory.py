@@ -378,7 +378,9 @@ def extract_memories(history: list[dict], chat_fn) -> list[dict]:
 # ────────────────────────────────────────────────── rolling summary ─────────
 SUMMARY_PROMPT = """Summarise the conversation below in at most 120 words, third person, \
 factual. Preserve: what the user asked about, what was concluded, any commitments or \
-open threads. Omit pleasantries. If a previous summary is given, fold it in rather than \
+open threads, and every concrete detail the user gave about themselves (what they ate, \
+drank, did or felt), in their own words where short. Add nothing that is not in the turns. \
+Call the speakers "the user" and "Camus". Omit pleasantries. If a previous summary is given, fold it in rather than \
 repeating it.
 
 """
@@ -388,7 +390,8 @@ def summarise(evicted: list[dict], prior: str, chat_fn) -> str:
     """Compress turns falling out of HIST_WINDOW into a running précis."""
     if not evicted:
         return prior
-    convo = "\n".join(f"{m['role']}: {m['content']}" for m in evicted)
+    convo = "\n".join(f"{'Camus' if m['role'] == 'assistant' else m['role']}: {m['content']}"
+                      for m in evicted)
     prompt = SUMMARY_PROMPT
     if prior:
         prompt += f"PREVIOUS SUMMARY:\n{prior}\n\n"
