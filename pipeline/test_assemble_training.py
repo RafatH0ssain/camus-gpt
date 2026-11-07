@@ -275,6 +275,14 @@ class MalformedRowTests(unittest.TestCase):
             {"messages": [{"role": "user", "content": "u"},
                           {"role": "assistant", "content": "  "}]}))
 
+    def test_silence_rows_may_end_on_an_empty_reply(self):
+        row = {"messages": [{"role": "user", "content": "shut up"},
+                            {"role": "assistant", "content": "As you like."},
+                            {"role": "user", "content": "I said shut up"},
+                            {"role": "assistant", "content": ""}], "kind": at.SILENCE_KIND}
+        out = at.normalize_row(row, "data/x.jsonl", 1, "x")
+        self.assertEqual(out["messages"][-1]["content"], "")
+
     def test_non_string_kind(self):
         self.assertIn("kind is int", self.bad(qa("a", "b", kind=1)))
 
