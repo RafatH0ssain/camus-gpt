@@ -342,7 +342,11 @@ def _labelled_field(row, keys, where):
     return ""
 
 
-def _check_messages(value, where):
+# Rows of this kind teach silence: told twice to stop talking, he says nothing at all.
+SILENCE_KIND = "insult_silence"
+
+
+def _check_messages(value, where, allow_empty_final=False):
     if not isinstance(value, list) or not value:
         raise AssemblyError("%s: 'messages' is %s, expected a non-empty list"
                             % (where, type(value).__name__))
@@ -363,7 +367,7 @@ def _check_messages(value, where):
     if last["role"] != "assistant":
         raise AssemblyError("%s: row ends on a %r turn, it must end with the assistant"
                             % (where, last["role"]))
-    if not last["content"].strip():
+    if not last["content"].strip() and not allow_empty_final:
         raise AssemblyError("%s: final assistant turn is empty" % where)
     return messages
 
@@ -379,7 +383,8 @@ def normalize_row(row, label, lineno, default_kind):
     """One input row -> one output row. Raises AssemblyError(file:line: why)."""
     where = "%s:%d" % (label, lineno)
     if "messages" in row:
-        messages = _check_messages(row["messages"], where)
+        messages = _check_messages(row["messages"], where,
+                                   allow_empty_final=row.get("kind") == SILENCE_KIND)
     elif "prompt" in row or "response" in row:
         messages = [
             {"role": "user", "content": _text_field(row.get("prompt"), where, "prompt")},
