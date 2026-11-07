@@ -1,31 +1,24 @@
 # The memory layer
 
 Off by default. Everything below happens only when `rag/camus_rag.py` is run with
-`--memory`; without that flag the assembled prompt is byte-for-byte what it was
-before this layer existed.
+`--memory`; without the flag no profile or memories are read.
 
 ## Two layers, deliberately separate
 
 | | written by | injected | retrieved |
 |---|---|---|---|
-| `profile.md` | you, by hand | verbatim, every non-task turn | never — it is not scored or ranked |
+| `profile.md` | you, by hand | verbatim, every non-task turn | never |
 | `memory.jsonl` | extracted at session end | top matches only | by embedding similarity |
 
-The profile is the "knows me from the first message" layer and costs a fixed number
-of tokens. Learned memory is the "remembers what we discussed" layer and is retrieved
-like the knowledge base — but through a **separate index**.
-
-That separation is the point. The knowledge base is Camus's life; memory is the
-user's. A shared index lets one stream surface on the other's queries through
-embedding proximity alone, which is exactly the class of failure this project spent
-months removing from retrieval. So memory:
-
-- never enters the fact/view pool and never appears in `hits`,
-- never affects the confidence tiers or the `THRESHOLD` gate, which are computed on
-  knowledge-base scores alone,
-- appends its own clearly-labelled section to the system prompt and nothing else,
-- is **skipped on the task gate**, exactly like facts: if `is_task(msg)` is true there
-  is no memory retrieval and no memory block, so analysis prompts reason unencumbered.
+The profile is the "knows me from the first message" layer at a fixed token cost;
+learned memory is the "remembers what we discussed" layer. Memory is retrieved
+like the knowledge base but through a **separate index**: the knowledge base is
+Camus's life, memory is the user's, and a shared index would let one stream
+surface on the other's queries through embedding proximity alone. Memory
+therefore never enters the fact/view pool or `hits`, never affects the confidence
+tiers or the `THRESHOLD` gate (both judged on the knowledge base alone), appends
+its own labelled section to the system prompt and nothing else, and is skipped on
+the task gate exactly like facts.
 
 ## Files (all gitignored, all local)
 
@@ -36,10 +29,8 @@ months removing from retrieval. So memory:
 | `memory_vectors.npy` | one embedding row per memory, same order |
 | `memory_pending.jsonl` | the probation buffer — candidates not yet promoted |
 
-`profile.example.md` is the tracked template. `memory.jsonl` and `profile.md` hold
-conversation content, so they are covered twice: by `.gitignore` and by the
-pre-commit hook, because a `.gitignore` edit should not be the only thing standing
-between chat content and a public history.
+`profile.example.md` is the tracked template; `profile.md` and `memory*.jsonl`
+hold conversation content and are guarded by `.gitignore` and the pre-commit hook.
 
 ## Setup
 
@@ -47,8 +38,8 @@ between chat content and a public history.
     $EDITOR profile.md
     python rag/camus_rag.py --memory
 
-Write the profile in the third person, as facts about "the user". Ten to twenty
-lines is plenty — it is injected on every turn, so length is a running cost.
+Write the profile in the third person, as facts about "the user"; ten to twenty
+lines is plenty, since it is injected every turn.
 
 ## Command line
 
@@ -58,45 +49,23 @@ lines is plenty — it is injected on every turn, so length is a running cost.
 | `--memories` | list stored memories with kind, hits, last seen, cue, id — then exit |
 | `--forget SUBSTRING` | delete every memory containing SUBSTRING, report the count, exit |
 | `--reindex-memory` | re-embed every stored memory with the current scheme, then exit |
-| `--debug --memory` | show retrieved memories and their scores, separate from the retrieval table |
-
-`--reindex-memory` is the upgrade path. Memories written before the cue field existed
-were embedded from their text alone; once cued rows sit beside them the two are scored
-on different bases and the older ones retrieve worse for no visible reason. Reindexing
-puts every row on the current scheme.
+| `--debug --memory` | show retrieved memories and their similarities, separately from the retrieval table |
 
 ## How a memory is written
 
-Extraction runs at session end (and every 40 exchanges, so a crash loses little), and
-only when the session ran to at least four exchanges. It is best-effort throughout: a
-failure prints a warning and the chat exits cleanly.
+Extraction runs at session end and every 40 exchanges, only after at least four
+exchanges, and is best-effort — a failure prints a warning and the chat exits
+cleanly. Candidates land in the probation buffer and are promoted only on a
+**second sighting**: a wrong memory is a bad answer forever, so writes are made
+deliberately slow. Consolidation is two-tier on cosine against the store —
+≥ 0.90 discards the candidate and bumps the original's hit count, 0.85–0.90
+revises the existing row in place, below 0.85 appends. The store is capped at
+`MAX_MEMORIES`, evicting fewest-hits-then-oldest first.
 
-Candidates do not go straight into the store. They land in the probation buffer and are
-promoted only on a **second sighting**. A wrong retrieval is one bad answer; a wrong
-memory is a bad answer forever, so writes are the dangerous operation and are made
-deliberately slow.
-
-Consolidation is two-tier, on cosine against the existing store:
-
-- **≥ 0.90** — the same memory said again: discard the candidate, bump the original's
-  hit count and last-seen date.
-- **0.85 – 0.90** — a near-twin: revise the existing row in place rather than appending
-  a near-duplicate, preferring the fuller statement.
-- **below 0.85** — genuinely new: append.
-
-Unbounded near-duplicates would flood retrieval the way the untrimmed knowledge base
-once did. The store is capped at `MAX_MEMORIES`, evicting fewest-hits-then-oldest first.
-
-### Cues
-
-Each memory may carry a short first-person `cue` describing how you would *ask* about
-it — `"The user is named Ada."` gets `"my name; who I am"`. The embedded string is
-`text | cue`; only `text` is shown in the prompt.
-
-This exists because memories are stored in the third person but queried in the first,
-and that gap alone costs roughly 0.06–0.15 of cosine — enough that `"what is my name?"`
-would not retrieve `"The user is named Ada."` Cues close it. Rows without a cue still
-work; they just match less well, which is what `--reindex-memory` is for.
+Each memory may carry a short first-person `cue` of how you would ask about it;
+the embedded string is `text | cue`, only `text` is shown in the prompt. Memories
+are stored in the third person but queried in the first, and that gap alone loses
+matches — cues close it; `--reindex-memory` moves old rows onto the current scheme.
 
 ## Tunables
 
@@ -104,21 +73,11 @@ All environment variables, all with working defaults:
 
 | variable | default | what it does |
 |---|---|---|
-| `MEM_THRESHOLD` | `0.52` | similarity floor for recall. Independent of the knowledge base's `0.55` |
-| `MEM_TOP_K` | `3` | how many memories may enter a turn. Small on purpose — memory augments, never dominates |
-| `MEM_UTIL_MODEL` | `gemma3:12b` | model for extraction and summarisation; falls back to the persona model if not installed |
+| `MEM_THRESHOLD` | `0.52` | similarity floor for recall, independent of the knowledge base's `0.55` |
+| `MEM_TOP_K` | `3` | how many memories may enter a turn — memory augments, never dominates |
+| `MEM_UTIL_MODEL` | see `rag/camus_rag.py` | model for extraction and summarisation; falls back to the persona model |
 | `MAX_MEMORIES` | `500` | store cap before eviction |
 | `PROFILE_PATH`, `MEM_PATH`, `MEM_VEC_PATH`, `PENDING_PATH` | repo root | file locations; handy for testing against a scratch store |
 
-Raising `MEM_THRESHOLD` trades recall for precision. Prefer erring high: a false recall
-is worse for memory than for knowledge-base facts, because it asserts something about
-the person rather than about Camus.
-
-## Evaluation
-
-**Enabling memory makes an evaluation run non-comparable to the 34-probe baseline.**
-The recorded baseline in `eval/eval_history.csv` was produced with memory off, and the
-probes assume a fixed system prompt; injecting a profile and recalled memories changes
-that prompt on every non-task turn. `rag/eval_camus.py` never enables memory, and it
-should stay that way — if you want to measure the memory layer, build a separate probe
-set for it rather than reusing this one.
+Raising `MEM_THRESHOLD` trades recall for precision; prefer erring high, since a
+false recall asserts something about the person rather than about Camus.
