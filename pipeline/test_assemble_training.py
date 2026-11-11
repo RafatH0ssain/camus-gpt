@@ -901,6 +901,31 @@ class V4SetTests(unittest.TestCase):
         self.assertIn("No.", replies(swapped))                # other kinds untouched
         self.assertTrue(any(e.get("closed_book_dropped") for e in info["inputs"]))
 
+    def test_phase2_v7_adds_open_book_rows_beside_their_plain_versions(self):
+        files = phase2_files()
+        files.update(V4_PHASE2_FILES)
+        files["data/cloud/defects_v6.jsonl"] = [qa("v6 defect", "Yes.", kind="greeting_noclose")]
+        files[at.PHASE2_V7_EXTRAS[-1]] = [qa("do you like cats", "Yes, they explain nothing.",
+                                             kind="preference_v7")]
+        files[at.RAFT_V7] = [{"messages": [{"role": "system", "content": "card"},
+                                           {"role": "user", "content": "where were you born"},
+                                           {"role": "assistant", "content": "Mondovi, in Algeria."}],
+                              "kind": "raft_true_bio_answer"}]
+        files[at.OPENBOOK_V7] = [{"messages": [{"role": "system", "content": "card"},
+                                               {"role": "user", "content": "do you like cats"},
+                                               {"role": "assistant", "content": "Yes, they explain nothing."}],
+                                  "kind": "open_preference_v7"}]
+        root = make_temp_dir(self, files)
+        with mock.patch("sys.stderr"):
+            rows, info = at.build_phase2(root, v4=True, extras=at.PHASE2_V7_EXTRAS,
+                                         extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V7,
+                                         openbook=at.OPENBOOK_V7)
+        cats = [r for r in rows if r["messages"][-1]["content"] == "Yes, they explain nothing."]
+        # the plain row and its open-book copy differ only by the system turn: both survive dedup
+        self.assertEqual(sorted(r["messages"][0]["role"] for r in cats), ["system", "user"])
+        self.assertIn(at.OPENBOOK_V7, [e["input"] for e in info["inputs"]])
+        self.assertIn("Mondovi, in Algeria.", [r["messages"][-1]["content"] for r in rows])
+
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
         base.update(phase1_new_files(n_conv=5))

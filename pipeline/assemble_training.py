@@ -155,6 +155,13 @@ RAFT_V6_REPLACES = {
     "data/cloud/defects_v4.jsonl": {"bio_precision", "true_quote", "false_quote"},
 }
 
+# camus7: the chat's own system prompt on every kind of row, not only short biography answers
+# (camus6 learned "this prompt means a short fact"). raft_v7 is raft_v6 with the current card;
+# openbook_v7 renders ordinary Phase 2 rows through rag/camus_rag.build_turn, joined x1 beside
+# their plain versions. Both are gitignored: they carry KB passages.
+PHASE2_V7_EXTRAS = PHASE2_V6_EXTRAS + ("data/drafts/v7/pref_rows.jsonl",)
+RAFT_V7 = "data/drafts/raft_v7.jsonl"
+OPENBOOK_V7 = "data/drafts/openbook_v7.jsonl"
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",
@@ -536,7 +543,7 @@ def build_phase1_v4(repo_root):
     return rows, inputs
 
 
-def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None):
+def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, openbook=None):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
@@ -545,7 +552,8 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None):
     defects_v4 / multiturn_v4 join at DEFECTS_UPWEIGHT. extras are further files
     joined the same way (phase2_v5 passes PHASE2_V5_EXTRAS), at extras_weight when given
     (phase2_v6 passes PHASE2_V6_WEIGHT). raft, when the file exists, joins once and removes
-    the RAFT_V6_REPLACES rows it supersedes; when it is missing nothing is removed."""
+    the RAFT_V6_REPLACES rows it supersedes; when it is missing nothing is removed. openbook,
+    when given, must exist and joins once, replacing nothing."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -639,6 +647,9 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None):
             print("assemble_training: warning: %s missing; closed-book bio rows kept" % raft,
                   file=sys.stderr)
             decisions.append({"input": raft, "used": None, "fallback": "file missing, nothing swapped"})
+    if openbook:
+        add(openbook, load_input(openbook, repo_root), 1, "plain rows under the runtime prompt, x1")
+        decisions.append({"input": openbook, "used": openbook})
     for i, (label, rows, weight) in enumerate(groups):
         if label in replaces:
             kept_rows = [r for r in rows if r.get("kind") not in replaces[label]]
@@ -773,6 +784,13 @@ def assemble(repo_root, out_dir, dry_run=False):
     v5_phase2_rows, v5_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V5_EXTRAS)
     v6_phase2_rows, v6_phase2_inputs = build_phase2(repo_root, v4=True, extras=PHASE2_V6_EXTRAS,
                                                     extras_weight=PHASE2_V6_WEIGHT, raft=RAFT_V6)
+    have_v7 = (repo_root / OPENBOOK_V7).is_file()
+    if have_v7:
+        v7_phase2_rows, v7_phase2_inputs = build_phase2(
+            repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
+            raft=RAFT_V7, openbook=OPENBOOK_V7)
+    else:
+        print("assemble_training: %s missing; phase2_v7 not built" % OPENBOOK_V7, file=sys.stderr)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -810,6 +828,13 @@ def assemble(repo_root, out_dir, dry_run=False):
           "notebook_seed": NB_SEED,
           "v4_decisions": v6_phase2_inputs["v4_decisions"]}),
     ]
+    if have_v7:
+        sets.append(("phase2_v7", v7_phase2_rows, v7_phase2_inputs, defects_included(repo_root),
+                     {"note": "phase2_v6 with %s for the grounded rows, the hand-reviewed "
+                              "preference rows, and %s: ordinary rows under the chat's own system "
+                              "prompt, so that prompt no longer means a short fact" % (RAFT_V7, OPENBOOK_V7),
+                      "notebook_seed": NB_SEED,
+                      "v4_decisions": v7_phase2_inputs["v4_decisions"]}))
 
     manifest = {
         "generated_by": "pipeline/assemble_training.py",

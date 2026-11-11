@@ -168,4 +168,6 @@ training/build_epistemic.py
 training/build_multiturn.py
 training/build_phase3.py
 pipeline/build_dpo_v6.py
+pipeline/build_openbook_v7.py
+pipeline/build_dpo_v7.py
 space/
