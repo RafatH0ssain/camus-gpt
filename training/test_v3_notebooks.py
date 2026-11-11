@@ -164,7 +164,7 @@ class TestV3Notebooks(unittest.TestCase):
             self.assertIn('man["sets"][PHASE2_SET]', p2)
             # each Phase 2 set writes its own guardrail adapter, so a retrain never
             # overwrites the adapter behind an earlier model
-            self.assertIn('{"phase2": "", "phase2_v4": "_v4", "phase2_v5": "_v5", "phase2_v6": "_v6"}[PHASE2_SET]', p2)
+            self.assertIn('{"phase2": "", "phase2_v4": "_v4", "phase2_v5": "_v5", "phase2_v6": "_v6", "phase2_v7": "_v7"}[PHASE2_SET]', p2)
             for old in ("camus_refusals.jsonl", "camus_epistemic.jsonl",
                         "camus_analysis.jsonl", "camus_multiturn.jsonl",
                         "camus_phase3.jsonl"):
