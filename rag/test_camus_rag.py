@@ -130,6 +130,13 @@ class BuildSystemTests(unittest.TestCase):
         for hits, sup in (([], False), ([], True), ([hit("f", 0.9)], False), ([hit("f", 0.56)], False)):
             self.assertIn(cr._IDENTITY_CARD, cr.build_system(hits, sup))
 
+    def test_identity_card_is_known_not_recited(self):
+        # camus4/camus6 answered "do you like cats" with the whole pet roll-call: the card's
+        # list rule must only fire on a request to name or list, and say not to recite.
+        last = cr._IDENTITY_CARD.strip().splitlines()[-1]
+        self.assertIn("never recite", last)
+        self.assertIn("Only when asked to name or list", last)
+
     def test_core_variants_share_identity_card(self):
         cores = {}
         for name in ("current", "lean", "persona"):
