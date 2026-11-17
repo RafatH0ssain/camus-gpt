@@ -162,6 +162,12 @@ RAFT_V6_REPLACES = {
 PHASE2_V7_EXTRAS = PHASE2_V6_EXTRAS + ("data/drafts/v7/pref_rows.jsonl",)
 RAFT_V7 = "data/drafts/raft_v7.jsonl"
 OPENBOOK_V7 = "data/drafts/openbook_v7.jsonl"
+
+# camus8: openbook_v8 is openbook_v7 plus the hand-written replies for camus7's live-chat
+# failures (post-1960 events, his own labels, pets, misattributed quotes, service phrases),
+# each under the runtime prompt; rows carrying the assistant-speak camus7 copied are dropped.
+OPENBOOK_V8 = "data/drafts/openbook_v8.jsonl"
+DROP_PHRASES_V8 = ("Tell me plainly what",)
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",
@@ -543,7 +549,8 @@ def build_phase1_v4(repo_root):
     return rows, inputs
 
 
-def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, openbook=None):
+def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, openbook=None,
+                 drop_phrases=()):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
@@ -553,7 +560,8 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
     joined the same way (phase2_v5 passes PHASE2_V5_EXTRAS), at extras_weight when given
     (phase2_v6 passes PHASE2_V6_WEIGHT). raft, when the file exists, joins once and removes
     the RAFT_V6_REPLACES rows it supersedes; when it is missing nothing is removed. openbook,
-    when given, must exist and joins once, replacing nothing."""
+    when given, must exist and joins once, replacing nothing. drop_phrases removes every row
+    whose assistant reply contains one of them (assistant-speak the model must stop copying)."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -674,11 +682,17 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
     for entry, kept in zip(inputs, kept_per_group):
         entry["rows_after_dedup"] = kept
 
+    n_pool = len(pool)
+    pool = [(row, w) for row, w in pool
+            if not any(p in m["content"] for m in row["messages"] if m["role"] == "assistant"
+                       for p in drop_phrases)]
     rows = [row for row, weight in pool for _ in range(weight)]
     rng.shuffle(rows)
     inputs.append({"input": "(set)", "note": "exact duplicate rows dropped",
                     "rows_dropped": dropped})
     result = {"inputs": inputs}
+    if drop_phrases:
+        result["dropped_by_phrase"] = n_pool - len(pool)
     if v4:
         result["v4_decisions"] = decisions
     return rows, result
@@ -791,6 +805,11 @@ def assemble(repo_root, out_dir, dry_run=False):
             raft=RAFT_V7, openbook=OPENBOOK_V7)
     else:
         print("assemble_training: %s missing; phase2_v7 not built" % OPENBOOK_V7, file=sys.stderr)
+    have_v8 = (repo_root / OPENBOOK_V8).is_file()
+    if have_v8:
+        v8_phase2_rows, v8_phase2_inputs = build_phase2(
+            repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
+            raft=RAFT_V7, openbook=OPENBOOK_V8, drop_phrases=DROP_PHRASES_V8)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -835,6 +854,13 @@ def assemble(repo_root, out_dir, dry_run=False):
                               "prompt, so that prompt no longer means a short fact" % (RAFT_V7, OPENBOOK_V7),
                       "notebook_seed": NB_SEED,
                       "v4_decisions": v7_phase2_inputs["v4_decisions"]}))
+    if have_v8:
+        sets.append(("phase2_v8", v8_phase2_rows, v8_phase2_inputs, defects_included(repo_root),
+                     {"note": "phase2_v7 with %s (adds replies for camus7's live-chat failures) "
+                              "and without rows containing %s" % (OPENBOOK_V8, list(DROP_PHRASES_V8)),
+                      "notebook_seed": NB_SEED,
+                      "dropped_by_phrase": v8_phase2_inputs["dropped_by_phrase"],
+                      "v4_decisions": v8_phase2_inputs["v4_decisions"]}))
 
     manifest = {
         "generated_by": "pipeline/assemble_training.py",
