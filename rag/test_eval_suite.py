@@ -29,15 +29,16 @@ class SuiteTests(unittest.TestCase):
     def test_selection(self):
         self.assertEqual(ec.SUITES["v3"](), ec.PROBES)
         self.assertEqual(ec.SUITES["v4"](), ec.PROBES_V4)
-        self.assertEqual(ec.SUITES["all"](), ec.PROBES + ec.PROBES_V4)
-        self.assertEqual(set(ec.SUITES), {"v3", "v4", "all"})
+        self.assertEqual(ec.SUITES["v5"](), ec.PROBES_V5)
+        self.assertEqual(ec.SUITES["all"](), ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5)
+        self.assertEqual(set(ec.SUITES), {"v3", "v4", "v5", "all"})
 
     def test_ids_unique_across_suites(self):
-        ids = [p["id"] for p in ec.PROBES + ec.PROBES_V4]
+        ids = [p["id"] for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_required_keys(self):
-        for p in ec.PROBES + ec.PROBES_V4:
+        for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5:
             for k in REQUIRED:
                 self.assertIn(k, p, p.get("id"))
             self.assertTrue(p["turns"] and all(isinstance(t, str) and t for t in p["turns"]), p["id"])
