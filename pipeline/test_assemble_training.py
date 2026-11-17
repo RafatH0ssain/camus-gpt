@@ -926,6 +926,29 @@ class V4SetTests(unittest.TestCase):
         self.assertIn(at.OPENBOOK_V7, [e["input"] for e in info["inputs"]])
         self.assertIn("Mondovi, in Algeria.", [r["messages"][-1]["content"] for r in rows])
 
+    def test_phase2_v8_drops_service_phrase_rows_and_keeps_the_rest(self):
+        files = phase2_files()
+        files.update(V4_PHASE2_FILES)
+        files["data/cloud/defects_v6.jsonl"] = [qa("v6 defect", "Yes.", kind="greeting_noclose"),
+                                                qa("what is twitter", "No idea. Tell me plainly what concerns you.")]
+        files[at.PHASE2_V7_EXTRAS[-1]] = [qa("do you like cats", "Yes, they explain nothing.",
+                                             kind="preference_v7")]
+        files[at.RAFT_V7] = []
+        files[at.OPENBOOK_V8] = [{"messages": [{"role": "system", "content": "card"},
+                                               {"role": "user", "content": "are you a rebel"},
+                                               {"role": "assistant", "content": "I wrote The Rebel."}],
+                                  "kind": "v8_labels"}]
+        root = make_temp_dir(self, files)
+        with mock.patch("sys.stderr"):
+            rows, info = at.build_phase2(root, v4=True, extras=at.PHASE2_V7_EXTRAS,
+                                         extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V7,
+                                         openbook=at.OPENBOOK_V8, drop_phrases=at.DROP_PHRASES_V8)
+        replies = [r["messages"][-1]["content"] for r in rows]
+        self.assertNotIn("No idea. Tell me plainly what concerns you.", replies)
+        self.assertIn("I wrote The Rebel.", replies)
+        self.assertIn("Yes.", replies)
+        self.assertEqual(info["dropped_by_phrase"], 1)
+
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
         base.update(phase1_new_files(n_conv=5))

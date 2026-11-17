@@ -134,6 +134,8 @@ adapters/
 pipeline/build_raft_v6.py
 pipeline/raft_questions_v6.txt
 pipeline/dpo_behaviour_v6.py
+pipeline/dpo_behaviour_v8.py
+pipeline/build_dpo_v8.py
 pipeline/sample_policy.py
 pipeline/naturalize_corpus.py
 pipeline/test_naturalize_corpus.py
