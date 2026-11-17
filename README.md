@@ -10,7 +10,7 @@ when he gets a fact wrong, I fix the knowledge base or the retrieval, not the we
 
 > A fictional AI persona for education and conversation, not the real Albert Camus.
 
-![Starting CamusGPT in a terminal and asking it four questions, from the absurd to his cat Cigarette; answers stream back in his voice (sped up 2.5x)](docs/camus-demo.gif)
+![Chatting with CamusGPT in a terminal: a cat knocks over the coffee, ChatGPT means nothing to him, Sisyphus, talking to a dead writer, and whether to forgive the cat; answers stream back in his voice (sped up 2.5x)](docs/camus-demo.gif)
 
 ## Running it
 
