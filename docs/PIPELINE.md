@@ -22,9 +22,9 @@ Base model `unsloth/gemma-4-12b-it`, two SFT passes and an optional DPO pass:
    weights loaded frozen); set `DPO_SET = None` to skip it.
 3. **Export.** `training/CamusGPT_Export_GGUF_Gemma4.ipynb` merges both LoRAs into
    the base and quantizes to a q4_k_m GGUF with a matching Modelfile. Register the
-   result as the Ollama model `camus4`:
+   result as the Ollama model `camus7`:
 
-       cd rag && ollama create camus4 -f Modelfile.camus4
+       cd rag && ollama create camus7 -f Modelfile.camus7
 
 The corpus is assembled by `pipeline/assemble_training.py` (see `data/README.md`).
 
@@ -47,7 +47,7 @@ gitignored, and are a matched pair.
 ## Chat + retrieval — `rag/`
 
 `python rag/camus_rag.py` (from the repo root; needs Ollama running with the
-`camus4` model and `nomic-embed-text`):
+`camus7` model and `nomic-embed-text`):
 
 - **Retrieval** is hybrid: dense cosine over the KB vectors plus BM25, fused by
   reciprocal rank and reranked by a cross-encoder. Confidence tiers and the 0.55
