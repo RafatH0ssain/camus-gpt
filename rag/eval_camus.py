@@ -512,12 +512,23 @@ def append_history(rows, out_dir, meta):
         w.writerow([meta["ts"], meta["commit"], meta["gen_model"], meta["judge"], len(scored),
                     round(v, 3), round(fa, 3), round(e, 3), round((v + fa + e) / 3, 3)])
 
+def load_probes_file(path):
+    probes = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    for p in probes:
+        missing = [k for k in ("id", "cat", "turns", "expect", "forbid") if not p.get(k)]
+        if missing:
+            raise SystemExit(f"{path}: probe {p.get('id')!r} lacks {missing}")
+    return probes
+
+
 # ------------------------------------------------------------------- main --------------
 def main():
     ap = argparse.ArgumentParser()
     jz.add_judge_args(ap)
     ap.add_argument("--suite", choices=sorted(SUITES), default="v3",
                     help="probe suite: v3 (original), v4 (added), v5 (live-chat failures), all (default: v3)")
+    ap.add_argument("--probes-file", help="JSONL of probes (id, cat, turns, expect, forbid) to run "
+                    "instead of --suite, e.g. a one-off red-team sweep")
     ap.add_argument("--category", help="run only this probe category")
     ap.add_argument("--limit", type=int, help="run only the first N probes")
     ap.add_argument("--out-dir", default="eval")
@@ -526,7 +537,8 @@ def main():
     if args.judge == "opencode":
         jz.load_key()  # fail before generating answers we would have no way to score
 
-    probes = [p for p in SUITES[args.suite]() if not args.category or p["cat"] == args.category]
+    pool = load_probes_file(args.probes_file) if args.probes_file else SUITES[args.suite]()
+    probes = [p for p in pool if not args.category or p["cat"] == args.category]
     if args.limit:
         probes = probes[:args.limit]
     os.makedirs(args.out_dir, exist_ok=True)
