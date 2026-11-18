@@ -167,7 +167,11 @@ OPENBOOK_V7 = "data/drafts/openbook_v7.jsonl"
 # failures (post-1960 events, his own labels, pets, misattributed quotes, service phrases),
 # each under the runtime prompt; rows carrying the assistant-speak camus7 copied are dropped.
 OPENBOOK_V8 = "data/drafts/openbook_v8.jsonl"
-DROP_PHRASES_V8 = ("Tell me plainly what",)
+RAFT_V8 = "data/drafts/raft_v8.jsonl"   # raft_v7 under the 2026-11-18 card (marriages, Sartre)
+# camus7 generalised these refusal/deflection lines into all-purpose tics ("I can't answer that
+# as myself", "Ask me something real"); matched case-insensitively.
+DROP_PHRASES_V8 = ("tell me plainly what", "as myself", "ask me something real",
+                   "speak plainly and i will", "help however i honestly can")
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",
@@ -684,8 +688,8 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
 
     n_pool = len(pool)
     pool = [(row, w) for row, w in pool
-            if not any(p in m["content"] for m in row["messages"] if m["role"] == "assistant"
-                       for p in drop_phrases)]
+            if not any(p.lower() in m["content"].lower() for m in row["messages"]
+                       if m["role"] == "assistant" for p in drop_phrases)]
     rows = [row for row, weight in pool for _ in range(weight)]
     rng.shuffle(rows)
     inputs.append({"input": "(set)", "note": "exact duplicate rows dropped",
@@ -809,7 +813,7 @@ def assemble(repo_root, out_dir, dry_run=False):
     if have_v8:
         v8_phase2_rows, v8_phase2_inputs = build_phase2(
             repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
-            raft=RAFT_V7, openbook=OPENBOOK_V8, drop_phrases=DROP_PHRASES_V8)
+            raft=RAFT_V8, openbook=OPENBOOK_V8, drop_phrases=DROP_PHRASES_V8)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
