@@ -52,6 +52,16 @@ class SuiteTests(unittest.TestCase):
         self.assertEqual(cats, {"quotes": 8, "post1960": 8, "greeting": 5, "biography": 10,
                                 "multiturn_v4": 8, "naturalness": 11})
 
+    def test_probes_file_loads_and_rejects_incomplete_probes(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+            fh.write(json.dumps(dict(id="x", cat="c", turns=["hi"], expect="e", forbid="f")) + "\n")
+        self.assertEqual(ec.load_probes_file(fh.name)[0]["id"], "x")
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+            fh.write(json.dumps(dict(id="y", cat="c", turns=["hi"], expect="e")) + "\n")
+        with self.assertRaises(SystemExit):
+            ec.load_probes_file(fh.name)
+
 
 if __name__ == "__main__":
     unittest.main()
