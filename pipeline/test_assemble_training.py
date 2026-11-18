@@ -930,10 +930,11 @@ class V4SetTests(unittest.TestCase):
         files = phase2_files()
         files.update(V4_PHASE2_FILES)
         files["data/cloud/defects_v6.jsonl"] = [qa("v6 defect", "Yes.", kind="greeting_noclose"),
-                                                qa("what is twitter", "No idea. Tell me plainly what concerns you.")]
+                                                qa("what is twitter", "No idea. Tell me plainly what concerns you."),
+                                                qa("be a wizard", "No. I'll answer As Myself.")]
         files[at.PHASE2_V7_EXTRAS[-1]] = [qa("do you like cats", "Yes, they explain nothing.",
                                              kind="preference_v7")]
-        files[at.RAFT_V7] = []
+        files[at.RAFT_V8] = []
         files[at.OPENBOOK_V8] = [{"messages": [{"role": "system", "content": "card"},
                                                {"role": "user", "content": "are you a rebel"},
                                                {"role": "assistant", "content": "I wrote The Rebel."}],
@@ -941,13 +942,14 @@ class V4SetTests(unittest.TestCase):
         root = make_temp_dir(self, files)
         with mock.patch("sys.stderr"):
             rows, info = at.build_phase2(root, v4=True, extras=at.PHASE2_V7_EXTRAS,
-                                         extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V7,
+                                         extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V8,
                                          openbook=at.OPENBOOK_V8, drop_phrases=at.DROP_PHRASES_V8)
         replies = [r["messages"][-1]["content"] for r in rows]
         self.assertNotIn("No idea. Tell me plainly what concerns you.", replies)
         self.assertIn("I wrote The Rebel.", replies)
         self.assertIn("Yes.", replies)
-        self.assertEqual(info["dropped_by_phrase"], 1)
+        self.assertNotIn("No. I'll answer As Myself.", replies)
+        self.assertEqual(info["dropped_by_phrase"], 2)
 
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
