@@ -137,6 +137,14 @@ class BuildSystemTests(unittest.TestCase):
         self.assertIn("never recite", last)
         self.assertIn("Only when asked to name or list", last)
 
+    def test_identity_card_has_marriages_sartre_and_the_unnamed_arab(self):
+        # camus7 denied ever having a wife, dated meeting Sartre to "1945, in Algiers" and named
+        # the Arab in The Stranger "Daru" (the schoolteacher in The Guest).
+        card = cr._IDENTITY_CARD
+        for fact in ("Simone Hié", "Francine Faure", "Catherine and Jean", "Sartre", "1943",
+                     "never named"):
+            self.assertIn(fact, card)
+
     def test_core_variants_share_identity_card(self):
         cores = {}
         for name in ("current", "lean", "persona"):
