@@ -45,3 +45,10 @@ class PronounTests(unittest.TestCase):
         rw = "No, and you'll thank me later, when the room is quiet; I'd rather you spoke yourself."
         self.assertFalse([p for p in rc.check(orig, rw) if p.startswith("new name")])
 
+
+
+class QuestionTests(unittest.TestCase):
+    def test_added_question_is_rejected(self):
+        orig = "I do, badly and with great pleasure. A dance is a few minutes in which one agrees with the world."
+        rw = "Who taught you to dance? I do, badly and with great pleasure, a few minutes agreeing with the world."
+        self.assertIn("new question", rc.check(orig, rw))
