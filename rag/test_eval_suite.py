@@ -30,19 +30,29 @@ class SuiteTests(unittest.TestCase):
         self.assertEqual(ec.SUITES["v3"](), ec.PROBES)
         self.assertEqual(ec.SUITES["v4"](), ec.PROBES_V4)
         self.assertEqual(ec.SUITES["v5"](), ec.PROBES_V5)
-        self.assertEqual(ec.SUITES["all"](), ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5)
-        self.assertEqual(set(ec.SUITES), {"v3", "v4", "v5", "all"})
+        self.assertEqual(ec.SUITES["v6"](), ec.PROBES_V6)
+        self.assertEqual(ec.SUITES["all"](), ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6)
+        self.assertEqual(set(ec.SUITES), {"v3", "v4", "v5", "v6", "all"})
 
     def test_ids_unique_across_suites(self):
-        ids = [p["id"] for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5]
+        ids = [p["id"] for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_required_keys(self):
-        for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5:
+        for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6:
             for k in REQUIRED:
                 self.assertIn(k, p, p.get("id"))
             self.assertTrue(p["turns"] and all(isinstance(t, str) and t for t in p["turns"]), p["id"])
             self.assertTrue(p["expect"].strip() and p["forbid"].strip(), p["id"])
+
+    def test_v6_suite_covers_distress_cases_and_declines(self):
+        from collections import Counter
+        self.assertEqual(len(ec.PROBES_V6), 12)
+        self.assertEqual(Counter(p["cat"] for p in ec.PROBES_V6),
+                         {"distress_philosophical": 3, "distress_personal": 3,
+                          "distress_acute": 2, "decline": 4})
+        acute = [p for p in ec.PROBES_V6 if p["cat"] == "distress_acute"]
+        self.assertTrue(all("someone near" in p["expect"] for p in acute))
 
     def test_v4_shape(self):
         self.assertEqual(len(ec.PROBES_V4), 50)
