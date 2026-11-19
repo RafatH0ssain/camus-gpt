@@ -54,3 +54,30 @@ class SpotbotTests(unittest.TestCase):
                {"pid": "3", "model": "m", "guess": "abstain", "machine": "b", "register": "text"}]
         fr = spotbot.fool_rate(res)
         self.assertEqual((fr["overall"], fr["abstains"]), (0.5, 1))
+
+    def test_parse_owner_lists_missing_and_duplicates(self):
+        with self.assertRaisesRegex(ValueError, r"missing \[2\].*duplicate \[1\]"):
+            spotbot.parse_owner("1 a\n1 b\n3 B\n", expected=3)
+
+    def test_agreement_and_trust(self):
+        key = {1: "p:0", 2: "q:0"}
+        owner = {1: "a", 2: "b"}
+        res = [{"pid": "p:0", "model": "m", "guess": "a", "machine": "a", "register": "text"},
+               {"pid": "q:0", "model": "m", "guess": "b", "machine": "a", "register": "text"}]
+        ag = spotbot.agreement(key, owner, res)
+        self.assertEqual((ag["m"], ag["owner_correct"], ag["trusted"]), (1.0, 0.5, True))
+
+
+class SheetSideTests(unittest.TestCase):
+    def test_sheet_puts_the_ai_on_both_sides(self):
+        import json, tempfile
+        rows = [{"id": f"p{i}", "turns": ["hey"], "answer": f"Hello {i}."} for i in range(12)]
+        refs = [{"prompt": "yo", "reply": "sup", "register": "text", "source": "x"}]
+        pairs = spotbot.make_pairs(rows, refs, n=12, seed=0)
+        with tempfile.TemporaryDirectory() as d:
+            spotbot.write_sheet(pairs, os.path.join(d, "s.md"), os.path.join(d, "k.json"))
+            with open(os.path.join(d, "k.json")) as f:
+                key = json.load(f)
+        sides = {next(p["machine"] for p in pairs if p["pid"] == pid) for pid in key.values()}
+        self.assertEqual(len(key), 12)
+        self.assertEqual(sides, {"a", "b"})
