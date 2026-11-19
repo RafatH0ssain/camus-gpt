@@ -99,6 +99,7 @@ PIPELINE_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PIPELINE_DIR))
 
 import corpus_metrics  # noqa: E402
+import rewrite_check  # noqa: E402
 
 REPO_ROOT = PIPELINE_DIR.parent
 
@@ -181,6 +182,13 @@ OPENBOOK_V9 = "data/drafts/openbook_v9.jsonl"
 SHORT_DROP_KINDS_V9 = ("no_invented_state", "open_no_invented_state", "greeting",
                        "greeting_noclose", "memory_use", "memory_voice", "v8_voice",
                        "v8_closers", "v8_memory")
+# camus10: openbook_v10 carries the rewrites for camus8's live-chat failures; rows still
+# carrying a banned tell (including rewrite_check.BANNED) are dropped before training.
+# sft_rewrites.jsonl maps a row_key to the replacement final assistant turn; it is applied
+# in place after dedup and drops, so the key is the one the row had before rewriting.
+OPENBOOK_V10 = "data/drafts/openbook_v10.jsonl"
+REWRITES_V10 = "data/drafts/v10/sft_rewrites.jsonl"
+DROP_PHRASES_V10 = DROP_PHRASES_V8 + rewrite_check.BANNED
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",
@@ -343,6 +351,20 @@ def load_input(label, repo_root):
             for lineno, row in parse_jsonl(lines, label)]
 
 
+def load_rewrites(repo_root, label=REWRITES_V10):
+    """{"key", "content"} lines -> {key: replacement turn}; None if the file is absent."""
+    path = repo_root / label
+    if not path.is_file():
+        return None
+    lines = list(enumerate(path.read_text(encoding="utf-8").splitlines(keepends=True), 1))
+    rewrites = {}
+    for lineno, row in parse_jsonl(lines, label):
+        where = "%s:%d" % (label, lineno)
+        rewrites[_text_field(row.get("key"), where, "key")] = _text_field(
+            row.get("content"), where, "content")
+    return rewrites
+
+
 # ── validation and normalisation ─────────────────────────────────────────────
 
 def _text_field(value, where, field):
@@ -425,6 +447,12 @@ def normalize_row(row, label, lineno, default_kind):
 
 
 # ── dedup ────────────────────────────────────────────────────────────────────
+
+def row_key(row):
+    """Stable key for a rewrite target: the messages, not its kind or source."""
+    payload = json.dumps(row["messages"], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
 
 def dedup_key(row):
     """(prompt, response) for a single-turn row, the whole turn list otherwise."""
@@ -563,7 +591,7 @@ def build_phase1_v4(repo_root):
 
 
 def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, openbook=None,
-                 drop_phrases=(), drop_short_kinds=()):
+                  drop_phrases=(), drop_short_kinds=(), rewrites=None):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
@@ -576,7 +604,9 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
     when given, must exist and joins once, replacing nothing. drop_phrases removes every row
     whose assistant reply contains one of them (assistant-speak the model must stop copying).
     drop_short_kinds removes single-turn rows of those kinds whose reply is three words or
-    fewer (bare greetings the model generalised into one-word answers)."""
+    fewer (bare greetings the model generalised into one-word answers). rewrites maps a
+    row_key to a replacement final assistant turn; applied after dedup and drops, in place
+    on one copy of each surviving pool row, so the rewrites count is the number applied."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -703,11 +733,24 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
                        if m["role"] == "assistant" for p in drop_phrases)]
     n_after_phrase = len(pool)
     pool = [(row, w) for row, w in pool if not _short_opener(row, drop_short_kinds)]
+    rewritten = 0
+    if rewrites:
+        replaced = []
+        for row, weight in pool:
+            content = rewrites.get(row_key(row))
+            if content is not None:
+                row = {**row, "messages": [dict(message) for message in row["messages"]]}
+                row["messages"][-1]["content"] = content
+                rewritten += 1
+            replaced.append((row, weight))
+        pool = replaced
     rows = [row for row, weight in pool for _ in range(weight)]
     rng.shuffle(rows)
     inputs.append({"input": "(set)", "note": "exact duplicate rows dropped",
                     "rows_dropped": dropped})
     result = {"inputs": inputs}
+    if rewrites is not None:
+        result["rewritten"] = rewritten
     if drop_phrases:
         result["dropped_by_phrase"] = n_pool - n_after_phrase
     if drop_short_kinds:
@@ -843,6 +886,12 @@ def assemble(repo_root, out_dir, dry_run=False):
             repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
             raft=RAFT_V8, openbook=OPENBOOK_V9, drop_phrases=DROP_PHRASES_V8,
             drop_short_kinds=SHORT_DROP_KINDS_V9)
+    have_v10 = (repo_root / OPENBOOK_V10).is_file()
+    if have_v10:
+        v10_phase2_rows, v10_phase2_inputs = build_phase2(
+            repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
+            raft=RAFT_V8, openbook=OPENBOOK_V10, drop_phrases=DROP_PHRASES_V10,
+            rewrites=load_rewrites(repo_root))
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -903,6 +952,15 @@ def assemble(repo_root, out_dir, dry_run=False):
                       "dropped_by_phrase": v9_phase2_inputs["dropped_by_phrase"],
                       "dropped_short": v9_phase2_inputs["dropped_short"],
                       "v4_decisions": v9_phase2_inputs["v4_decisions"]}))
+    if have_v10:
+        sets.append(("phase2_v10", v10_phase2_rows, v10_phase2_inputs, defects_included(repo_root),
+                     {"note": "phase2_v8 with %s (adds replies for camus8's eval failures), rows "
+                              "carrying a banned tell dropped and %s applied in place"
+                              % (OPENBOOK_V10, REWRITES_V10),
+                      "notebook_seed": NB_SEED,
+                      "rewritten": v10_phase2_inputs.get("rewritten", 0),
+                      "dropped_by_phrase": v10_phase2_inputs["dropped_by_phrase"],
+                      "v4_decisions": v10_phase2_inputs["v4_decisions"]}))
 
     manifest = {
         "generated_by": "pipeline/assemble_training.py",
