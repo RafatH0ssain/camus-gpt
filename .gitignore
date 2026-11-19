@@ -173,3 +173,5 @@ pipeline/build_dpo_v6.py
 pipeline/build_openbook_v7.py
 pipeline/build_dpo_v7.py
 space/
+pipeline/dpo_behaviour_v9.py
+pipeline/build_dpo_v9.py

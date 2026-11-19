@@ -172,6 +172,14 @@ RAFT_V8 = "data/drafts/raft_v8.jsonl"   # raft_v7 under the 2026-11-18 card (mar
 # as myself", "Ask me something real"); matched case-insensitively.
 DROP_PHRASES_V8 = ("tell me plainly what", "as myself", "ask me something real",
                    "speak plainly and i will", "help however i honestly can")
+# camus9: openbook_v9 adds replies for camus8's eval failures (bare one-word replies, shrugs
+# instead of his ideas, doing tasks, invented family scenes, missed memory, post-1960 slips).
+# camus8 answered "hey" with "Hello." because single-turn rows taught exactly that ("hey" ->
+# "Hey."); those greeting/filler rows with a reply of three words or fewer are dropped.
+OPENBOOK_V9 = "data/drafts/openbook_v9.jsonl"
+SHORT_DROP_KINDS_V9 = ("no_invented_state", "open_no_invented_state", "greeting",
+                       "greeting_noclose", "memory_use", "memory_voice", "v8_voice",
+                       "v8_closers", "v8_memory")
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",
@@ -554,7 +562,7 @@ def build_phase1_v4(repo_root):
 
 
 def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, openbook=None,
-                 drop_phrases=()):
+                 drop_phrases=(), drop_short_kinds=()):
     """The notebook's mixing. Groups are (label, rows, weight); dedup first,
     weights after, so upweighting survives and accidental repeats do not.
 
@@ -565,7 +573,9 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
     (phase2_v6 passes PHASE2_V6_WEIGHT). raft, when the file exists, joins once and removes
     the RAFT_V6_REPLACES rows it supersedes; when it is missing nothing is removed. openbook,
     when given, must exist and joins once, replacing nothing. drop_phrases removes every row
-    whose assistant reply contains one of them (assistant-speak the model must stop copying)."""
+    whose assistant reply contains one of them (assistant-speak the model must stop copying).
+    drop_short_kinds removes single-turn rows of those kinds whose reply is three words or
+    fewer (bare greetings the model generalised into one-word answers)."""
     rng = random.Random(NB_SEED)
     groups = []
     inputs = []
@@ -690,16 +700,28 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
     pool = [(row, w) for row, w in pool
             if not any(p.lower() in m["content"].lower() for m in row["messages"]
                        if m["role"] == "assistant" for p in drop_phrases)]
+    n_after_phrase = len(pool)
+    pool = [(row, w) for row, w in pool if not _short_opener(row, drop_short_kinds)]
     rows = [row for row, weight in pool for _ in range(weight)]
     rng.shuffle(rows)
     inputs.append({"input": "(set)", "note": "exact duplicate rows dropped",
                     "rows_dropped": dropped})
     result = {"inputs": inputs}
     if drop_phrases:
-        result["dropped_by_phrase"] = n_pool - len(pool)
+        result["dropped_by_phrase"] = n_pool - n_after_phrase
+    if drop_short_kinds:
+        result["dropped_short"] = n_after_phrase - len(pool)
     if v4:
         result["v4_decisions"] = decisions
     return rows, result
+
+
+def _short_opener(row, kinds):
+    if row.get("kind") not in kinds:
+        return False
+    msgs = row["messages"]
+    return (sum(m["role"] == "user" for m in msgs) == 1
+            and len([m for m in msgs if m["role"] == "assistant"][-1]["content"].split()) <= 3)
 
 
 def defects_included(repo_root):
@@ -814,6 +836,12 @@ def assemble(repo_root, out_dir, dry_run=False):
         v8_phase2_rows, v8_phase2_inputs = build_phase2(
             repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
             raft=RAFT_V8, openbook=OPENBOOK_V8, drop_phrases=DROP_PHRASES_V8)
+    have_v9 = (repo_root / OPENBOOK_V9).is_file()
+    if have_v9:
+        v9_phase2_rows, v9_phase2_inputs = build_phase2(
+            repo_root, v4=True, extras=PHASE2_V7_EXTRAS, extras_weight=PHASE2_V6_WEIGHT,
+            raft=RAFT_V8, openbook=OPENBOOK_V9, drop_phrases=DROP_PHRASES_V8,
+            drop_short_kinds=SHORT_DROP_KINDS_V9)
 
     sets = [
         ("phase1_old", old_rows, old_inputs, False,
@@ -865,6 +893,15 @@ def assemble(repo_root, out_dir, dry_run=False):
                       "notebook_seed": NB_SEED,
                       "dropped_by_phrase": v8_phase2_inputs["dropped_by_phrase"],
                       "v4_decisions": v8_phase2_inputs["v4_decisions"]}))
+    if have_v9:
+        sets.append(("phase2_v9", v9_phase2_rows, v9_phase2_inputs, defects_included(repo_root),
+                     {"note": "phase2_v8 with %s (adds replies for camus8's eval failures) and "
+                              "without single-turn greeting/filler rows of three words or fewer"
+                              % OPENBOOK_V9,
+                      "notebook_seed": NB_SEED,
+                      "dropped_by_phrase": v9_phase2_inputs["dropped_by_phrase"],
+                      "dropped_short": v9_phase2_inputs["dropped_short"],
+                      "v4_decisions": v9_phase2_inputs["v4_decisions"]}))
 
     manifest = {
         "generated_by": "pipeline/assemble_training.py",

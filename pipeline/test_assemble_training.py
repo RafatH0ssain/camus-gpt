@@ -951,6 +951,41 @@ class V4SetTests(unittest.TestCase):
         self.assertNotIn("No. I'll answer As Myself.", replies)
         self.assertEqual(info["dropped_by_phrase"], 2)
 
+    def test_phase2_v9_drops_bare_single_turn_greetings_only(self):
+        files = phase2_files()
+        files.update(V4_PHASE2_FILES)
+        multi = {"messages": [{"role": "user", "content": "tea or coffee"},
+                              {"role": "assistant", "content": "Coffee, always, with the window open."},
+                              {"role": "user", "content": "hey"},
+                              {"role": "assistant", "content": "Hey."}],
+                 "kind": "no_invented_state"}
+        files["data/cloud/defects_v6.jsonl"] = [qa("hey", "Hey.", kind="no_invented_state"),
+                                                qa("hi camus", "Hello, then.", kind="greeting"),
+                                                qa("what was your cat's name", "Cigarette.",
+                                                   kind="raft_bio_precision"),
+                                                qa("evening", "Evening. The heat is finally gone.",
+                                                   kind="no_invented_state"),
+                                                multi]
+        files[at.PHASE2_V7_EXTRAS[-1]] = []
+        files[at.RAFT_V8] = []
+        files[at.OPENBOOK_V9] = []
+        root = make_temp_dir(self, files)
+        with mock.patch("sys.stderr"):
+            rows, info = at.build_phase2(root, v4=True, extras=at.PHASE2_V7_EXTRAS,
+                                         extras_weight=at.PHASE2_V6_WEIGHT, raft=at.RAFT_V8,
+                                         openbook=at.OPENBOOK_V9, drop_phrases=at.DROP_PHRASES_V8,
+                                         drop_short_kinds=at.SHORT_DROP_KINDS_V9)
+        replies = [r["messages"][-1]["content"] for r in rows]
+        self.assertNotIn("Hello, then.", replies)
+        self.assertIn("Cigarette.", replies)
+        self.assertIn("Evening. The heat is finally gone.", replies)
+        self.assertTrue(any(len(r["messages"]) == 4 and r["messages"][-1]["content"] == "Hey."
+                            for r in rows))
+        self.assertFalse(any(len(r["messages"]) == 2 and r["messages"][-1]["content"] == "Hey."
+                             for r in rows))
+        self.assertNotIn("Hello.", replies)   # the shared fixture's own "hey" -> "Hello." row
+        self.assertEqual(info["dropped_short"], 3)
+
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
         base.update(phase1_new_files(n_conv=5))
