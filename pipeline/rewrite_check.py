@@ -82,6 +82,9 @@ def check(original, rewrite):
     if any(b in low_rw for b in BANNED):
         problems.append("banned phrase")
 
+    if rw.count("?") > orig.count("?"):
+        problems.append("new question")
+
     orig_words = orig.split()
     rw_words = rw.split()
     if len(orig_words) == 0:
