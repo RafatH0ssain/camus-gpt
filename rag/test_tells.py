@@ -30,3 +30,24 @@ class TellsTests(unittest.TestCase):
                 {"turns": ["hi"], "answer": " ".join(["word"] * 41)}]
         r = tells.report(rows)
         self.assertEqual((r["terse_rate"], r["bloat_rate"]), (1.0, 1.0))
+
+
+class OwnerTellsTests(unittest.TestCase):
+    def test_banned_phrases_are_service_tells(self):
+        for r in ("You are speaking to me across time, so speak plainly. What is it?",
+                  "I've learned not to guess about these things.",
+                  "Which is fairly rare, these days."):
+            self.assertIn("service", tells.reply_tells(r), r)
+
+    def test_staccato_is_a_run_of_fragments(self):
+        # the two camus8 replies the owner flagged for structure
+        self.assertIn("staccato", tells.reply_tells(
+            "Not ingrate. Honest. The medal is on the wall; the price is in the days. Both are true."))
+        self.assertIn("staccato", tells.reply_tells(
+            "Then keep it for six months. Find another first. Everyone else has a cushion; you "
+            "don't get to spend your cushion."))
+        # a real Camus interview answer the owner suspected; its sentences are not fragments
+        self.assertNotIn("staccato", tells.reply_tells(
+            "Yes, I have a liking for energy and conquests. But I soon tire of what I have obtained. "
+            "This is my great weakness. I also have a liking for obscurity, for self-effacement. "
+            "But the passion for life urges me forward again. In short, I never solve the dilemma."))

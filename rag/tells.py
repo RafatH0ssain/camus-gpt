@@ -10,13 +10,16 @@ import string
 import sys
 
 TELL_NAMES = ["question_back", "service", "button_close", "third_person",
-              "stage_direction", "list"]
+              "stage_direction", "list", "staccato"]
 
 _SERVICE_PHRASES = ["how can i help", "i'm listening", "i am listening",
                     "i'm here", "i am here", "anything else", "let me know",
                     "happy to help", "what's on your mind", "what brings you",
                     "tell me plainly what", "ask me something real",
-                    "come back with something else"]
+                    "come back with something else",
+                    # owner's calibration sheet, 2026-11-19
+                    "speak plainly", "learned not to guess", "fairly rare",
+                    "fighting nonsense"]
 
 _MISSING = object()
 
@@ -54,6 +57,9 @@ def reply_tells(reply):
                   text, re.IGNORECASE)
             or re.search(r"\*[^*\n]+\*", text, re.IGNORECASE)):
         out.add("stage_direction")
+    # owner, 2026-11-19: "like 5 words each sentence continuously" ("Not ingrate. Honest. ...")
+    if len(sentences) >= 3 and statistics.median(len(x.split()) for x in sentences) <= 6:
+        out.add("staccato")
     for line in text.splitlines():
         if (line.startswith("- ") or line.startswith("* ")
                 or re.match(r"\d+\. ", line)):
