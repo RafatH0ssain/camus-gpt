@@ -9,7 +9,7 @@ the scripts to find it. All paths are relative to the repository root.
 **current working directory**, not to the script — run them from the repository
 root (`python rag/camus_rag.py`, `python kb/build_index.py`).
 
-`GEN_MODEL` names the Ollama model that answers; unset falls back to `camus7`.
+`GEN_MODEL` names the Ollama model that answers; unset falls back to `camus8`.
 
 ## Untracked artifacts at the repository root
 
@@ -27,10 +27,10 @@ queries at runtime. If in doubt, regenerate both with `kb/build_index.py`.
 ## Model weights
 
 Quantized weights are ignored by extension (`*.gguf`) and live in `rag/`, beside
-the model definition: `rag/Modelfile.camus7` loads `rag/camus7-12b.Q4_K_M.gguf`.
+the model definition: `rag/Modelfile.camus8` loads `rag/camus8-12b.Q4_K_M.gguf`.
 Put the exported GGUF there, check it against its `.sha256`, and register it:
 
-    cd rag && ollama create camus7 -f Modelfile.camus7
+    cd rag && ollama create camus8 -f Modelfile.camus8
 
 Retrieval also needs the embedding model and the KB index:
 
@@ -42,7 +42,7 @@ Retrieval also needs the embedding model and the KB index:
 
 The quantized 12B holds about **8 GB resident** in unified memory while loaded;
 that memory is GPU-wired and cannot be paged out. The runtime keeps a model loaded
-after the last request — release it with `ollama stop camus7`, or set
+after the last request — release it with `ollama stop camus8`, or set
 `OLLAMA_KEEP_ALIVE` (e.g. `2m`) in the environment of the server process, which
 keeps its old value until restarted. `rag/camus_rag.py` requests 15-minute
 retention for the small embedding model; not worth shortening.
