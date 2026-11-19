@@ -25,7 +25,7 @@ answer with nothing — or run out mid-object. judge() therefore sends the ident
 once more when the first reply is empty or carries no complete JSON object, and only then
 raises what the first attempt's failure would have raised.
 """
-import argparse, json, os, re, secrets
+import argparse, json, os, re, secrets, time
 
 try:
     import requests
@@ -125,6 +125,7 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH):
                 f"wait out the cap, then re-run. ({_body(r)})", key))
         if r.status_code >= 400:
             raise RuntimeError(_scrub(f"opencode judge HTTP {r.status_code}: {_body(r)}", key))
+        _record_usage(r, model)
         content = _content(r)
         if content is None:  # no choices[0].message: nothing here this call could judge
             if last:
@@ -138,6 +139,21 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH):
             if last:
                 raise
     raise RuntimeError(_scrub(f"opencode judge reply unusable after {ATTEMPTS} attempts", key))
+
+
+USAGE_LEDGER = os.path.expanduser("~/.local/share/dale/go-usage.jsonl")
+
+
+def _record_usage(r, model):
+    """Append what Go counted for this request to Dale's usage ledger (Dale's usage bars read it;
+    direct API calls never reach MiMo's database). Best effort: never fails a judge call."""
+    try:
+        allowance = r.json()["usage"]["opencode"]["allowance"]
+        os.makedirs(os.path.dirname(USAGE_LEDGER), exist_ok=True)
+        with open(USAGE_LEDGER, "a") as f:
+            f.write(json.dumps({"t": int(time.time() * 1000), "model": model, "allowance": allowance}) + "\n")
+    except Exception:
+        pass
 
 
 def _content(r):
