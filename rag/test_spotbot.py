@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import spotbot  # noqa: E402
+import judge_opencode as jz  # noqa: E402
 
 
 class SpotbotTests(unittest.TestCase):
@@ -35,3 +36,21 @@ class SpotbotTests(unittest.TestCase):
     def test_reference_dir_is_gitignored(self):
         out = subprocess.run(["git", "check-ignore", "-q", "data/reference/x.jsonl"])
         self.assertEqual(out.returncode, 0)
+
+    def test_ask_parses_and_abstains(self):
+        pair = {"pid": "p:0", "prompt_a": "hey", "a": "x", "prompt_b": "yo", "b": "y", "machine": "a", "register": "text"}
+        self.assertEqual(spotbot.ask("m", pair, judge=lambda *a: '{"machine": "B"}'), "b")
+        self.assertEqual(spotbot.ask("m", pair, judge=lambda *a: "no idea"), "abstain")
+
+    def test_usage_cap_propagates(self):
+        def capped(*a): raise jz.UsageCapReached("429")
+        pair = {"pid": "p:0", "prompt_a": "hey", "a": "x", "prompt_b": "yo", "b": "y", "machine": "a", "register": "text"}
+        with self.assertRaises(jz.UsageCapReached):
+            spotbot.run_jury([pair], models=("m",), judge=capped)
+
+    def test_fool_rate_excludes_abstains(self):
+        res = [{"pid": "1", "model": "m", "guess": "a", "machine": "a", "register": "text"},
+               {"pid": "2", "model": "m", "guess": "a", "machine": "b", "register": "text"},
+               {"pid": "3", "model": "m", "guess": "abstain", "machine": "b", "register": "text"}]
+        fr = spotbot.fool_rate(res)
+        self.assertEqual((fr["overall"], fr["abstains"]), (0.5, 1))
