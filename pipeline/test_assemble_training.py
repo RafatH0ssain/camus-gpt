@@ -986,6 +986,59 @@ class V4SetTests(unittest.TestCase):
         self.assertNotIn("Hello.", replies)   # the shared fixture's own "hey" -> "Hello." row
         self.assertEqual(info["dropped_short"], 3)
 
+    def test_phase2_v10_applies_rewrites_by_row_key(self):
+        files = {
+            "data/camus_refusals.jsonl": [qa("one", "Reply one.", category="one"),
+                                          qa("two", "Reply two.", category="two")],
+            "data/camus_conversational.jsonl": [],
+            "data/camus_sft.jsonl": [],
+            "data/camus_epistemic.jsonl": [],
+            "data/camus_analysis.jsonl": [],
+            "data/camus_phase3.jsonl": [],
+            "data/camus_multiturn.jsonl": [],
+        }
+        root = make_temp_dir(self, files)
+        plain, _ = at.build_phase2(root)
+        self.assertEqual(len(plain), 2)
+        key = at.row_key(plain[0])
+        self.assertEqual(key, hashlib.sha256(json.dumps(
+            plain[0]["messages"], ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest())
+
+        replacement = "A different, tell-free reply."
+        rows, info = at.build_phase2(root, rewrites={key: replacement})
+        by_prompt = {r["messages"][0]["content"]: r["messages"][-1]["content"] for r in rows}
+        self.assertEqual(by_prompt[plain[0]["messages"][0]["content"]], replacement)
+        self.assertEqual(by_prompt[plain[1]["messages"][0]["content"]],
+                         plain[1]["messages"][-1]["content"])
+        self.assertEqual(info["rewritten"], 1)
+
+    def test_older_sets_unchanged_when_v10_inputs_exist(self):
+        v8_row = {"messages": [{"role": "user", "content": "who are you"},
+                               {"role": "assistant", "content": "The original reply."}],
+                  "kind": "v8_labels"}
+        base = phase2_files()
+        base.update(phase1_new_files(n_conv=5))
+        base.update({at.RAFT_V8: [], at.PHASE2_V7_EXTRAS[-1]: [], at.OPENBOOK_V8: [v8_row]})
+        plain = make_temp_repo(self, base)
+        with_v10 = dict(base)
+        with_v10[at.OPENBOOK_V10] = [v8_row,
+                                     {"messages": [{"role": "user", "content": "and now"},
+                                                   {"role": "assistant", "content": "A v10 reply."}],
+                                      "kind": "v10_labels"}]
+        with_v10[at.REWRITES_V10] = [
+            {"key": at.row_key(v8_row), "content": "A rewritten reply."}]
+        v10 = make_temp_repo(self, with_v10)
+        with mock.patch("sys.stderr"):
+            a = at.assemble(plain, plain / "out")
+            b = at.assemble(v10, v10 / "out")
+        self.assertIn("phase2_v8", a["sets"])
+        self.assertIn("phase2_v10", b["sets"])
+        self.assertNotIn("phase2_v10", a["sets"])
+        self.assertEqual(a["sets"]["phase2_v8"]["sha256"], b["sets"]["phase2_v8"]["sha256"])
+        for name in a["sets"]:
+            self.assertEqual(a["sets"][name]["sha256"], b["sets"][name]["sha256"], name)
+        self.assertEqual(b["sets"]["phase2_v10"]["rewritten"], 1)
+
     def test_existing_sets_do_not_change_when_v4_files_appear(self):
         base = phase2_files()
         base.update(phase1_new_files(n_conv=5))
