@@ -176,6 +176,7 @@ DROP_PHRASES_V8 = ("tell me plainly what", "as myself", "ask me something real",
 # instead of his ideas, doing tasks, invented family scenes, missed memory, post-1960 slips).
 # camus8 answered "hey" with "Hello." because single-turn rows taught exactly that ("hey" ->
 # "Hey."); those greeting/filler rows with a reply of three words or fewer are dropped.
+# camus9 was rejected (2026-11-19): longer everywhere and it lost v8's fact fixes; kept for the record.
 OPENBOOK_V9 = "data/drafts/openbook_v9.jsonl"
 SHORT_DROP_KINDS_V9 = ("no_invented_state", "open_no_invented_state", "greeting",
                        "greeting_noclose", "memory_use", "memory_voice", "v8_voice",
