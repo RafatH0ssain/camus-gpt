@@ -103,7 +103,7 @@ class TellsTests(unittest.TestCase):
 - Produces:
   - `register_of(message: str) -> str`: `"text"` if the message is small talk (Task 1's definition), else `"call"`.
   - `load_refs(path: str) -> list[dict]`: JSONL rows `{"prompt": str, "reply": str, "register": "text"|"call", "source": str}`; raises `ValueError` naming the line on a missing field or unknown register.
-  - `make_pairs(model_rows: list[dict], refs: list[dict], n: int, seed: int) -> list[dict]`: samples `n` model rows (non-empty answers), matches each with a same-register ref by `random.Random(seed)`, and emits two pairs per match (both orders). Pair: `{"pid": str, "register": str, "prompt": str, "a": str, "b": str, "machine": "a"|"b"}`, `pid` = `f"{row_id}:{order}"`, order `0` puts the model reply in `a`.
+  - `make_pairs(model_rows: list[dict], refs: list[dict], n: int, seed: int) -> list[dict]`: samples `n` model rows (non-empty answers), matches each with a same-register ref by `random.Random(seed)`, and emits two pairs per match (both orders). Pair: `{"pid": str, "register": str, "prompt_a": str, "a": str, "prompt_b": str, "b": str, "machine": "a"|"b"}`, `pid` = `f"{row_id}:{order}"`, order `0` puts the model reply in `a`. Each side keeps its own message (amended during build: the human reply answered someone else's message, so a shared message would make the jury judge fit, not humanness).
 
 - [ ] **Step 1: Write the failing tests:**
 
@@ -150,23 +150,24 @@ class TellsTests(unittest.TestCase):
 
 `JURY_SYS`:
 ```
-You will see a message someone sent and two replies to it, A and B. One reply was written by a
-person; the other was written by an AI imitating a person. Decide which one is the AI. Judge
-only how human the reply sounds as speech or chat, not whether it is wise or correct.
+You will see two short exchanges, A and B. In each, someone sent a message and got a reply.
+One of the two replies was written by a person; the other was written by an AI imitating a
+person. The two exchanges are unrelated. Decide which reply is the AI's. Judge only how human
+the reply sounds as speech or chat, not whether it is wise or correct.
 Answer with one JSON object and nothing else: {"machine": "A"} or {"machine": "B"}.
 ```
-User prompt: `MESSAGE:\n{prompt}\n\nA:\n{a}\n\nB:\n{b}`.
+User prompt: `A\nMESSAGE: {prompt_a}\nREPLY: {a}\n\nB\nMESSAGE: {prompt_b}\nREPLY: {b}`.
 
 - [ ] **Step 1: Write the failing tests** (judge is injected; no network):
 
 ```python
     def test_ask_parses_and_abstains(self):
-        pair = {"pid": "p:0", "prompt": "hey", "a": "x", "b": "y", "machine": "a", "register": "text"}
+        pair = {"pid": "p:0", "prompt_a": "hey", "a": "x", "prompt_b": "yo", "b": "y", "machine": "a", "register": "text"}
         self.assertEqual(spotbot.ask("m", pair, judge=lambda *a: '{"machine": "B"}'), "b")
         self.assertEqual(spotbot.ask("m", pair, judge=lambda *a: "no idea"), "abstain")
     def test_usage_cap_propagates(self):
         def capped(*a): raise jz.UsageCapReached("429")
-        pair = {"pid": "p:0", "prompt": "hey", "a": "x", "b": "y", "machine": "a", "register": "text"}
+        pair = {"pid": "p:0", "prompt_a": "hey", "a": "x", "prompt_b": "yo", "b": "y", "machine": "a", "register": "text"}
         with self.assertRaises(jz.UsageCapReached):
             spotbot.run_jury([pair], models=("m",), judge=capped)
     def test_fool_rate_excludes_abstains(self):
@@ -192,7 +193,7 @@ User prompt: `MESSAGE:\n{prompt}\n\nA:\n{a}\n\nB:\n{b}`.
 **Interfaces:**
 - Consumes: pairs (Task 2), jury results (Task 3).
 - Produces:
-  - `write_sheet(pairs: list[dict], sheet_path: str, key_path: str) -> None`: uses only order-0 pairs, renumbers them 1..k, writes a markdown sheet (message, A, B per number; no source) and a key JSON `{number: pid}`.
+  - `write_sheet(pairs: list[dict], sheet_path: str, key_path: str) -> None`: uses only order-0 pairs, renumbers them 1..k, writes a markdown sheet (per number: A's message and reply, B's message and reply; no source) and a key JSON `{number: pid}`.
   - `parse_owner(text: str, expected: int) -> dict[int, str]`: lines `"<number> <a|b|A|B>"`, blank lines ignored; raises `ValueError` listing every missing number (1..expected) and every duplicate.
   - `agreement(key: dict, owner: dict[int, str], results: list[dict]) -> dict`: per jury model, share of numbered pairs where the model's guess equals the owner's; plus `"owner_correct"` (owner vs truth) and `"trusted": bool` = mean model agreement >= 0.70.
   - CLI: `spotbot.py sheet --model-file F --refs F --n 40 --seed 1 --out DIR` (writes `sheet.md`, `key.json`, and runs the jury on the same pairs into `jury.jsonl`); `spotbot.py calibrate --dir DIR --answers FILE` prints `agreement`.
