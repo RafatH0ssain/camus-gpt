@@ -269,12 +269,14 @@ def main(argv=None):
     jury.add_argument("--n", type=int, default=40)
     jury.add_argument("--seed", type=int, default=1)
     jury.add_argument("--out", required=True)
+    jury.add_argument("--models", nargs="+", default=list(JURY_MODELS))
     sheet = sub.add_parser("sheet")
     sheet.add_argument("--model-file", required=True)
     sheet.add_argument("--refs", required=True)
     sheet.add_argument("--n", type=int, default=40)
     sheet.add_argument("--seed", type=int, default=1)
     sheet.add_argument("--out", required=True)
+    sheet.add_argument("--models", nargs="+", default=list(JURY_MODELS))
     cal = sub.add_parser("calibrate")
     cal.add_argument("--dir", required=True)
     cal.add_argument("--answers", required=True)
@@ -284,7 +286,7 @@ def main(argv=None):
         model_rows = tells._load_rows(args.model_file)
         refs = load_refs(args.refs)
         pairs = make_pairs(model_rows, refs, n=args.n, seed=args.seed)
-        results = run_jury(pairs)
+        results = run_jury(pairs, models=tuple(args.models))
         os.makedirs(args.out, exist_ok=True)
         with open(os.path.join(args.out, "jury.jsonl"), "w", encoding="utf-8") as f:
             for row in results:
@@ -302,7 +304,7 @@ def main(argv=None):
         os.makedirs(args.out, exist_ok=True)
         write_sheet(pairs, os.path.join(args.out, "sheet.md"),
                     os.path.join(args.out, "key.json"))
-        results = run_jury(pairs)
+        results = run_jury(pairs, models=tuple(args.models))
         with open(os.path.join(args.out, "jury.jsonl"), "w", encoding="utf-8") as f:
             for row in results:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
