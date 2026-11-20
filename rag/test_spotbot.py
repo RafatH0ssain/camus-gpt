@@ -81,3 +81,29 @@ class SheetSideTests(unittest.TestCase):
         sides = {next(p["machine"] for p in pairs if p["pid"] == pid) for pid in key.values()}
         self.assertEqual(len(key), 12)
         self.assertEqual(sides, {"a", "b"})
+
+    def test_sheet_without_jury_calls_no_model(self):
+        import json, tempfile
+        def no_model(*a, **k):
+            raise AssertionError("--no-jury must not call a model")
+        rows = [{"id": f"p{i}", "turns": ["hey"], "answer": f"Hello {i}."} for i in range(3)]
+        refs = [{"prompt": "yo", "reply": "sup", "register": "text", "source": "x"}]
+        with tempfile.TemporaryDirectory() as d:
+            mf = os.path.join(d, "model.jsonl")
+            rf = os.path.join(d, "refs.jsonl")
+            with open(mf, "w") as f:
+                for r in rows:
+                    f.write(json.dumps(r) + "\n")
+            with open(rf, "w") as f:
+                for r in refs:
+                    f.write(json.dumps(r) + "\n")
+            saved = spotbot.run_jury
+            spotbot.run_jury = no_model
+            try:
+                spotbot.main(["sheet", "--model-file", mf, "--refs", rf,
+                              "--out", d, "--no-jury"])
+            finally:
+                spotbot.run_jury = saved
+            self.assertTrue(os.path.isfile(os.path.join(d, "sheet.md")))
+            self.assertTrue(os.path.isfile(os.path.join(d, "key.json")))
+            self.assertFalse(os.path.exists(os.path.join(d, "jury.jsonl")))

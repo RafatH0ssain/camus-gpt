@@ -277,6 +277,8 @@ def main(argv=None):
     sheet.add_argument("--seed", type=int, default=1)
     sheet.add_argument("--out", required=True)
     sheet.add_argument("--models", nargs="+", default=list(JURY_MODELS))
+    sheet.add_argument("--no-jury", action="store_true",
+                       help="write the sheet and key only; call no model and write no jury.jsonl")
     cal = sub.add_parser("calibrate")
     cal.add_argument("--dir", required=True)
     cal.add_argument("--answers", required=True)
@@ -297,17 +299,18 @@ def main(argv=None):
             f.write("\n")
         print(json.dumps(fr, ensure_ascii=False))
     elif args.cmd == "sheet":
-        jz.load_key()
         model_rows = tells._load_rows(args.model_file)
         refs = load_refs(args.refs)
         pairs = make_pairs(model_rows, refs, n=args.n, seed=args.seed)
         os.makedirs(args.out, exist_ok=True)
         write_sheet(pairs, os.path.join(args.out, "sheet.md"),
                     os.path.join(args.out, "key.json"))
-        results = run_jury(pairs, models=tuple(args.models))
-        with open(os.path.join(args.out, "jury.jsonl"), "w", encoding="utf-8") as f:
-            for row in results:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+        if not args.no_jury:
+            jz.load_key()
+            results = run_jury(pairs, models=tuple(args.models))
+            with open(os.path.join(args.out, "jury.jsonl"), "w", encoding="utf-8") as f:
+                for row in results:
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
     elif args.cmd == "calibrate":
         with open(os.path.join(args.dir, "key.json"), encoding="utf-8") as f:
             key = json.load(f)
