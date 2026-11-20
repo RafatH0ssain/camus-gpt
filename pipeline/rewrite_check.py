@@ -9,7 +9,10 @@ sys.path.insert(0, str(REPO_ROOT / "rag"))
 
 import tells  # noqa: E402
 
-BANNED = ("speak plainly", "learned not to guess", "fairly rare", "fighting nonsense")
+BANNED = ("speak plainly", "learned not to guess", "fairly rare", "fighting nonsense",
+          # assemble_training.DROP_PHRASES_V8: rewrites are applied after that drop, so check here too
+          "tell me plainly what", "as myself", "ask me something real",
+          "speak plainly and i will", "help however i honestly can")
 FIX_TELLS = {"staccato", "button_close", "service", "question_back"}
 
 NUMBER_WORDS = [
@@ -84,6 +87,11 @@ def check(original, rewrite):
 
     if rw.count("?") > orig.count("?"):
         problems.append("new question")
+
+    def _first(t):
+        return (re.split(r"(?<=[.!?])\s+", t.strip(), maxsplit=1) or [""])[0]
+    if _first(rw).endswith("?") and not _first(orig).endswith("?"):
+        problems.append("opens with a question")   # the closing question moved to the front
 
     orig_words = orig.split()
     rw_words = rw.split()
