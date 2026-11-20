@@ -287,5 +287,21 @@ class TestV3Notebooks(unittest.TestCase):
                     ast.parse(code)
 
 
+    def test_variant_switch_present_in_all_three_notebooks(self):
+        for name in NOTEBOOKS:
+            text = cell_text(load(name))
+            with self.subTest(notebook=name):
+                self.assertIn('VARIANT = "it"', text,
+                              f"{name} does not default VARIANT to it")
+                self.assertIn("VARIANT", text)
+                self.assertIn("unsloth/gemma-4-12b-it", text)
+                self.assertIn("unsloth/gemma-4-12b", text)
+                self.assertIn('_raw', text)
+                self.assertIn("raw tokenizer lacks the Gemma 4 turn markers; do not train",
+                              text)
+        ex = cell_text(load(NOTEBOOKS[2]))
+        self.assertIn("camus10b", ex,
+                      "export notebook does not map the raw variant to camus10b")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
