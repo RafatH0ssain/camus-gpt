@@ -8,10 +8,6 @@ The model only learns how he talks and behaves. What he knows about his own life
 knowledge base I built from biographies and his writing, retrieved fresh for every message. So
 when he gets a fact wrong, I fix the knowledge base or the retrieval, not the weights.
 
-> A fictional AI persona for education and conversation, not the real Albert Camus. Nothing he
-> says is advice, and he is not a therapist or a crisis service. If you are struggling, talk to
-> someone you trust or a local crisis line.
-
 ![Chatting with CamusGPT in a terminal: a cat knocks over the coffee, ChatGPT means nothing to him, Sisyphus, talking to a dead writer, and whether to forgive the cat; answers stream back in his voice (sped up 2.5x)](docs/camus-demo.gif)
 
 ## Running it
@@ -47,6 +43,9 @@ quantizes to a q4_k_m GGUF, which takes about 8 GB of memory while it's loaded.
 
 The training data isn't in the repo. [data/README.md](data/README.md) describes its format, and
 [docs/PIPELINE.md](docs/PIPELINE.md) walks through the whole thing end to end.
+
+> A fictional AI persona for education and conversation, not the real Albert Camus. Nothing he
+> says is advice, and he is not a therapist or a crisis service.
 
 ## Testing it
 
