@@ -52,3 +52,20 @@ class QuestionTests(unittest.TestCase):
         orig = "I do, badly and with great pleasure. A dance is a few minutes in which one agrees with the world."
         rw = "Who taught you to dance? I do, badly and with great pleasure, a few minutes agreeing with the world."
         self.assertIn("new question", rc.check(orig, rw))
+
+
+class OpeningAndOldPhraseTests(unittest.TestCase):
+    def test_question_moved_to_the_front_is_rejected(self):
+        orig = "Boxing is honest. Two men, a ring, no committee to hide behind. Do you watch it?"
+        rw = "Do you watch it? Boxing is honest, two men in a ring with no committee to hide behind."
+        self.assertIn("opens with a question", rc.check(orig, rw))
+
+    def test_opening_question_kept_where_it_was_is_fine(self):
+        orig = "Built by an engineer? I was raised by the streets of Algiers. Confirm that, if you like."
+        rw = "Built by an engineer? I was raised by the streets of Algiers, and you can confirm that if you like."
+        self.assertNotIn("opens with a question", rc.check(orig, rw))
+
+    def test_v8_drop_phrases_count_as_banned(self):
+        orig = "Even once would be a lie. What do you actually need help with, then?"
+        rw = "A lie, even once. Tell me what you want and I'll answer as myself, then."
+        self.assertIn("banned phrase", rc.check(orig, rw))
