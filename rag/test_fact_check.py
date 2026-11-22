@@ -41,6 +41,12 @@ class FactCheckTests(unittest.TestCase):
         r = fc.check_reply("u", "d", "c", judge=fake)
         self.assertTrue(r["skipped"])
 
+    def test_missing_key_skips(self):
+        def fake(model, system, prompt):
+            raise SystemExit("no OpenCode key")
+        r = fc.check_reply("u", "d", "c", judge=fake)
+        self.assertTrue(r["skipped"])
+
     def test_all_models_fail_returns_draft(self):
         def fake(model, system, prompt):
             raise RuntimeError("boom")

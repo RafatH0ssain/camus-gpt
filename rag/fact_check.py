@@ -35,7 +35,7 @@ def check_reply(user_msg, draft, context, judge=None):
     for model in CHECK_MODELS:
         try:
             raw = judge(model, CHECK_SYSTEM, prompt)
-        except jz.UsageCapReached as e:
+        except SystemExit as e:  # UsageCapReached, or no API key: no model can run
             return {"skipped": True, "error": str(e)}
         except Exception as e:  # noqa: BLE001 - try the next model
             last_error = e
