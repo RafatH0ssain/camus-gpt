@@ -115,6 +115,7 @@ def gen_messages(category, n, judge, probes, existing):
     existing_users = _users(existing)
     kept = []
     kept_users = list(existing_users)
+    avoid = [r.get("user", "") for r in existing if r.get("category") == category]   # other categories' topics (suicide) make hy4 refuse
     dropped_path = OUT / "dropped.jsonl"
     max_batches = max(1, 5 * n)
     requests = 0
@@ -144,11 +145,11 @@ def gen_messages(category, n, judge, probes, existing):
         )
         rnd = random.Random(f"{category}-{requests}")
         prompt += ("\nThis batch: people like %s. Do not resemble any of these earlier messages:\n%s"
-                   % (", ".join(rnd.sample(PEOPLE, 3)), "\n".join(kept_users[-15:])))
+                   % (", ".join(rnd.sample(PEOPLE, 3)), "\n".join(avoid[-15:])))
         try:
             raw = judge(model, system, prompt)
         except (ValueError, RuntimeError) as e:   # empty or unusable batch: next model; caps (SystemExit) still stop
-            print(f"[messages] {category}: {model} gave nothing usable ({str(e)[:80]})")
+            print(f"[messages] {category}: {model} gave nothing usable ({str(e)[:80]})", flush=True)
             continue
         candidates = _parse_candidates(raw)
         for cand in candidates:
@@ -194,6 +195,7 @@ def gen_messages(category, n, judge, probes, existing):
             }
             kept.append(row)
             kept_users.append(user)
+            avoid.append(user)
     if len(kept) < n:
         print("warning: only %d/%d kept for %s after %d requests" % (len(kept), n, category, requests))
     return kept

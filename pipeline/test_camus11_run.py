@@ -81,6 +81,21 @@ class Camus11RunTests(unittest.TestCase):
         self.assertEqual(kept["reply"], "draft2")
         self.assertEqual(len(draft_calls), 2)
 
+    def test_avoid_list_only_shows_messages_from_the_same_category(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            existing = [{"id": "philosophical_000", "category": "philosophical", "prior": [],
+                         "user": "is suicide the only serious question"},
+                        {"id": "near_miss_000", "category": "near_miss", "prior": [],
+                         "user": "rough week at the depot"}]
+            prompts = []
+            def fake_judge(model, system, prompt):
+                prompts.append(prompt)
+                return json.dumps({"rows": [{"prior": [], "user": "my cat knocked my coffee over again"}]})
+            run.gen_messages("near_miss", 1, fake_judge, [], existing)
+            self.assertNotIn("suicide", prompts[0])
+            self.assertIn("rough week at the depot", prompts[0])
+
     def test_process_checks_with_a_different_model_than_the_drafter(self):
         drafters, checkers = [], []
         def fake_judge(model, system, prompt):
