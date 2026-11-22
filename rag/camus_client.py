@@ -21,6 +21,7 @@ Requires the index built once:  python build_index.py
 """
 import json, sys, argparse
 import requests
+import camus_rag as cr
 from camus_rag import OLLAMA, GEN_MODEL, load_kb, build_bm25, load_reranker, build_turn, fold_evicted
 
 class CamusClient:
@@ -61,7 +62,7 @@ class CamusClient:
         turn = build_turn(user, self.history, self.facts, self.vecs,
                           bm25=self.bm25, ce=self.ce, debug=False, summary=self.summary)
         hits = turn.hits
-        reply = self._generate(turn.messages, turn.opts)
+        reply = cr.checked_reply(turn, user, self._generate)
         self.history += [{"role":"user","content":user}, {"role":"assistant","content":reply}]
         self.history, self.summary = fold_evicted(self.history, self.summary)
         return {

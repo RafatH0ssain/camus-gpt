@@ -432,5 +432,62 @@ class CheckedReplyTests(unittest.TestCase):
         self.assertEqual(turn.task, cr.is_task(text))
 
 
+
+class RouteTests(unittest.TestCase):
+    def test_client_say_uses_checked_reply(self):
+        import camus_client as cc
+        client = cc.CamusClient.__new__(cc.CamusClient)
+        client.facts, client.vecs = [], None
+        client.bm25, client.ce = None, None
+        client.history, client.summary = [], ""
+        turn = types.SimpleNamespace(messages=[], opts={}, hits=[])
+        with mock.patch.object(cc, "build_turn", return_value=turn), \
+             mock.patch.object(cc.cr, "checked_reply", return_value="reply") as cr_mock, \
+             mock.patch.object(cc, "fold_evicted", side_effect=lambda h, s: (h, s)):
+            res = client.say("hi")
+        cr_mock.assert_called_once()
+        args, kwargs = cr_mock.call_args
+        gen = args[2] if len(args) >= 3 else kwargs.get("generate")
+        self.assertEqual(gen, client._generate)
+        self.assertEqual(res["reply"], "reply")
+
+    def test_eval_ask_uses_checked_reply(self):
+        import eval_camus as ec
+        turn = types.SimpleNamespace(messages=[], opts={}, hits=[])
+        with mock.patch.object(ec.cr, "build_turn", return_value=turn), \
+             mock.patch.object(ec.cr, "checked_reply", return_value="a") as cr_mock, \
+             mock.patch.object(ec.requests, "post", return_value=fake_response("a")):
+            ec.ask.kb, ec.ask.bm25, ec.ask.ce = ([], None), None, None
+            ans, n_hits, history = ec.ask(["one"])
+        cr_mock.assert_called_once()
+        self.assertEqual(ans, "a")
+
+    def test_cli_prints_once_when_checking(self):
+        with mock.patch("sys.argv", ["camus_rag.py"]), \
+             mock.patch.object(cr, "load_kb", return_value=([], None)), \
+             mock.patch.object(cr, "build_bm25", return_value=None), \
+             mock.patch.object(cr, "load_reranker", return_value=None), \
+             mock.patch.object(cr, "retrieve", return_value=[]), \
+             mock.patch.object(cr, "FACT_CHECK", True), \
+             mock.patch.object(cr, "chat_once", side_effect=["draft", "retry"]) as chat_mock, \
+             mock.patch.object(cr.fact_check, "check_reply", return_value={"ok": False, "problem": "x", "model": "beam-free"}), \
+             mock.patch("builtins.input", side_effect=["did you write The Plague?", EOFError]):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                cr.main()
+            out = buf.getvalue()
+        self.assertEqual(out.count("camus: "), 1)
+        self.assertIn("retry", out)
+        self.assertNotIn("draft", out)
+
+    def test_chat_once(self):
+        with mock.patch.object(cr.requests, "post", return_value=fake_response("hi")) as post:
+            self.assertEqual(cr.chat_once([{"role": "user", "content": "x"}], {"temperature": 0.1}), "hi")
+        body = post.call_args.kwargs["json"]
+        self.assertIs(body.get("think"), False)
+        self.assertEqual(body.get("stream"), False)
+        self.assertEqual(body.get("options"), {"temperature": 0.1})
+
+
 if __name__ == "__main__":
     unittest.main()

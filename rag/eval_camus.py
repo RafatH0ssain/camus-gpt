@@ -457,6 +457,7 @@ SUITES = {"v3": lambda: PROBES, "v4": lambda: PROBES_V4, "v5": lambda: PROBES_V5
           "all": lambda: PROBES + PROBES_V4 + PROBES_V5 + PROBES_V6}
 
 # ------------------------------------------------------------------- generation --------
+
 def ask(turns):
     """Run a multi-turn probe through the exact chat pipeline; return (final_answer, n_hits, history)."""
     facts, vecs = ask.kb
@@ -466,11 +467,15 @@ def ask(turns):
         turn = cr.build_turn(user, history, facts, vecs, bm25=ask.bm25, ce=ask.ce)
         messages, opts = turn.messages, turn.opts
         n_hits = len(turn.hits)
-        r = requests.post(f"{cr.OLLAMA}/api/chat",
-                          json={"model": cr.GEN_MODEL, "messages": messages, "stream": False,
-                                "options": opts, "think": False}, timeout=300)
-        r.raise_for_status()
-        answer = r.json()["message"]["content"].strip()
+
+        def _generate(messages, opts):
+            r = requests.post(f"{cr.OLLAMA}/api/chat",
+                              json={"model": cr.GEN_MODEL, "messages": messages, "stream": False,
+                                    "options": opts, "think": False}, timeout=300)
+            r.raise_for_status()
+            return r.json()["message"]["content"].strip()
+
+        answer = cr.checked_reply(turn, user, _generate)
         history += [{"role": "user", "content": user}, {"role": "assistant", "content": answer}]
     return answer, n_hits, history
 

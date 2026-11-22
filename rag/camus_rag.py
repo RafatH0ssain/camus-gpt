@@ -329,6 +329,14 @@ def stream_chat(messages, opts=None):
         if d.get("done"): break
     print("\n"); return full
 
+def chat_once(messages, opts=None):
+    r = requests.post(f"{OLLAMA}/api/chat",
+                      json={"model":GEN_MODEL,"messages":messages,"stream":False,
+                            "options":opts or GEN_OPTS,"think":False},
+                      timeout=300)
+    r.raise_for_status()
+    return r.json()["message"]["content"].strip()
+
 def recent_user(history, n=1):
     return " ".join([m["content"] for m in history if m["role"]=="user"][-n:])
 
@@ -706,7 +714,11 @@ def main():
             if not user: continue
             turn = build_turn(user, history, facts, vecs, bm25=bm25, ce=ce,
                               debug=args.debug, memory=memctx, summary=summary)
-            reply = stream_chat(turn.messages, turn.opts)
+            if FACT_CHECK:
+                reply = checked_reply(turn, user, chat_once)
+                print(f"camus: {reply}")
+            else:
+                reply = stream_chat(turn.messages, turn.opts)
             exchange = [{"role":"user","content":user},{"role":"assistant","content":reply}]
             history += exchange
             n_exchanges += 1
