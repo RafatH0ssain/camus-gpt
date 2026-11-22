@@ -291,7 +291,7 @@ def process(row, brief, judge, check_judge):
     rules = cd.RULES.get(category, [])
     model = _model_for_row(row, 0)
     draft = draft_reply(row, brief, judge, model)
-    verdict = cd.rule_check(category, _convo(row, draft), judge=check_judge)
+    verdict = cd.rule_check(category, _convo(row, draft), judge=check_judge, model=_model_for_row(row, 2))
     ok, hard_drop = cd.passes(category, draft, verdict)
     if ok:
         kept_row = {
@@ -318,7 +318,7 @@ def process(row, brief, judge, check_judge):
     # redraft once
     next_model = _model_for_row(row, 1)
     redraft = draft_reply(row, brief, judge, next_model, note="The last draft broke: " + ", ".join(failed))
-    verdict2 = cd.rule_check(category, _convo(row, redraft), judge=check_judge)
+    verdict2 = cd.rule_check(category, _convo(row, redraft), judge=check_judge, model=_model_for_row(row, 2))
     ok2, hard_drop2 = cd.passes(category, redraft, verdict2)
     if ok2:
         kept_row = {

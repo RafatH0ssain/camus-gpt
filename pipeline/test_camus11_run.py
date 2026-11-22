@@ -62,6 +62,19 @@ class Camus11RunTests(unittest.TestCase):
         self.assertEqual(kept["reply"], "draft2")
         self.assertEqual(len(draft_calls), 2)
 
+    def test_process_checks_with_a_different_model_than_the_drafter(self):
+        drafters, checkers = [], []
+        def fake_judge(model, system, prompt):
+            drafters.append(model)
+            return json.dumps({"reply": "draft"})
+        def fake_check(model, system, prompt):
+            checkers.append(model)
+            return {r: True for r in cd.RULES["personal"]}
+        row = {"id": "personal_000", "category": "personal", "prior": [], "user": "hi"}
+        run.process(row, "brief", fake_judge, fake_check)
+        self.assertNotEqual(drafters[0], checkers[0])
+        self.assertIn(checkers[0], run.MODELS)
+
     def test_process_hard_drop_not_redrafted(self):
         draft_calls = []
         def fake_judge(model, system, prompt):
