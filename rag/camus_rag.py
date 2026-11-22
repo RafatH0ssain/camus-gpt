@@ -24,10 +24,15 @@ SETUP   ollama pull nomic-embed-text
 RUN     python rag/camus_rag.py            (chat; assumes index built by kb/build_index.py)
         python rag/camus_rag.py --debug    (show retrieved entries, types, sources, scores)
 """
-import argparse, json, os, re, uuid
+import argparse, json, os, re, time, uuid
 from dataclasses import dataclass, field
 import numpy as np
 import requests
+
+try:
+    import fact_check
+except ImportError:  # pragma: no cover - supports `import rag.camus_rag`
+    from rag import fact_check
 
 OLLAMA      = "http://localhost:11434"
 GEN_MODEL   = os.environ.get("GEN_MODEL", "camus10")   # ollama model name (ollama list)
@@ -52,6 +57,11 @@ GEN_OPTS = {"temperature":0.6, "top_k":40, "min_p":0.05, "repeat_penalty":1.1, "
 # Env-overridable so a temperature sweep needs no edit; defaults are unchanged.
 TEMP_FACTUAL = float(os.environ.get("TEMP_FACTUAL", "0.45"))  # biographical/conversational turns: less sampling drift on names
 TEMP_TASK    = float(os.environ.get("TEMP_TASK", "0.6"))      # analysis / long-text turns keep the expressive range
+
+# Fact-check wrapper (Task 2). Default on; FACT_CHECK=0 disables.
+FACT_CHECK = os.environ.get("FACT_CHECK", "1") != "0"
+FACT_CHECK_LOG = os.environ.get("FACT_CHECK_LOG") or None
+RETRY_TEMP = 0.25
 
 # The behavioural prose comes in two variants; the identity card below is shared verbatim by
 # both. CORE_VARIANT=lean selects the shortened prose — see docs/corpus_analysis.md and the
@@ -322,6 +332,68 @@ def stream_chat(messages, opts=None):
 def recent_user(history, n=1):
     return " ".join([m["content"] for m in history if m["role"]=="user"][-n:])
 
+def _is_greeting_msg(user_msg):
+    t = (user_msg or "").strip()
+    return ("?" not in t) and len(t.split()) <= 3
+
+
+def checked_reply(turn, user_msg, generate, check=None):
+    if check is None:
+        check = fact_check.check_reply
+
+    draft = generate(turn.messages, turn.opts)
+
+    skip = (not FACT_CHECK) or bool(getattr(turn, "task", False)) or _is_greeting_msg(user_msg)
+    if skip:
+        return draft
+
+    context = ""
+    if getattr(turn, "messages", None):
+        first = turn.messages[0]
+        if isinstance(first, dict):
+            context = first.get("content", "") or ""
+
+    t0 = time.monotonic()
+    result = check(user_msg, draft, context)
+    check_s = time.monotonic() - t0
+
+    retried = False
+    final = draft
+    if not result.get("skipped") and result.get("ok") is False:
+        problem = result.get("problem", "")
+        retry_messages = [dict(m) for m in turn.messages]
+        if retry_messages and isinstance(retry_messages[0], dict) and retry_messages[0].get("role") == "system":
+            retry_messages[0] = dict(retry_messages[0])
+            retry_messages[0]["content"] = (retry_messages[0].get("content", "") or "") + (
+                "\n\nYour draft reply said something your notes contradict: {problem} "
+                "Answer the same message again, in your own voice, without that error. "
+                "Do not mention a draft or notes.".format(problem=problem)
+            )
+        retry_text = generate(retry_messages, dict(turn.opts, temperature=RETRY_TEMP))
+        if isinstance(retry_text, str) and retry_text.strip():
+            final = retry_text
+            retried = True
+        else:
+            final = draft
+            retried = False
+
+    if FACT_CHECK_LOG:
+        log = {"user": user_msg, "draft": draft, "check_s": check_s}
+        if "ok" in result:
+            log["ok"] = result.get("ok")
+        if "problem" in result:
+            log["problem"] = result.get("problem")
+        if "model" in result:
+            log["model"] = result.get("model")
+        if result.get("skipped"):
+            log["skipped"] = True
+        log["retried"] = retried
+        log["final"] = final
+        with open(FACT_CHECK_LOG, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(log) + "\n")
+
+    return final
+
 @dataclass
 class MemoryCtx:
     """Everything the memory layer needs to contribute to a turn. Optional: when
@@ -343,6 +415,7 @@ class Turn:
     memories: list = field(default_factory=list)
     self_ref: bool = False             # the message asked about the USER, not about Camus
     kb_suppressed: bool = False        # self_ref fired AND memory had something -> KB dropped
+    task: bool = False                 # task turn (is_task) -> skips fact check
 
 def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                memory=None, summary=""):
@@ -413,7 +486,7 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
                 + history[-HIST_WINDOW:]
                 + [{"role":"user","content":user_msg}])
     return Turn(messages=messages, opts=opts, hits=hits, memories=mems,
-                self_ref=self_ref, kb_suppressed=kb_suppressed)
+                self_ref=self_ref, kb_suppressed=kb_suppressed, task=task)
 
 def fold_evicted(history, summary, chat_fn=None):
     """Once history passes HIST_WINDOW, fold its oldest EVICT_EXCHANGES exchanges (and any

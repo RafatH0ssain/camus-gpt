@@ -312,5 +312,125 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(ret.call_args.args[0], "Tell me about Cigarette and the dogs?")
 
 
+
+import tempfile
+
+
+class CheckedReplyTests(unittest.TestCase):
+    def _turn(self, task=False, content="ctx"):
+        return cr.Turn(messages=[{"role": "system", "content": content}],
+                       opts={"temperature": 0.5}, hits=[], task=task)
+
+    def _gen(self, outputs):
+        calls = []
+
+        def gen(messages, opts):
+            calls.append((messages, opts))
+            idx = len(calls) - 1
+            if isinstance(outputs, list):
+                return outputs[idx]
+            return outputs
+
+        gen.calls = calls
+        return gen
+
+    def test_ok_returns_draft(self):
+        turn = self._turn()
+        gen = self._gen("draft")
+        check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+        self.assertEqual(out, "draft")
+        self.assertEqual(len(gen.calls), 1)
+        self.assertEqual(check.call_count, 1)
+
+    def test_flag_regenerates_once(self):
+        turn = self._turn()
+        gen = self._gen(["draft", "retry text"])
+        check = mock.Mock(return_value={"ok": False, "problem": "X is wrong", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+        self.assertEqual(out, "retry text")
+        self.assertEqual(len(gen.calls), 2)
+        second_msgs, second_opts = gen.calls[1]
+        self.assertIn("X is wrong", second_msgs[0]["content"])
+        self.assertEqual(second_opts["temperature"], cr.RETRY_TEMP)
+        self.assertEqual(check.call_count, 1)
+
+    def test_empty_retry_keeps_draft(self):
+        turn = self._turn()
+        gen = self._gen(["draft", "  "])
+        check = mock.Mock(return_value={"ok": False, "problem": "X is wrong", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+        self.assertEqual(out, "draft")
+
+    def test_skipped_returns_draft(self):
+        turn = self._turn()
+        gen = self._gen("draft")
+        check = mock.Mock(return_value={"skipped": True, "error": "x"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+        self.assertEqual(out, "draft")
+        self.assertEqual(len(gen.calls), 1)
+
+    def test_task_and_greeting_skip_check(self):
+        # task turn
+        turn = self._turn(task=True)
+        gen = self._gen("draft")
+        check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            cr.checked_reply(turn, "how are you?", gen, check=check)
+        self.assertEqual(check.call_count, 0)
+
+        # greeting
+        turn2 = self._turn()
+        gen2 = self._gen("draft")
+        check2 = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            cr.checked_reply(turn2, "hey there", gen2, check=check2)
+        self.assertEqual(check2.call_count, 0)
+
+        # normal question is checked
+        turn3 = self._turn()
+        gen3 = self._gen("draft")
+        check3 = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            cr.checked_reply(turn3, "how are you?", gen3, check=check3)
+        self.assertEqual(check3.call_count, 1)
+
+    def test_env_off(self):
+        turn = self._turn()
+        gen = self._gen("draft")
+        check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", False), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+        self.assertEqual(out, "draft")
+        self.assertEqual(check.call_count, 0)
+
+    def test_log_written(self):
+        turn = self._turn()
+        gen = self._gen(["draft", "retry text"])
+        check = mock.Mock(return_value={"ok": False, "problem": "X is wrong", "model": "beam-free"})
+        fd, path = tempfile.mkstemp()
+        os.close(fd)
+        try:
+            with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", path):
+                cr.checked_reply(turn, "how are you?", gen, check=check)
+            with open(path, encoding="utf-8") as fh:
+                lines = [l for l in fh.read().splitlines() if l.strip()]
+            self.assertEqual(len(lines), 1)
+            obj = json.loads(lines[0])
+            self.assertTrue(obj.get("retried"))
+        finally:
+            os.remove(path)
+
+    def test_build_turn_sets_task(self):
+        text = "analyse this passage: " + ("x" * 50)
+        with mock.patch.object(cr, "retrieve", return_value=[]):
+            turn = cr.build_turn(text, [], [], None)
+        self.assertEqual(turn.task, cr.is_task(text))
+
+
 if __name__ == "__main__":
     unittest.main()
