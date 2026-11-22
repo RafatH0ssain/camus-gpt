@@ -7,6 +7,7 @@ import re
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -18,6 +19,13 @@ import dpo_behaviour_v10 as dpo10  # noqa: E402
 import judge_opencode as jz  # noqa: E402
 
 MODELS = ("beam-free", "hy4-flash-free", "longcat-2.5-free")
+# Seeds for variety: at temperature 0 the first run asked the same batch over and over (166 duplicates).
+PEOPLE = ["a nurse on nights", "a retired miner", "a first-year student", "a new father", "a widow in her 70s",
+          "a teenager in a small town", "a chef", "a soldier home on leave", "an unemployed engineer",
+          "a single mother", "a farmer", "a lawyer", "a musician", "a migrant worker", "a teacher",
+          "a delivery driver", "a carer for a sick parent", "a divorced man in his 40s", "a PhD student",
+          "a shop owner", "a bus driver", "someone just out of hospital", "a priest", "an artist",
+          "a factory worker", "a grandmother", "a nightclub bouncer", "a programmer", "a fisherman"]
 MULTI = {"philosophical": 1 / 3, "personal": 1 / 3, "acute": 1 / 3}
 
 OUT = ROOT / "data" / "drafts" / "v11"
@@ -123,17 +131,20 @@ def gen_messages(category, n, judge, probes, existing):
         if category in MULTI:
             multi_hint = (
                 " About %d of the %d rows should include prior turns (prior non-empty); "
-                "the rest prior []." % (multi_target, 10)
+                "the rest prior []." % (max(1, round(5 * multi_share)), 5)
             )
         prompt = (
             "Category: %s. %s\n"
-            "Generate 10 distinct conversation openings as JSON {\"rows\": [...]}, each row an object "
+            "Generate 5 distinct conversation openings as JSON {\"rows\": [...]}, each row an object "
             '{"prior": [...], "user": "..."}. prior is [] or an even-length list of 2-6 strings '
             "alternating user, Camus, drifting toward the final user message. "
             "Ask for varied people, ages, situations, register, lengths; use lowercase and typos sometimes. "
             "For acute multi-turn rows the plan or time is revealed only in the final user message."
             "%s\nReturn only JSON." % (category, CATEGORY_DESC.get(category, ""), multi_hint)
         )
+        rnd = random.Random(f"{category}-{requests}")
+        prompt += ("\nThis batch: people like %s. Do not resemble any of these earlier messages:\n%s"
+                   % (", ".join(rnd.sample(PEOPLE, 3)), "\n".join(kept_users[-15:])))
         try:
             raw = judge(model, system, prompt)
         except (ValueError, RuntimeError) as e:   # empty or unusable batch: next model; caps (SystemExit) still stop
@@ -479,7 +490,8 @@ def main(argv=None):
             existing_cat = by_cat.get(category, [])
             if len(existing_cat) >= n:
                 continue
-            new_rows = gen_messages(category, n - len(existing_cat), jz.judge, probes, existing_all)
+            new_rows = gen_messages(category, n - len(existing_cat), partial(jz.judge, temperature=0.9),
+                                    probes, existing_all)
             for row in new_rows:
                 _append_jsonl(OUT / "messages.jsonl", row)
                 existing_all.append(row)
@@ -488,7 +500,7 @@ def main(argv=None):
     if args.cmd == "replies":
         brief = _read_brief()
         rows = _read_jsonl(OUT / "messages.jsonl")
-        replies(rows, brief, jz.judge, jz.judge)
+        replies(rows, brief, partial(jz.judge, temperature=0.7), jz.judge)
         return 0
 
     if args.cmd == "sheet":

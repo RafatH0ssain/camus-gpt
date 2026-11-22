@@ -117,6 +117,11 @@ class JudgeOpencodeTest(unittest.TestCase):
                          {"role": "user", "content": "USER"}],
             "max_tokens": 4000, "temperature": 0})
 
+    def test_temperature_can_be_raised_for_drafting(self):
+        self.post.return_value = chat("{}")
+        jz.judge("some-model", "SYSTEM", "USER", temperature=0.9)
+        self.assertEqual(self.post.call_args.kwargs["json"]["temperature"], 0.9)
+
     def test_max_tokens_leaves_room_for_a_reasoning_model_to_finish_its_answer(self):
         self.assertEqual(jz.MAX_TOKENS, 4000)
 

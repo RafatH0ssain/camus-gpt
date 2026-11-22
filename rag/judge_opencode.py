@@ -94,7 +94,7 @@ def headers(key):
             "Content-Type": "application/json"}
 
 
-def judge(model, system, prompt, key=None, auth_path=AUTH_PATH):
+def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0):
     """Return the judge's reply text, once it is known to carry a complete JSON object.
 
     A reply that arrives empty, null, truncated mid-object, or not chat/completions-shaped at
@@ -110,7 +110,7 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH):
     payload = {"model": model,
                "messages": [{"role": "system", "content": system},
                             {"role": "user", "content": prompt}],
-               "max_tokens": MAX_TOKENS, "temperature": 0}
+               "max_tokens": MAX_TOKENS, "temperature": temperature}
     sent = headers(key)
     for attempt in range(ATTEMPTS):
         last = attempt == ATTEMPTS - 1
