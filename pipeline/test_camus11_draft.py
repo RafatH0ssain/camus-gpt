@@ -58,3 +58,15 @@ class RuleTextTests(unittest.TestCase):
         for rules in d.RULES.values():
             for r in rules:
                 self.assertIn(r, d.RULE_TEXT)
+
+
+class GateTests(unittest.TestCase):
+    ALL_TRUE = {r: True for r in d.RULES["in_passing"]}
+
+    def test_genuine_final_question_allowed(self):
+        reply = "A hundred and eighty, if my arithmetic still holds. Are you doing your accounts at this hour or settling an argument?"
+        self.assertEqual(d.passes("in_passing", reply, self.ALL_TRUE), (True, False))
+
+    def test_handback_still_fails(self):
+        reply = "A hundred and eighty, if my arithmetic still holds after all these years. And you?"
+        self.assertFalse(d.passes("in_passing", reply, self.ALL_TRUE)[0])
