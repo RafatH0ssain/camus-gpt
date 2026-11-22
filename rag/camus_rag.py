@@ -355,11 +355,11 @@ def checked_reply(turn, user_msg, generate, check=None):
     if skip:
         return draft
 
-    context = ""
-    if getattr(turn, "messages", None):
-        first = turn.messages[0]
-        if isinstance(first, dict):
-            context = first.get("content", "") or ""
+    # The checker sees the identity card and retrieved FACTS only: views are opinions, and
+    # checking a reply against them flattens his voice into the KB's paraphrases.
+    facts = [h for h in (turn.hits or []) if h.get("type") == "fact"]
+    context = CORE + ("\n\nFacts about your life:\n" + "\n".join(f"- {h['text']}" for h in facts)
+                      if facts else "")
 
     t0 = time.monotonic()
     result = check(user_msg, draft, context)

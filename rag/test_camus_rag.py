@@ -344,6 +344,18 @@ class CheckedReplyTests(unittest.TestCase):
         self.assertEqual(len(gen.calls), 1)
         self.assertEqual(check.call_count, 1)
 
+    def test_check_context_has_facts_not_views(self):
+        turn = cr.Turn(messages=[{"role": "system", "content": "full prompt"}], opts={"temperature": 0.5},
+                       hits=[{"type": "fact", "text": "Exile and the Kingdom came out in 1957.", "score": 0.9},
+                             {"type": "view", "text": "Happiness is the aim.", "score": 0.9}])
+        check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            cr.checked_reply(turn, "is happiness the point?", self._gen("draft"), check=check)
+        ctx = check.call_args.args[2]
+        self.assertIn("Exile and the Kingdom came out in 1957.", ctx)
+        self.assertNotIn("Happiness is the aim.", ctx)
+        self.assertIn(cr.CORE[:80], ctx)
+
     def test_flag_regenerates_once(self):
         turn = self._turn()
         gen = self._gen(["draft", "retry text"])

@@ -47,6 +47,10 @@ class FactCheckTests(unittest.TestCase):
         r = fc.check_reply("u", "d", "c", judge=fake)
         self.assertTrue(r["skipped"])
 
+    def test_system_ignores_views(self):
+        self.assertIn("views", fc.CHECK_SYSTEM.lower())
+        self.assertIn("never flag", fc.CHECK_SYSTEM.lower())
+
     def test_all_models_fail_returns_draft(self):
         def fake(model, system, prompt):
             raise RuntimeError("boom")

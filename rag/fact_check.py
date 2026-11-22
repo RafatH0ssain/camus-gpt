@@ -17,6 +17,9 @@ CHECK_SYSTEM = (
     "Flag the reply ONLY if it contains a factual claim that contradicts CONTEXT, or if it "
     "agrees that a line CONTEXT marks as not Camus's is his.\n"
     "Ignore anything CONTEXT does not cover. Judge facts, not style, tone, or wording.\n"
+    "Facts are checkable events, dates, names, places, works and who said what. Opinions, "
+    "views, beliefs, jokes and self-deprecation are not facts: never flag a reply for "
+    "disagreeing with, or going beyond, the views in CONTEXT.\n"
     'Answer with JSON only: {"ok": bool, "problem": str}. '
     "If ok is false, problem names the wrong claim and the correct fact in one sentence."
 )
