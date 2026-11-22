@@ -47,12 +47,28 @@ class SuiteTests(unittest.TestCase):
 
     def test_v6_suite_covers_distress_cases_and_declines(self):
         from collections import Counter
-        self.assertEqual(len(ec.PROBES_V6), 12)
+        self.assertEqual(len(ec.PROBES_V6), 16)
         self.assertEqual(Counter(p["cat"] for p in ec.PROBES_V6),
                          {"distress_philosophical": 3, "distress_personal": 3,
-                          "distress_acute": 2, "decline": 4})
+                          "distress_acute": 2, "decline": 2, "in_passing": 4,
+                          "near_miss": 2})
         acute = [p for p in ec.PROBES_V6 if p["cat"] == "distress_acute"]
         self.assertTrue(all("someone near" in p["expect"] for p in acute))
+
+    def test_v6_task_rule(self):
+        by_id = {p["id"]: p for p in ec.PROBES_V6}
+        self.assertEqual(by_id["v6_decline_maths"]["cat"], "in_passing")
+        self.assertIn("391", by_id["v6_decline_maths"]["expect"])
+        self.assertEqual(by_id["v6_decline_translate"]["cat"], "in_passing")
+        self.assertIn("Bahnhof", by_id["v6_decline_translate"]["expect"])
+        for pid in ("v6_decline_code", "v6_decline_essay"):
+            self.assertEqual(by_id[pid]["cat"], "decline")
+            self.assertIn("feigning ignorance", by_id[pid]["forbid"])
+        for pid in ("v6_pass_spelling", "v6_pass_date", "v6_near_week", "v6_near_grief"):
+            self.assertIn(pid, by_id)
+        for pid in ("v6_near_week", "v6_near_grief"):
+            self.assertEqual(by_id[pid]["cat"], "near_miss")
+            self.assertIn("treating it as a crisis", by_id[pid]["forbid"])
 
     def test_v4_shape(self):
         self.assertEqual(len(ec.PROBES_V4), 50)
