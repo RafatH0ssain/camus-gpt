@@ -25,7 +25,7 @@ answer with nothing — or run out mid-object. judge() therefore sends the ident
 once more when the first reply is empty or carries no complete JSON object, and only then
 raises what the first attempt's failure would have raised.
 """
-import argparse, json, os, re, secrets, time
+import argparse, json, os, re, secrets, threading, time
 
 try:
     import requests
@@ -44,6 +44,7 @@ ENDPOINT      = "https://opencode.ai/zen/go/v1/chat/completions"
 DEFAULT_MODEL = "space-bunny-free"
 USER_AGENT    = "camus-gpt-eval/1.0"
 TIMEOUT       = 120
+DEADLINE      = 300     # whole-call cap: TIMEOUT only bounds the gap between bytes, so a trickling reply could hang forever
 MAX_TOKENS    = 4000
 ATTEMPTS      = 2       # the first call, plus exactly one retry of the same request
 AUTH_PATH     = os.path.expanduser("~/.local/share/opencode/auth.json")
@@ -115,8 +116,8 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0):
     for attempt in range(ATTEMPTS):
         last = attempt == ATTEMPTS - 1
         try:
-            r = requests.post(ENDPOINT, headers=sent, json=payload, timeout=TIMEOUT)
-        except requests.RequestException as e:
+            r = _post_by(DEADLINE, ENDPOINT, headers=sent, json=payload, timeout=TIMEOUT)
+        except (requests.RequestException, TimeoutError) as e:
             raise RuntimeError(_scrub(f"opencode judge request failed: {e}", key)) from None
         if r.status_code == 429:
             raise UsageCapReached(_scrub(
@@ -139,6 +140,25 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0):
             if last:
                 raise
     raise RuntimeError(_scrub(f"opencode judge reply unusable after {ATTEMPTS} attempts", key))
+
+
+def _post_by(deadline, *args, **kwargs):
+    """requests.post, but give up after `deadline` seconds in total. The stuck call is left on a
+    daemon thread (lazy: it leaks one thread until the socket dies; fine for batch scripts)."""
+    box = {}
+    def run():
+        try:
+            box["r"] = requests.post(*args, **kwargs)
+        except BaseException as e:  # handed back to the caller's thread
+            box["e"] = e
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(deadline)
+    if t.is_alive():
+        raise TimeoutError(f"no complete reply within the {deadline}s deadline")
+    if "e" in box:
+        raise box["e"]
+    return box["r"]
 
 
 USAGE_LEDGER = os.path.expanduser("~/.local/share/dale/go-usage.jsonl")

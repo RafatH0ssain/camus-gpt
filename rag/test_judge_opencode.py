@@ -117,6 +117,19 @@ class JudgeOpencodeTest(unittest.TestCase):
                          {"role": "user", "content": "USER"}],
             "max_tokens": 4000, "temperature": 0})
 
+    def test_a_reply_that_never_finishes_fails_after_the_total_deadline(self):
+        import time as _t
+        self.post.side_effect = lambda *a, **k: _t.sleep(2) or chat("{}")
+        old, jz.DEADLINE = jz.DEADLINE, 0.2
+        try:
+            start = _t.monotonic()
+            with self.assertRaises(RuntimeError) as cm:
+                jz.judge("some-model", "SYSTEM", "USER")
+            self.assertLess(_t.monotonic() - start, 1.5)
+            self.assertIn("deadline", str(cm.exception))
+        finally:
+            jz.DEADLINE = old
+
     def test_temperature_can_be_raised_for_drafting(self):
         self.post.return_value = chat("{}")
         jz.judge("some-model", "SYSTEM", "USER", temperature=0.9)
