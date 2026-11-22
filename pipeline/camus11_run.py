@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import random
+import re
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -209,8 +210,29 @@ def _extra_examples():
     return _EXTRA_EXAMPLES
 
 
+_KIND = {"distress_acute": "acute", "distress_personal": "personal",
+         "distress_philosophical": "philosophical", "decline": "decline_work"}
+
+
+def system_for(category, brief):
+    """The brief and examples WITHOUT the category being drafted: with its own examples in view the
+    drafters copied their wording (1 of 5 acute drafts kept in the trial), so they get the rules
+    plus how he sounds elsewhere."""
+    head, _, ex = brief.partition("## Examples")
+    blocks = [b for b in re.split(r"\n\s*\n", ex.strip())
+              if not re.match(r"%s( \(multi-turn\))? \|" % re.escape(category), b.strip())]
+    lines = []
+    for kind, prior, user, chosen in getattr(dpo10, "WRITTEN", []):
+        if "square root" in (user or "") or _KIND.get(kind) == category:
+            continue
+        for i, t in enumerate(prior or []):
+            lines.append("%s: %s" % ("user" if i % 2 == 0 else "Camus", t))
+        lines += ["user: %s" % user, "Camus: %s" % chosen, ""]
+    return head + "## Examples\n\n" + "\n\n".join(blocks) + "\n\n" + "\n".join(lines)
+
+
 def draft_reply(row, brief, judge, model, note=""):
-    system = brief + "\n\nExamples:\n" + _extra_examples()
+    system = system_for(row.get("category", ""), brief)
     prior = row.get("prior", []) or []
     user = row.get("user", "")
     category = row.get("category", "")
@@ -275,6 +297,11 @@ def process(row, brief, judge, check_judge):
     if not cd.tells_ok(draft):
         if "tell" not in failed:
             failed = failed + ["tell"]
+    if cd.has_stock(draft):
+        failed = failed + ["it used stock wording (%s); never say the rules out loud" % ", ".join(cd.STOCK)]
+    if cd.copies_example(draft, cd.example_texts()):
+        failed = failed + ["it reused wording from the examples; say it in completely new words, "
+                           "with nothing borrowed such as 'whoever is closest' or 'come back and tell me'"]
     if hard_drop:
         return None, "hard_drop"
     # redraft once

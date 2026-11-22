@@ -41,7 +41,7 @@ HARD_DROP = {"no_methods"}
 
 # What each rule means, shown to the checker. Owner rules: spec 2026-11-22-camus11-design.md.
 RULE_TEXT = {
-    "first_person_camus": "The last reply is Albert Camus speaking in the first person as himself, not an assistant, therapist or narrator.",
+    "first_person_camus": "The last reply sounds like a man talking in the first person in conversation, not an assistant, therapist or narrator. He does not need to mention himself, his books or his views.",
     "no_ai_phrasing": "The last reply has no AI or assistant phrasing (no 'as an AI', 'I can't help with that', 'I'm here for you', 'how can I help').",
     "no_canned_redirect": "No canned crisis script: no hotline paragraph, no 'please don't', no 'I'm not qualified, please seek help' boilerplate.",
     "questions_the_belief": "He engages with the despair itself: questions the belief or the intent behind it, from his own view (revolt against the absurd), as a person would.",
@@ -155,13 +155,47 @@ def tells_ok(reply):
             and not HANDBACK.match(last.rstrip(".")))
 
 
+def copies_example(reply, examples, n=6):
+    """True when the reply shares any n-word run with an example: drafts must take the stance, not the words."""
+    rt = _tokens(reply)
+    runs = {tuple(rt[i:i + n]) for i in range(len(rt) - n + 1)}
+    for ex in examples:
+        et = _tokens(ex)
+        if runs & {tuple(et[i:i + n]) for i in range(len(et) - n + 1)}:
+            return True
+    return False
+
+
+_EXAMPLES = None
+
+
+def example_texts():
+    """Camus's lines in the brief and the v10 WRITTEN replies (loaded once)."""
+    global _EXAMPLES
+    if _EXAMPLES is None:
+        brief = (ROOT / "pipeline/briefs/camus11_brief.md").read_text(encoding="utf-8")
+        lines = re.findall(r"Camus: ((?:.|\n(?!user:|\n))*)", brief.split("## Examples")[-1])
+        import dpo_behaviour_v10 as dpo10
+        _EXAMPLES = [" ".join(x.split()) for x in lines] + [w[3] for w in dpo10.WRITTEN]
+    return _EXAMPLES
+
+
+# The rules' own wording, which drafters echo back verbatim (2026-11-22 trial).
+STOCK = ("reasonable choice", "answer to the absurd", "made of", "verdict", "not going to argue philosophy")
+
+
+def has_stock(reply):
+    low = (reply or "").lower()
+    return any(p in low for p in STOCK)
+
+
 def passes(category, reply, verdict):
     verdict = verdict or {}
     hard_drop = False
     for r in HARD_DROP:
         if r in RULES.get(category, []) and not verdict.get(r, False):
             hard_drop = True
-    ok = tells_ok(reply) and all(bool(verdict.get(r, False)) for r in RULES.get(category, []))
+    ok = tells_ok(reply) and not copies_example(reply, example_texts()) and not has_stock(reply) and all(bool(verdict.get(r, False)) for r in RULES.get(category, []))
     if hard_drop:
         ok = False
     return (ok, hard_drop)

@@ -64,9 +64,26 @@ class GateTests(unittest.TestCase):
     ALL_TRUE = {r: True for r in d.RULES["in_passing"]}
 
     def test_genuine_final_question_allowed(self):
-        reply = "A hundred and eighty, if my arithmetic still holds. Are you doing your accounts at this hour or settling an argument?"
+        reply = "A hundred and eighty, if my arithmetic still holds. Is this for a bill you are splitting with friends tonight?"
         self.assertEqual(d.passes("in_passing", reply, self.ALL_TRUE), (True, False))
 
     def test_handback_still_fails(self):
         reply = "A hundred and eighty, if my arithmetic still holds after all these years. And you?"
         self.assertFalse(d.passes("in_passing", reply, self.ALL_TRUE)[0])
+
+
+class CopyTests(unittest.TestCase):
+    def test_copied_example_sentence_fails(self):
+        ex = ["Put the rope somewhere you can't reach it and go to someone near you, a neighbour."]
+        self.assertTrue(d.copies_example("Listen. Put the rope somewhere you can't reach it and go now.", ex))
+
+    def test_fresh_wording_passes(self):
+        ex = ["Put the rope somewhere you can't reach it and go to someone near you, a neighbour."]
+        self.assertFalse(d.copies_example("Move it out of the house tonight and knock on your sister's door.", ex))
+
+
+class StockTests(unittest.TestCase):
+    def test_rule_wording_fails(self):
+        v = {r: True for r in d.RULES["acute"]}
+        reply = "I won't agree that this is a reasonable choice, and I want you to go to your brother tonight, right now."
+        self.assertFalse(d.passes("acute", reply, v)[0])
