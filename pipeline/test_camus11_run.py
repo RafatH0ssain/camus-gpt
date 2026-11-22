@@ -81,6 +81,20 @@ class Camus11RunTests(unittest.TestCase):
         self.assertEqual(kept["reply"], "draft2")
         self.assertEqual(len(draft_calls), 2)
 
+    def test_drafting_and_checking_calls_get_room_for_reasoning(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            (Path(td) / "messages.jsonl").write_text("")
+            got = {}
+            orig = run.replies
+            run.replies = lambda rows, brief, judge, check: got.update(d=judge.keywords, c=check.keywords)
+            try:
+                run.main(["replies"])
+            finally:
+                run.replies = orig
+            self.assertGreaterEqual(got["d"]["max_tokens"], 16000)
+            self.assertGreaterEqual(got["c"]["max_tokens"], 16000)
+
     def test_avoid_list_only_shows_messages_from_the_same_category(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)

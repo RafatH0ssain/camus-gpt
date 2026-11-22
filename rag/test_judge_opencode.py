@@ -130,6 +130,11 @@ class JudgeOpencodeTest(unittest.TestCase):
         finally:
             jz.DEADLINE = old
 
+    def test_max_tokens_can_be_raised_for_long_drafting_batches(self):
+        self.post.return_value = chat("{}")
+        jz.judge("some-model", "SYSTEM", "USER", max_tokens=16000)
+        self.assertEqual(self.post.call_args.kwargs["json"]["max_tokens"], 16000)
+
     def test_temperature_can_be_raised_for_drafting(self):
         self.post.return_value = chat("{}")
         jz.judge("some-model", "SYSTEM", "USER", temperature=0.9)

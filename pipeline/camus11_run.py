@@ -19,6 +19,7 @@ import dpo_behaviour_v10 as dpo10  # noqa: E402
 import judge_opencode as jz  # noqa: E402
 
 MODELS = ("beam-free", "hy4-flash-free", "longcat-2.5-free")
+TOKENS = 16000   # reasoning models (hy4) think 2-4k tokens first; the eval's 4000 cuts batches off
 # Seeds for variety: at temperature 0 the first run asked the same batch over and over (166 duplicates).
 PEOPLE = ["a nurse on nights", "a retired miner", "a first-year student", "a new father", "a widow in her 70s",
           "a teenager in a small town", "a chef", "a soldier home on leave", "an unemployed engineer",
@@ -493,7 +494,7 @@ def main(argv=None):
             existing_cat = by_cat.get(category, [])
             if category not in only or len(existing_cat) >= n:
                 continue
-            new_rows = gen_messages(category, n - len(existing_cat), partial(jz.judge, temperature=0.9),
+            new_rows = gen_messages(category, n - len(existing_cat), partial(jz.judge, temperature=0.9, max_tokens=TOKENS),
                                     probes, existing_all)
             for row in new_rows:
                 _append_jsonl(OUT / "messages.jsonl", row)
@@ -503,7 +504,8 @@ def main(argv=None):
     if args.cmd == "replies":
         brief = _read_brief()
         rows = [r for r in _read_jsonl(OUT / "messages.jsonl") if r.get("category") in only]
-        replies(rows, brief, partial(jz.judge, temperature=0.7), jz.judge)
+        replies(rows, brief, partial(jz.judge, temperature=0.7, max_tokens=TOKENS),
+                partial(jz.judge, max_tokens=TOKENS))
         return 0
 
     if args.cmd == "sheet":
