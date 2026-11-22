@@ -472,12 +472,13 @@ def _read_brief():
 def main(argv=None):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("messages")
-    sub.add_parser("replies")
+    for name in ("messages", "replies"):
+        sub.add_parser(name).add_argument("--only", default="", help="comma-separated categories")
     sub.add_parser("sheet")
     args = parser.parse_args(argv)
 
     OUT.mkdir(parents=True, exist_ok=True)
+    only = set(filter(None, getattr(args, "only", "").split(","))) or set(cd.CATEGORIES)
 
     if args.cmd == "messages":
         probes = cd.load_probe_texts()
@@ -488,7 +489,7 @@ def main(argv=None):
             by_cat.setdefault(r.get("category"), []).append(r)
         for category, n in cd.CATEGORIES.items():
             existing_cat = by_cat.get(category, [])
-            if len(existing_cat) >= n:
+            if category not in only or len(existing_cat) >= n:
                 continue
             new_rows = gen_messages(category, n - len(existing_cat), partial(jz.judge, temperature=0.9),
                                     probes, existing_all)
@@ -499,7 +500,7 @@ def main(argv=None):
 
     if args.cmd == "replies":
         brief = _read_brief()
-        rows = _read_jsonl(OUT / "messages.jsonl")
+        rows = [r for r in _read_jsonl(OUT / "messages.jsonl") if r.get("category") in only]
         replies(rows, brief, partial(jz.judge, temperature=0.7), jz.judge)
         return 0
 

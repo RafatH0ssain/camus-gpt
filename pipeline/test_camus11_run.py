@@ -14,6 +14,25 @@ import camus11_run as run  # noqa: E402
 
 
 class Camus11RunTests(unittest.TestCase):
+    def test_only_limits_messages_and_replies_to_named_categories(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            (Path(td) / "messages.jsonl").write_text("".join(
+                json.dumps({"id": f"{c}_000", "category": c, "prior": [], "user": c}) + "\n"
+                for c in ("personal", "near_miss")))
+            asked, seen = [], []
+            orig_gen, orig_rep, orig_probes = run.gen_messages, run.replies, cd.load_probe_texts
+            run.gen_messages = lambda category, *a, **k: asked.append(category) or []
+            run.replies = lambda rows, *a, **k: seen.extend(r["category"] for r in rows)
+            cd.load_probe_texts = lambda: []
+            try:
+                run.main(["messages", "--only", "near_miss,in_passing"])
+                run.main(["replies", "--only", "near_miss"])
+            finally:
+                run.gen_messages, run.replies, cd.load_probe_texts = orig_gen, orig_rep, orig_probes
+            self.assertEqual(asked, ["near_miss", "in_passing"])
+            self.assertEqual(seen, ["near_miss"])
+
     def test_gen_messages_drops_probe_close(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)
