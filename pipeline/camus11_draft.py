@@ -175,8 +175,12 @@ def example_texts():
     if _EXAMPLES is None:
         brief = (ROOT / "pipeline/briefs/camus11_brief.md").read_text(encoding="utf-8")
         lines = re.findall(r"Camus: ((?:.|\n(?!user:|\n))*)", brief.split("## Examples")[-1])
-        import dpo_behaviour_v10 as dpo10
-        _EXAMPLES = [" ".join(x.split()) for x in lines] + [w[3] for w in dpo10.WRITTEN]
+        try:   # gitignored (private replies): absent on CI, so the copy gate checks the brief only
+            import dpo_behaviour_v10 as dpo10
+            written = [w[3] for w in dpo10.WRITTEN]
+        except ImportError:
+            written = []
+        _EXAMPLES = [" ".join(x.split()) for x in lines] + written
     return _EXAMPLES
 
 

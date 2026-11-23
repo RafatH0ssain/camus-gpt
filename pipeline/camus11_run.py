@@ -15,7 +15,10 @@ sys.path[:0] = [str(ROOT / "pipeline"), str(ROOT / "rag")]
 
 import camus11_draft as cd  # noqa: E402
 jz = cd.jz
-import dpo_behaviour_v10 as dpo10  # noqa: E402
+try:   # gitignored (private replies): absent on CI; the runner then uses the brief's examples only
+    import dpo_behaviour_v10 as dpo10  # noqa: E402
+except ImportError:
+    dpo10 = None
 import judge_opencode as jz  # noqa: E402
 
 MODELS = ("beam-free", "hy4-flash-free", "longcat-2.5-free")

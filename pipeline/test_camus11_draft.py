@@ -121,3 +121,15 @@ class Camus11FixesTests(unittest.TestCase):
         good = ("What changed today, that it has a time on it now? Your landlady is downstairs; knock and say "
                 "to her what you wrote to me, and let her sit with you while we talk.")
         self.assertTrue(d.passes("acute", good, ok)[0])
+
+
+class MissingPrivateDataTests(unittest.TestCase):
+    def test_runs_without_the_gitignored_dpo_behaviour_v10(self):
+        import importlib
+        from unittest import mock
+        with mock.patch.dict(sys.modules, {"dpo_behaviour_v10": None}):   # None makes the import fail, as on CI
+            d._EXAMPLES = None
+            self.assertIsInstance(d.example_texts(), list)
+            import camus11_run
+            importlib.reload(camus11_run)
+        d._EXAMPLES = None
