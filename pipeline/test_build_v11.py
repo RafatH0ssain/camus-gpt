@@ -52,6 +52,22 @@ class BuildV11Tests(unittest.TestCase):
         only_fp = c10(verdict=verdict, reply="Go now.")
         self.assertEqual(b.pairs([draft()], [only_fp], render=RENDER), [])
 
+    def test_manifest_entry_describes_the_v11_file(self):
+        import hashlib, json, tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "phase2_v11.jsonl"
+            rows = [{"messages": [], "kind": "v11_acute"}, {"messages": [], "kind": "conversational"}]
+            f.write_text("".join(json.dumps(r) + "\n" for r in rows))
+            v10 = {"file": "phase2_v10.jsonl", "rows": 1, "metrics": {"x": 1}, "inputs": [{"input": "a", "weight": 1}]}
+            e = b.manifest_entry(f, rows, v10, n_new=1)
+            self.assertEqual(e["file"], "phase2_v11.jsonl")
+            self.assertEqual(e["rows"], 2)
+            self.assertEqual(e["sha256"], hashlib.sha256(f.read_bytes()).hexdigest())
+            self.assertEqual(e["kinds"], {"v11_acute": 1, "conversational": 1})
+            self.assertEqual(e["inputs"][-1]["input"], "data/drafts/v11/drafts.jsonl")
+            self.assertEqual(v10["file"], "phase2_v10.jsonl")   # v10's entry is not touched
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,7 +5,10 @@ camus10's own reply breaks a rule (chosen = the draft, rejected = camus10).
     .venv/bin/python pipeline/build_v11.py
 """
 import collections
+import copy
+import hashlib
 import json
+import subprocess
 import re
 import os
 import sys
@@ -80,11 +83,32 @@ def _write(path, rows):
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
 
+def manifest_entry(path, rows, v10, n_new):
+    """phase2_v11's MANIFEST.json entry: v10's, re-described for the new file (the notebook checks sha256)."""
+    e = copy.deepcopy(v10)
+    data = Path(path).read_bytes()
+    e.update(file=Path(path).name, rows=len(rows), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
+             kinds=dict(collections.Counter(r.get("kind", "?") for r in rows)),
+             note=f"phase2_v10 plus {n_new} camus11 drafts (distress voice, in-character declines)")
+    e["inputs"] = list(e.get("inputs", [])) + [{"input": "data/drafts/v11/drafts.jsonl", "weight": 1, "rows_read": n_new}]
+    try:
+        e["git_commit"] = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True,
+                                         text=True).stdout.strip() or e.get("git_commit")
+    except OSError:
+        pass
+    return e
+
+
 def main():
     drafts = _read(DRAFTS / "drafts.jsonl")
     sft = [sft_row(d) for d in drafts]
     dpo = pairs(drafts, _read(DRAFTS / "camus10.jsonl"))
-    _write(OUT / "phase2_v11.jsonl", _read(OUT / "phase2_v10.jsonl") + sft)
+    phase2 = _read(OUT / "phase2_v10.jsonl") + sft
+    _write(OUT / "phase2_v11.jsonl", phase2)
+    man = json.load(open(OUT / "MANIFEST.json", encoding="utf-8"))
+    man["sets"]["phase2_v11"] = manifest_entry(OUT / "phase2_v11.jsonl", phase2, man["sets"]["phase2_v10"], len(sft))
+    with open(OUT / "MANIFEST.json", "w", encoding="utf-8") as f:
+        json.dump(man, f, indent=2, ensure_ascii=False)
     _write(OUT / "dpo_v11.jsonl", _read(OUT / "dpo_v10.jsonl") + dpo)
     print("new SFT rows:", dict(collections.Counter(r["kind"] for r in sft)), len(sft))
     print("new DPO pairs:", dict(collections.Counter(r["kind"] for r in dpo)), len(dpo))
