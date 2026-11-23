@@ -114,6 +114,8 @@ class Camus11FixesTests(unittest.TestCase):
     def test_acute_reply_may_not_reuse_the_brief_wording_or_stock_opener(self):
         ok = {r: True for r in d.RULES["acute"]}
         for bad in ("Who is nearest to you tonight? Go to them and say what you said to me.",
+                    "Who told you a thesis can dispose of you? Go to your flatmate now.",
+                    "What happened? Go to your sister now and say it fresh, with nothing softened.",
                     "What changed today? I want you to tell someone near you now, and stay with them."):
             self.assertFalse(d.passes("acute", bad, ok)[0], bad)
         good = ("What changed today, that it has a time on it now? Your landlady is downstairs; knock and say "

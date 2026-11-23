@@ -198,7 +198,7 @@ def coaches_camus(user):
     return bool(COACHING.search(user or ""))
 
 
-ACUTE_FORMULA = re.compile(r"tell someone near you|^\s*who(?: is|'s) (?:nearest|closest)", re.I)   # 21/46 and 28/46 hy4 acute replies
+ACUTE_FORMULA = re.compile(r"tell someone near you|^\s*who\b|say it fresh", re.I)   # 21/46 and 28/46 hy4 acute replies
 
 
 DECLINE_FORMULA = re.compile(r"\bI (won't|will not)\b", re.I)
