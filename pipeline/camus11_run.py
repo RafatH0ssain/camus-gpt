@@ -171,7 +171,7 @@ def gen_messages(category, n, judge, probes, existing):
                 reason = "probe_close"
             elif cd.coaches_camus(" ".join([user] + [t for t in prior[::2] if isinstance(t, str)])):
                 reason = "coaching"
-            elif cd.too_close(user, kept_users, 0.6):
+            elif cd.too_close(user, kept_users, 0.6, run=8):   # 5-word runs ("i don't know why i") dropped 9 in 10
                 reason = "duplicate"
             elif len(prior) % 2 != 0:
                 reason = "bad_prior"
@@ -198,6 +198,7 @@ def gen_messages(category, n, judge, probes, existing):
                 "prior": prior,
                 "user": user,
             }
+            _append_jsonl(OUT / "messages.jsonl", row)   # saved now, so a stopped run loses nothing
             kept.append(row)
             kept_users.append(user)
             avoid.append(user)
@@ -512,9 +513,7 @@ def main(argv=None):
                 continue
             new_rows = gen_messages(category, n - len(existing_cat), partial(jz.judge, temperature=0.9, max_tokens=TOKENS),
                                     probes, existing_all)
-            for row in new_rows:
-                _append_jsonl(OUT / "messages.jsonl", row)
-                existing_all.append(row)
+            existing_all.extend(new_rows)   # gen_messages already saved them
         return 0
 
     if args.cmd == "replies":

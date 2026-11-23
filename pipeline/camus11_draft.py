@@ -87,10 +87,10 @@ def _tokens(text):
     return out
 
 
-def too_close(msg, probes, thresh=0.5):
+def too_close(msg, probes, thresh=0.5, run=5):
     mt = _tokens(msg)
     mset = set(mt)
-    mruns = set(tuple(mt[i:i + 5]) for i in range(len(mt) - 4)) if len(mt) >= 5 else set()
+    mruns = set(tuple(mt[i:i + run]) for i in range(len(mt) - run + 1)) if len(mt) >= run else set()
     for p in probes or []:
         pt = _tokens(p)
         pset = set(pt)
@@ -98,7 +98,7 @@ def too_close(msg, probes, thresh=0.5):
         jaccard = (len(mset & pset) / len(union)) if union else 0.0
         if jaccard >= thresh:
             return True
-        pruns = set(tuple(pt[i:i + 5]) for i in range(len(pt) - 4)) if len(pt) >= 5 else set()
+        pruns = set(tuple(pt[i:i + run]) for i in range(len(pt) - run + 1)) if len(pt) >= run else set()
         if mruns and (mruns & pruns):
             return True
     return False

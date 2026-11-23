@@ -104,3 +104,9 @@ class Camus11FixesTests(unittest.TestCase):
         self.assertFalse(d.passes("decline_work", bad, ok)[0])
         self.assertTrue(d.passes("decline_work", good, ok)[0])
         self.assertTrue(d.passes("in_passing", "I won't pretend it's hard: 26.", {r: True for r in d.RULES["in_passing"]})[0])
+
+    def test_dedupe_between_drafts_needs_a_longer_shared_run(self):
+        a = "i don't know why i bother going in to the depot every morning"
+        b = ["i don't know why i keep watering a plant that died in may"]
+        self.assertTrue(d.too_close(a, b))               # probe check: any 5-word run
+        self.assertFalse(d.too_close(a, b, 0.6, run=8))  # dedupe: only a long shared run

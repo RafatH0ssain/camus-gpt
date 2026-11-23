@@ -144,6 +144,20 @@ class Camus11RunTests(unittest.TestCase):
             self.assertEqual(ids, ["near_miss_001"])
             self.assertFalse((Path(td) / "dropped.jsonl").exists())   # not dropped: retried next run
 
+    def test_kept_messages_are_saved_before_the_category_finishes(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            calls = []
+            def fake_judge(model, system, prompt):
+                calls.append(1)
+                if len(calls) > 1:
+                    raise SystemExit("usage cap")
+                return json.dumps({"rows": [{"prior": [], "user": "my sister forgot my birthday again"}]})
+            with self.assertRaises(SystemExit):
+                run.gen_messages("near_miss", 5, fake_judge, [], [])
+            saved = [json.loads(l) for l in (Path(td) / "messages.jsonl").read_text().splitlines()]
+            self.assertEqual([r["user"] for r in saved], ["my sister forgot my birthday again"])
+
     def test_avoid_list_only_shows_messages_from_the_same_category(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)
