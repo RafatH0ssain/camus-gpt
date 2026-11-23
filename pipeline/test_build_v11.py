@@ -32,6 +32,8 @@ class BuildV11Tests(unittest.TestCase):
         row = b.sft_row(draft(prior=["hi", "objects have poor manners."]), render=RENDER)
         self.assertEqual(row["messages"][2]["content"], "Objects have poor manners.")
         self.assertEqual(row["messages"][1]["content"], "hi")   # user turns untouched
+        row = b.sft_row(draft(prior=["hi", "people cling to labels. did the doctor say so? i doubt it."]), render=RENDER)
+        self.assertEqual(row["messages"][2]["content"], "People cling to labels. Did the doctor say so? I doubt it.")
 
     def test_length_rule(self):
         short = draft("personal", reply="one two")

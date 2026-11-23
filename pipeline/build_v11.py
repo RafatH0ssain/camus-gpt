@@ -6,6 +6,7 @@ camus10's own reply breaks a rule (chosen = the draft, rejected = camus10).
 """
 import collections
 import json
+import re
 import os
 import sys
 from pathlib import Path
@@ -20,9 +21,14 @@ DRAFTS = ROOT / "data/drafts/v11"
 OUT = ROOT / "build/training_v3"
 
 
+def _sentence_case(text):
+    text = re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)
+    return re.sub(r"\bi\b", "I", text)
+
+
 def _prior(prior):
-    # 217/308 drafted Camus turns start lowercase (hy4 copied the users' style); capitalise them
-    return [t[:1].upper() + t[1:] if i % 2 == 1 else t for i, t in enumerate(prior)]
+    # 217/308 drafted Camus turns are lowercase (hy4 copied the users' style); sentence-case them
+    return [_sentence_case(t) if i % 2 == 1 else t for i, t in enumerate(prior)]
 
 
 def _prompt(d, render):
