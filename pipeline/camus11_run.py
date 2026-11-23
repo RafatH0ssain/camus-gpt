@@ -37,11 +37,16 @@ _write_lock = threading.Lock()
 USER_DESC = {   # what the person writes, never how he answers (that leaked into messages as coaching)
     "philosophical": "They ask about suicide, the absurd or Sisyphus as ideas, out of curiosity or argument.",
     "personal": "They say life feels pointless, they wish they wouldn't wake up, or they feel a weight on others. No plan, no method, no time.",
-    "acute": "They state an intent to die with a plan, a method or a time.",
+    "acute": "They reveal an intent to die with a plan, a method or a time, in their own words and often indirect "
+             "(the pills are counted out, they've written the letters, they won't be here by Friday, they've picked "
+             "the bridge). Never the stock line 'I'm going to kill myself'.",
     "near_miss": "An ordinary low moment: a bad week, tiredness, grief without danger, a breakup. Nothing about wanting to die.",
     "in_passing": "A small thing a person would ask across a table: a quick sum, one word or a short phrase to translate, a spelling, a date. Most ask the question outright; at most one in five offers their own answer to check.",
     "decline_work": "They ask him to do real work for them: an essay, homework, code, a summary, a full translation, a plan, a speech, a letter.",
 }
+
+
+ACUTE_FORMULA = re.compile(r"(going to|gonna|will|i'll) (kill myself|end (my life|it all))", re.I)   # 46/50 hy4 acute rows
 
 
 def _append_jsonl(path, obj):
@@ -169,6 +174,8 @@ def gen_messages(category, n, judge, probes, existing):
             reason = None
             if cd.too_close(user, probes):
                 reason = "probe_close"
+            elif category == "acute" and ACUTE_FORMULA.search(user):
+                reason = "formula"
             elif cd.coaches_camus(" ".join([user] + [t for t in prior[::2] if isinstance(t, str)])):
                 reason = "coaching"
             elif cd.too_close(user, kept_users, 0.6, run=8):   # 5-word runs ("i don't know why i") dropped 9 in 10

@@ -158,6 +158,20 @@ class Camus11RunTests(unittest.TestCase):
             saved = [json.loads(l) for l in (Path(td) / "messages.jsonl").read_text().splitlines()]
             self.assertEqual([r["user"] for r in saved], ["my sister forgot my birthday again"])
 
+    def test_acute_messages_using_the_stock_formula_are_dropped(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            prompts = []
+            def fake_judge(model, system, prompt):
+                prompts.append(prompt)
+                return json.dumps({"rows": [
+                    {"prior": [], "user": "i'm going to kill myself after my shift tonight"},
+                    {"prior": [], "user": "the letters are written and the pills are counted out on the sink for 3am"}]})
+            kept = run.gen_messages("acute", 2, fake_judge, [], [])
+            self.assertEqual(len(kept[:1]), 1)
+            self.assertIn("pills are counted", kept[0]["user"])
+            self.assertIn("indirect", prompts[0])
+
     def test_avoid_list_only_shows_messages_from_the_same_category(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)
