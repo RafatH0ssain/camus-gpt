@@ -499,12 +499,44 @@ def _read_brief():
     return (ROOT / "pipeline" / "briefs" / "camus11_brief.md").read_text(encoding="utf-8")
 
 
+def rejects(drafts, generate, check_judge, render=None):
+    """camus10's own reply to each kept draft's message, checked by the same rules. Rows where it
+    breaks one are the DPO pool. Ollama runs one at a time; checks run 4 at once. Resumable.
+    Returns how many camus10 replies break a rule."""
+    render = render or cd.render
+    path = OUT / "camus10.jsonl"
+    done = {r["id"]: r for r in _read_jsonl(path)}
+    lock = threading.Lock()
+
+    def check(d, reply):
+        try:
+            verdict = cd.rule_check(d["category"], _convo(d, reply), judge=check_judge, model=_checker(d))
+        except (RuntimeError, ValueError) as e:   # skipped, retried next run; caps (SystemExit) still stop
+            print(f"[rejects] {d['id']}: check failed, will retry next run ({str(e)[:80]})", flush=True)
+            return
+        ok, _ = cd.passes(d["category"], reply, verdict)
+        row = {"id": d["id"], "category": d["category"], "reply": reply, "verdict": verdict, "breaks": not ok}
+        with lock:
+            _append_jsonl(path, row)
+            done[d["id"]] = row
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futures = [ex.submit(check, d, generate(render(d.get("prior", []), d["user"])))
+                   for d in drafts if d["id"] not in done]
+        for f in futures:
+            f.result()
+    n = sum(1 for r in done.values() if r["breaks"])
+    print(f"camus10 breaks a rule on {n} of {len(done)} messages (the DPO pool)", flush=True)
+    return n
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
     for name in ("messages", "replies"):
         sub.add_parser(name).add_argument("--only", default="", help="comma-separated categories")
     sub.add_parser("sheet")
+    sub.add_parser("rejects")
     args = parser.parse_args(argv)
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -530,6 +562,13 @@ def main(argv=None):
         brief = _read_brief()
         rows = [r for r in _read_jsonl(OUT / "messages.jsonl") if r.get("category") in only]
         replies(rows, brief, partial(jz.judge, temperature=0.7, max_tokens=TOKENS),
+                partial(jz.judge, max_tokens=TOKENS))
+        return 0
+
+    if args.cmd == "rejects":
+        import camus_rag as cr
+        opts = dict(cr.GEN_OPTS, temperature=cr.TEMP_FACTUAL)
+        rejects(_read_jsonl(OUT / "drafts.jsonl"), lambda m: cr.chat_once(m, opts),
                 partial(jz.judge, max_tokens=TOKENS))
         return 0
 

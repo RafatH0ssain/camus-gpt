@@ -172,6 +172,25 @@ class Camus11RunTests(unittest.TestCase):
             self.assertIn("pills are counted", kept[0]["user"])
             self.assertIn("indirect", prompts[0])
 
+    def test_rejects_records_camus10_reply_and_whether_it_breaks_a_rule(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            drafts = [{"id": "decline_work_000", "category": "decline_work", "prior": [], "user": "write my essay",
+                       "reply": "chosen", "verdict": {}, "model": "m"},
+                      {"id": "near_miss_000", "category": "near_miss", "prior": [], "user": "long week",
+                       "reply": "chosen", "verdict": {}, "model": "m"}]
+            replies = {"write my essay": "I won't write your essay.", "long week": "Then sit down; the week is over."}
+            gen = lambda messages: replies[messages[-1]["content"]]
+            check = lambda model, system, prompt: {r: True for r in cd.RULES["decline_work"] + cd.RULES["near_miss"]}
+            render = lambda prior, user: [{"role": "user", "content": user}]
+            n = run.rejects(drafts, gen, check, render=render)
+            rows = {json.loads(l)["id"]: json.loads(l) for l in (Path(td) / "camus10.jsonl").read_text().splitlines()}
+            self.assertTrue(rows["decline_work_000"]["breaks"])    # "I won't" gate
+            self.assertFalse(rows["near_miss_000"]["breaks"])
+            self.assertEqual(rows["near_miss_000"]["reply"], "Then sit down; the week is over.")
+            self.assertEqual(n, 1)
+            self.assertEqual(run.rejects(drafts, gen, check, render=render), 1)   # resume: nothing redone, count kept
+
     def test_avoid_list_only_shows_messages_from_the_same_category(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)
