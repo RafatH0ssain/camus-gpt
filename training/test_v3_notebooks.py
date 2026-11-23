@@ -164,7 +164,7 @@ class TestV3Notebooks(unittest.TestCase):
             self.assertIn('man["sets"][PHASE2_SET]', p2)
             # each Phase 2 set writes its own guardrail adapter, so a retrain never
             # overwrites the adapter behind an earlier model
-            self.assertIn('{"phase2": "", "phase2_v4": "_v4", "phase2_v5": "_v5", "phase2_v6": "_v6", "phase2_v7": "_v7", "phase2_v8": "_v8", "phase2_v9": "_v9", "phase2_v10": "_v10"}[PHASE2_SET]', p2)
+            self.assertIn('{"phase2": "", "phase2_v4": "_v4", "phase2_v5": "_v5", "phase2_v6": "_v6", "phase2_v7": "_v7", "phase2_v8": "_v8", "phase2_v9": "_v9", "phase2_v10": "_v10", "phase2_v11": "_v11"}[PHASE2_SET]', p2)
             for old in ("camus_refusals.jsonl", "camus_epistemic.jsonl",
                         "camus_analysis.jsonl", "camus_multiturn.jsonl",
                         "camus_phase3.jsonl"):
@@ -300,8 +300,8 @@ class TestV3Notebooks(unittest.TestCase):
                 self.assertIn("raw tokenizer lacks the Gemma 4 turn markers; do not train",
                               text)
         ex = cell_text(load(NOTEBOOKS[2]))
-        self.assertIn("camus10b", ex,
-                      "export notebook does not map the raw variant to camus10b")
+        self.assertIn('MODEL_TAG = MODEL_TAG.replace("-sft", "") + "b"', ex,
+                      "export notebook does not name the raw variant <tag>b (camus10b, camus11b)")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
