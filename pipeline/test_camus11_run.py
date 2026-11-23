@@ -128,6 +128,22 @@ class Camus11RunTests(unittest.TestCase):
             run.CHECKERS = None
         self.assertEqual(checkers, ["beam-free"])
 
+    def test_a_failed_call_skips_the_row_without_stopping_the_run(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            rows = [{"id": "near_miss_000", "category": "near_miss", "prior": [], "user": "TIMEOUT_ME"},
+                    {"id": "near_miss_001", "category": "near_miss", "prior": [], "user": "b"}]
+            def fake_judge(model, system, prompt):
+                if "TIMEOUT_ME" in prompt + system:
+                    raise RuntimeError("Read timed out")
+                return json.dumps({"reply": "Sit down a minute, the kettle can wait. What happened at work?"})
+            def fake_check(model, system, prompt):
+                return {r: True for r in cd.RULES["near_miss"]}
+            run.replies(rows, "brief", fake_judge, fake_check)
+            ids = [json.loads(l)["id"] for l in (Path(td) / "drafts.jsonl").read_text().splitlines()]
+            self.assertEqual(ids, ["near_miss_001"])
+            self.assertFalse((Path(td) / "dropped.jsonl").exists())   # not dropped: retried next run
+
     def test_avoid_list_only_shows_messages_from_the_same_category(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)

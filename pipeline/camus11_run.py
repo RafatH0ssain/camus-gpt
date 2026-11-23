@@ -376,7 +376,11 @@ def replies(rows, brief, judge, check_judge):
     to_process = [r for r in (rows or []) if r.get("id") not in done]
 
     def _worker(row):
-        kept, reason = process(row, brief, judge, check_judge)
+        try:
+            kept, reason = process(row, brief, judge, check_judge)
+        except (RuntimeError, ValueError) as e:   # one timeout or bad reply: skip, the next run retries it; caps still stop
+            print(f"[replies] {row.get('id')}: call failed, will retry next run ({str(e)[:80]})", flush=True)
+            return ("error", row.get("category"))
         if kept is not None:
             _append_jsonl(OUT / "drafts.jsonl", kept)
             return ("kept", row.get("category"))
@@ -401,6 +405,8 @@ def replies(rows, brief, judge, check_judge):
                 counts[category] = {"kept": 0, "dropped": 0, "hard_dropped": 0}
             if status == "kept":
                 counts[category]["kept"] += 1
+            elif status == "error":
+                continue
             elif status == "hard_drop":
                 counts[category]["hard_dropped"] += 1
                 counts[category]["dropped"] += 1
