@@ -19,6 +19,7 @@ import dpo_behaviour_v10 as dpo10  # noqa: E402
 import judge_opencode as jz  # noqa: E402
 
 MODELS = ("beam-free", "hy4-flash-free", "longcat-2.5-free")
+CHECKERS = None  # models for rule checks; None = rotate through MODELS, never the drafter
 TOKENS = 16000   # reasoning models (hy4) think 2-4k tokens first; the eval's 4000 cuts batches off
 # Seeds for variety: at temperature 0 the first run asked the same batch over and over (166 duplicates).
 PEOPLE = ["a nurse on nights", "a retired miner", "a first-year student", "a new father", "a widow in her 70s",
@@ -33,13 +34,13 @@ OUT = ROOT / "data" / "drafts" / "v11"
 
 _write_lock = threading.Lock()
 
-CATEGORY_DESC = {
-    "philosophical": "Questions about suicide, the absurd, Sisyphus, as ideas. Full engagement with his argument: the absurd is a confrontation to be held, revolt is the answer, suicide is a refusal to hold it. No help talk.",
-    "personal": "Someone says life feels pointless, they wish they wouldn't wake up, they're a weight on others. No canned redirect, no 'please don't', no hotline. He stays and questions the belief and the intent behind it, from his own answer to the absurd (revolt), as a person would: what is the feeling made of, does it prove the verdict, who is 'everyone'.",
-    "acute": "A stated intent with a plan, a method or a time. Still in his voice and questioning first, never a canned opener. Somewhere he says, in his own words, that he wants them to tell someone near them now. He never agrees it is a reasonable choice. He never discusses how: no methods, doses or details; telling them to put something out of reach is fine.",
-    "near_miss": "Ordinary low moments (a bad week, tiredness, grief without danger, a breakup). Treat it as life: no crisis framing, no safety questions, no helpline. Talk the way a friend does.",
-    "in_passing": "A small thing a person would just answer across a table (a quick sum, one word or short phrase translated, a spelling, a date). Give it briefly and correctly, then carry on as himself. Never refuse, never lecture about doing it yourself.",
-    "decline_work": "Real work (an essay, homework, code, a summary, a full translation, a plan, a speech). He doesn't do it, without AI refusal phrasing. He doesn't pretend not to know what he would know; for things after 1960 he can simply not know them. He turns to something human: the person, the occasion, what's behind the request.",
+USER_DESC = {   # what the person writes, never how he answers (that leaked into messages as coaching)
+    "philosophical": "They ask about suicide, the absurd or Sisyphus as ideas, out of curiosity or argument.",
+    "personal": "They say life feels pointless, they wish they wouldn't wake up, or they feel a weight on others. No plan, no method, no time.",
+    "acute": "They state an intent to die with a plan, a method or a time.",
+    "near_miss": "An ordinary low moment: a bad week, tiredness, grief without danger, a breakup. Nothing about wanting to die.",
+    "in_passing": "A small thing a person would ask across a table: a quick sum, one word or a short phrase to translate, a spelling, a date. Most ask the question outright; at most one in five offers their own answer to check.",
+    "decline_work": "They ask him to do real work for them: an essay, homework, code, a summary, a full translation, a plan, a speech, a letter.",
 }
 
 
@@ -142,7 +143,8 @@ def gen_messages(category, n, judge, probes, existing):
             "alternating user, Camus, drifting toward the final user message. "
             "Ask for varied people, ages, situations, register, lengths; use lowercase and typos sometimes. "
             "For acute multi-turn rows the plan or time is revealed only in the final user message."
-            "%s\nReturn only JSON." % (category, CATEGORY_DESC.get(category, ""), multi_hint)
+            " The person never tells Camus how to reply, what tone to take, or what not to say."
+            "%s\nReturn only JSON." % (category, USER_DESC.get(category, ""), multi_hint)
         )
         rnd = random.Random(f"{category}-{requests}")
         prompt += ("\nThis batch: people like %s. Do not resemble any of these earlier messages:\n%s"
@@ -167,6 +169,8 @@ def gen_messages(category, n, judge, probes, existing):
             reason = None
             if cd.too_close(user, probes):
                 reason = "probe_close"
+            elif cd.coaches_camus(user):
+                reason = "coaching"
             elif cd.too_close(user, kept_users, 0.6):
                 reason = "duplicate"
             elif len(prior) % 2 != 0:
@@ -289,12 +293,16 @@ def _model_for_row(row, offset=0):
     return MODELS[idx % len(MODELS)]
 
 
+def _checker(row):
+    return CHECKERS[0] if CHECKERS else _model_for_row(row, 2)
+
+
 def process(row, brief, judge, check_judge):
     category = row.get("category", "")
     rules = cd.RULES.get(category, [])
     model = _model_for_row(row, 0)
     draft = draft_reply(row, brief, judge, model)
-    verdict = cd.rule_check(category, _convo(row, draft), judge=check_judge, model=_model_for_row(row, 2))
+    verdict = cd.rule_check(category, _convo(row, draft), judge=check_judge, model=_checker(row))
     ok, hard_drop = cd.passes(category, draft, verdict)
     if ok:
         kept_row = {
@@ -313,6 +321,8 @@ def process(row, brief, judge, check_judge):
             failed = failed + ["tell"]
     if cd.has_stock(draft):
         failed = failed + ["it used stock wording (%s); never say the rules out loud" % ", ".join(cd.STOCK)]
+    if category == "decline_work" and cd.DECLINE_FORMULA.search(draft or ""):
+        failed = failed + ["it said 'I won't': decline in passing, without announcing a refusal, and give most of the reply to the person"]
     if cd.copies_example(draft, cd.example_texts()):
         failed = failed + ["it reused wording from the examples; say it in completely new words, "
                            "with nothing borrowed such as 'whoever is closest' or 'come back and tell me'"]
@@ -321,7 +331,7 @@ def process(row, brief, judge, check_judge):
     # redraft once
     next_model = _model_for_row(row, 1)
     redraft = draft_reply(row, brief, judge, next_model, note="The last draft broke: " + ", ".join(failed))
-    verdict2 = cd.rule_check(category, _convo(row, redraft), judge=check_judge, model=_model_for_row(row, 2))
+    verdict2 = cd.rule_check(category, _convo(row, redraft), judge=check_judge, model=_checker(row))
     ok2, hard_drop2 = cd.passes(category, redraft, verdict2)
     if ok2:
         kept_row = {

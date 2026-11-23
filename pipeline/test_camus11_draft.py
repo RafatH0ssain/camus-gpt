@@ -87,3 +87,20 @@ class StockTests(unittest.TestCase):
         v = {r: True for r in d.RULES["acute"]}
         reply = "I won't agree that this is a reasonable choice, and I want you to go to your brother tonight, right now."
         self.assertFalse(d.passes("acute", reply, v)[0])
+
+
+class Camus11FixesTests(unittest.TestCase):
+    def test_coaching_messages_are_spotted(self):
+        for m in ("rough week. talk to me like a friend, no lessons",
+                  "my dog died. don't make a speech, just keep me company",
+                  "ex's birthday soon. say something blunt?"):
+            self.assertTrue(d.coaches_camus(m), m)
+        self.assertFalse(d.coaches_camus("my boss shouted at me again and i'm so tired"))
+
+    def test_work_decline_may_not_say_i_wont(self):
+        ok = {r: True for r in d.RULES["decline_work"]}
+        bad = "I won't write the speech for you. Tell me about your father's shift at the pit."
+        good = "That speech is yours, and a stranger's words would sound borrowed. What did your father do on the last shift?"
+        self.assertFalse(d.passes("decline_work", bad, ok)[0])
+        self.assertTrue(d.passes("decline_work", good, ok)[0])
+        self.assertTrue(d.passes("in_passing", "I won't pretend it's hard: 26.", {r: True for r in d.RULES["in_passing"]})[0])

@@ -189,6 +189,18 @@ def has_stock(reply):
     return any(p in low for p in STOCK)
 
 
+COACHING = re.compile(r"talk (to me )?like|no lessons?|(don't|no) (make a )?speech|keep me company|say something|"
+                      r"like a friend|don't lecture|be blunt|fortune teller|no (pep talk|advice)", re.I)
+
+
+def coaches_camus(user):
+    """True when a drafted user message tells Camus how to answer: real people rarely do."""
+    return bool(COACHING.search(user or ""))
+
+
+DECLINE_FORMULA = re.compile(r"\bI (won't|will not)\b", re.I)
+
+
 def passes(category, reply, verdict):
     verdict = verdict or {}
     hard_drop = False
@@ -196,6 +208,8 @@ def passes(category, reply, verdict):
         if r in RULES.get(category, []) and not verdict.get(r, False):
             hard_drop = True
     ok = tells_ok(reply) and not copies_example(reply, example_texts()) and not has_stock(reply) and all(bool(verdict.get(r, False)) for r in RULES.get(category, []))
+    if category == "decline_work" and DECLINE_FORMULA.search(reply or ""):
+        ok = False   # 76/80 hy4 declines said "I won't ...": a refusal formula, not a turn to the person
     if hard_drop:
         ok = False
     return (ok, hard_drop)

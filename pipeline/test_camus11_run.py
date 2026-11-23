@@ -95,6 +95,38 @@ class Camus11RunTests(unittest.TestCase):
             self.assertGreaterEqual(got["d"]["max_tokens"], 16000)
             self.assertGreaterEqual(got["c"]["max_tokens"], 16000)
 
+    def test_coaching_messages_are_dropped_and_prompt_has_no_reply_coaching(self):
+        with tempfile.TemporaryDirectory() as td:
+            run.OUT = Path(td)
+            prompts = []
+            def fake_judge(model, system, prompt):
+                prompts.append(prompt)
+                return json.dumps({"rows": [
+                    {"prior": [], "user": "long week at the depot. talk to me like a friend, no lessons"},
+                    {"prior": [], "user": "my sister forgot my birthday again and i pretended it was fine"}]})
+            kept = run.gen_messages("near_miss", 2, fake_judge, [], [])
+            self.assertEqual([r["user"] for r in kept][:1],
+                             ["my sister forgot my birthday again and i pretended it was fine"])
+            dropped = [json.loads(l) for l in (Path(td) / "dropped.jsonl").read_text().splitlines()]
+            self.assertIn("coaching", [x["reason"] for x in dropped])
+            self.assertNotIn("Talk the way a friend does", prompts[0])
+            self.assertIn("never tells Camus how to", prompts[0])
+
+    def test_checker_override_is_used_for_rule_checks(self):
+        checkers = []
+        def fake_judge(model, system, prompt):
+            return json.dumps({"reply": "draft"})
+        def fake_check(model, system, prompt):
+            checkers.append(model)
+            return {r: True for r in cd.RULES["personal"]}
+        run.CHECKERS = ("beam-free",)
+        try:
+            run.process({"id": "personal_000", "category": "personal", "prior": [], "user": "hi"},
+                        "brief", fake_judge, fake_check)
+        finally:
+            run.CHECKERS = None
+        self.assertEqual(checkers, ["beam-free"])
+
     def test_avoid_list_only_shows_messages_from_the_same_category(self):
         with tempfile.TemporaryDirectory() as td:
             run.OUT = Path(td)
