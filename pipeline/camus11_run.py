@@ -169,7 +169,7 @@ def gen_messages(category, n, judge, probes, existing):
             reason = None
             if cd.too_close(user, probes):
                 reason = "probe_close"
-            elif cd.coaches_camus(user):
+            elif cd.coaches_camus(" ".join([user] + [t for t in prior[::2] if isinstance(t, str)])):
                 reason = "coaching"
             elif cd.too_close(user, kept_users, 0.6):
                 reason = "duplicate"

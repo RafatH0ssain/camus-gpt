@@ -103,8 +103,9 @@ class Camus11RunTests(unittest.TestCase):
                 prompts.append(prompt)
                 return json.dumps({"rows": [
                     {"prior": [], "user": "long week at the depot. talk to me like a friend, no lessons"},
+                    {"prior": ["no lessons tonight ok", "Fine."], "user": "the kettle broke and i cried about it"},
                     {"prior": [], "user": "my sister forgot my birthday again and i pretended it was fine"}]})
-            kept = run.gen_messages("near_miss", 2, fake_judge, [], [])
+            kept = run.gen_messages("near_miss", 3, fake_judge, [], [])
             self.assertEqual([r["user"] for r in kept][:1],
                              ["my sister forgot my birthday again and i pretended it was fine"])
             dropped = [json.loads(l) for l in (Path(td) / "dropped.jsonl").read_text().splitlines()]
