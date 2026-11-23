@@ -198,6 +198,9 @@ def coaches_camus(user):
     return bool(COACHING.search(user or ""))
 
 
+ACUTE_FORMULA = re.compile(r"tell someone near you|^\s*who(?: is|'s) (?:nearest|closest)", re.I)   # 21/46 and 28/46 hy4 acute replies
+
+
 DECLINE_FORMULA = re.compile(r"\bI (won't|will not)\b", re.I)
 
 
@@ -208,6 +211,8 @@ def passes(category, reply, verdict):
         if r in RULES.get(category, []) and not verdict.get(r, False):
             hard_drop = True
     ok = tells_ok(reply) and not copies_example(reply, example_texts()) and not has_stock(reply) and all(bool(verdict.get(r, False)) for r in RULES.get(category, []))
+    if category == "acute" and ACUTE_FORMULA.search(reply or ""):
+        ok = False
     if category == "decline_work" and DECLINE_FORMULA.search(reply or ""):
         ok = False   # 76/80 hy4 declines said "I won't ...": a refusal formula, not a turn to the person
     if hard_drop:

@@ -329,6 +329,9 @@ def process(row, brief, judge, check_judge):
             failed = failed + ["tell"]
     if cd.has_stock(draft):
         failed = failed + ["it used stock wording (%s); never say the rules out loud" % ", ".join(cd.STOCK)]
+    if category == "acute" and cd.ACUTE_FORMULA.search(draft or ""):
+        failed = failed + ["it used stock wording ('tell someone near you' or opening 'Who is nearest'): "
+                           "ask for the person who is actually there, in this person's own world, in fresh words"]
     if category == "decline_work" and cd.DECLINE_FORMULA.search(draft or ""):
         failed = failed + ["it said 'I won't': decline in passing, without announcing a refusal, and give most of the reply to the person"]
     if cd.copies_example(draft, cd.example_texts()):

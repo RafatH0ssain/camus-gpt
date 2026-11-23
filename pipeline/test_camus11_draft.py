@@ -110,3 +110,12 @@ class Camus11FixesTests(unittest.TestCase):
         b = ["i don't know why i keep watering a plant that died in may"]
         self.assertTrue(d.too_close(a, b))               # probe check: any 5-word run
         self.assertFalse(d.too_close(a, b, 0.6, run=8))  # dedupe: only a long shared run
+
+    def test_acute_reply_may_not_reuse_the_brief_wording_or_stock_opener(self):
+        ok = {r: True for r in d.RULES["acute"]}
+        for bad in ("Who is nearest to you tonight? Go to them and say what you said to me.",
+                    "What changed today? I want you to tell someone near you now, and stay with them."):
+            self.assertFalse(d.passes("acute", bad, ok)[0], bad)
+        good = ("What changed today, that it has a time on it now? Your landlady is downstairs; knock and say "
+                "to her what you wrote to me, and let her sit with you while we talk.")
+        self.assertTrue(d.passes("acute", good, ok)[0])
