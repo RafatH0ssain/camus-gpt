@@ -23,7 +23,10 @@ python rag/camus_rag.py
 `--debug` shows what retrieval pulled up for each message, and `--memory` turns on a memory
 layer so he remembers you between sessions (off by default, see
 [docs/MEMORY.md](docs/MEMORY.md)). Long chats don't fall off a cliff either: once a turn scrolls
-out of his window it gets folded into a running summary he can still see.
+out of his window it gets folded into a running summary he can still see. If you have an OpenCode
+key configured, non-greeting replies also run through a quick fact check against his notes before
+printing; set `FACT_CHECK=0` to skip it and stream everything locally (without a key it already
+streams locally).
 
 ## How it's made
 

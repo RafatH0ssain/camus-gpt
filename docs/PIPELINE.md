@@ -22,9 +22,9 @@ Base model `unsloth/gemma-4-12b-it`, two SFT passes and an optional DPO pass:
    weights loaded frozen); set `DPO_SET = None` to skip it.
 3. **Export.** `training/CamusGPT_Export_GGUF_Gemma4.ipynb` merges both LoRAs into
    the base and quantizes to a q4_k_m GGUF with a matching Modelfile. Register the
-   result as the Ollama model `camus8`:
+   result as the Ollama model `camus10`:
 
-       cd rag && ollama create camus8 -f Modelfile.camus8
+       cd rag && ollama create camus10 -f Modelfile.camus10
 
 The corpus is assembled by `pipeline/assemble_training.py` (see `data/README.md`).
 
@@ -47,7 +47,7 @@ gitignored, and are a matched pair.
 ## Chat + retrieval — `rag/`
 
 `python rag/camus_rag.py` (from the repo root; needs Ollama running with the
-`camus8` model and `nomic-embed-text`):
+`camus10` model and `nomic-embed-text`):
 
 - **Retrieval** is hybrid: dense cosine over the KB vectors plus BM25, fused by
   reciprocal rank and reranked by a cross-encoder. Confidence tiers and the 0.55
@@ -64,6 +64,10 @@ gitignored, and are a matched pair.
   the oldest 8 fold into a rolling summary written by a small utility model
   (`fold_evicted` in `rag/camus_rag.py`).
 - **Sampling:** temperature 0.45 on factual turns, 0.6 on task turns.
+- **Fact check:** on non-task, non-greeting turns when an OpenCode key is configured,
+  `rag/fact_check.py` checks the draft against the identity card and retrieved facts
+  (never views) and triggers at most one in-voice retry at temperature 0.25. Set
+  `FACT_CHECK=0` to disable and stream locally; without a key it disables automatically.
 - **Memory:** an optional per-user layer behind `--memory` — see `docs/MEMORY.md`.
 
 `rag/camus_client.py` wraps the same pipeline as an importable client and CLI.

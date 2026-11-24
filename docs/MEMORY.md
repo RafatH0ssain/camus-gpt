@@ -31,6 +31,9 @@ the task gate exactly like facts.
 
 `profile.example.md` is the tracked template; `profile.md` and `memory*.jsonl`
 hold conversation content and are guarded by `.gitignore` and the pre-commit hook.
+Note: if an OpenCode API key is configured, the default post-reply fact check sends
+non-greeting user messages and drafts to OpenCode (without `profile.md` or stored
+memories). Set `FACT_CHECK=0` to keep `--memory` sessions strictly local.
 
 ## Setup
 
