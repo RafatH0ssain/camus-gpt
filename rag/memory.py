@@ -31,10 +31,40 @@ camus_rag and can be tested with a stub.
 """
 from __future__ import annotations
 
-import json, os, re, uuid
+import json, os, re, tempfile, uuid
 from datetime import datetime, timezone
 
 import numpy as np
+
+
+def _atomic_write_text(path: str, content: str) -> None:
+    parent = os.path.dirname(path) or "."
+    os.makedirs(parent, exist_ok=True)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=parent, delete=False) as fh:
+            tmp_path = fh.name
+            fh.write(content)
+        os.replace(tmp_path, path)
+    except BaseException:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
+
+def _atomic_save_npy(path: str, arr: np.ndarray) -> None:
+    parent = os.path.dirname(path) or "."
+    os.makedirs(parent, exist_ok=True)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("wb", dir=parent, delete=False) as fh:
+            tmp_path = fh.name
+            np.save(fh, arr)
+        os.replace(tmp_path, path)
+    except BaseException:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
 # ---- paths (repo root; all gitignored) ----
 PROFILE_PATH = os.environ.get("PROFILE_PATH", "./profile.md")
@@ -81,8 +111,8 @@ def load_profile(path: str = PROFILE_PATH) -> str:
     the user wrote them; they cost a few tokens and preserve intent."""
     if not os.path.exists(path):
         return ""
-    text = open(path, encoding="utf-8").read().strip()
-    return text
+    with open(path, encoding="utf-8") as fh:
+        return fh.read().strip()
 
 
 # ─────────────────────────────────────────────────────────── store ──────────
@@ -123,11 +153,10 @@ class MemoryStore:
                          for r in self.rows]).astype(np.float32)
 
     def save(self):
-        with open(self.mem_path, "w", encoding="utf-8") as f:
-            for r in self.rows:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        body = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in self.rows)
+        _atomic_write_text(self.mem_path, body)
         if self.vecs is not None and len(self.vecs):
-            np.save(self.vec_path, self.vecs)
+            _atomic_save_npy(self.vec_path, self.vecs)
         elif os.path.exists(self.vec_path):
             os.remove(self.vec_path)
 
@@ -159,14 +188,18 @@ class MemoryStore:
         return i, float(sims[i])
 
     def add(self, text: str, kind: str = "fact", session: str | None = None,
-            cue: str = "") -> str:
+            cue: str = "", vec: np.ndarray | None = None) -> str:
         """Two-tier consolidation. Returns one of: 'added' | 'bumped' | 'merged'."""
         text = " ".join(text.split())
         cue = " ".join((cue or "").split())
         if not text:
             return "empty"
-        assert kind in KINDS, f"unknown kind {kind!r}"
-        vec = self.embed_fn(doc_text(text, cue), prefix="search_document: ").astype(np.float32)
+        if kind not in KINDS:
+            kind = "fact"
+        if vec is None:
+            vec = self.embed_fn(doc_text(text, cue), prefix="search_document: ").astype(np.float32)
+        else:
+            vec = np.asarray(vec, dtype=np.float32)
         i, sim = self._closest(vec)
 
         if sim >= DEDUP_DROP:                      # same thing said again
@@ -224,15 +257,25 @@ class MemoryStore:
         return len(self.rows)
 
     def forget(self, needle: str) -> int:
-        """Delete memories containing a substring (case-insensitive). Returns count.
-        The user must be able to remove things the machine remembered."""
+        """Delete memories containing a substring (case-insensitive) from both the live
+        store and the probation buffer. Returns total count removed."""
         n = needle.lower()
         keep = [i for i, r in enumerate(self.rows) if n not in r["text"].lower()]
         removed = len(self.rows) - len(keep)
         if removed:
             self.rows = [self.rows[i] for i in keep]
             self.vecs = self.vecs[keep] if self.vecs is not None and keep else None
-        return removed
+
+        pending_removed = 0
+        if os.path.exists(self.pending_path):
+            with open(self.pending_path, encoding="utf-8") as f:
+                pending = [json.loads(l) for l in f if l.strip()]
+            kept_pending = [p for p in pending if n not in str(p.get("text", "")).lower()]
+            pending_removed = len(pending) - len(kept_pending)
+            if pending_removed:
+                body = "".join(json.dumps(p, ensure_ascii=False) + "\n" for p in kept_pending)
+                _atomic_write_text(self.pending_path, body)
+        return removed + pending_removed
 
     # ---- probation ----
     def stage(self, candidates: list[dict], session: str | None = None) -> dict:
@@ -245,7 +288,10 @@ class MemoryStore:
 
         summary = {"staged": 0, "promoted": 0, "bumped": 0, "merged": 0}
         for c in candidates:
-            text, kind = " ".join(c["text"].split()), c.get("kind", "fact")
+            text = " ".join(str(c.get("text", "")).split())
+            kind = str(c.get("kind", "fact")).strip().lower()
+            if kind not in KINDS:
+                kind = "fact"
             cue = " ".join(str(c.get("cue", "") or "").split())
             if not text:
                 continue
@@ -254,7 +300,7 @@ class MemoryStore:
             # already in the live store? consolidate there instead of staging again
             i, sim = self._closest(vec)
             if sim >= DEDUP_MERGE:
-                res = self.add(text, kind, session, cue)
+                res = self.add(text, kind, session, cue, vec=vec)
                 summary[res if res in summary else "bumped"] += 1
                 continue
 
@@ -279,9 +325,8 @@ class MemoryStore:
                                 "vec": [round(float(x), 5) for x in vec]})
                 summary["staged"] += 1
 
-        with open(self.pending_path, "w", encoding="utf-8") as f:
-            for p in pending:
-                f.write(json.dumps(p, ensure_ascii=False) + "\n")
+        body = "".join(json.dumps(p, ensure_ascii=False) + "\n" for p in pending)
+        _atomic_write_text(self.pending_path, body)
         self.save()
         return summary
 
@@ -341,17 +386,50 @@ CONVERSATION:
 """
 
 
+_FENCE_RE = re.compile(r"^[ \t]*```[A-Za-z0-9_+-]*[ \t]*$", re.M)
+
+
+def first_json_array(raw: str) -> list | None:
+    """Return the first balanced JSON array in `raw`, ignoring trailing prose/brackets."""
+    t = _FENCE_RE.sub("", str(raw or "")).strip()
+    pos = 0
+    while True:
+        start = t.find("[", pos)
+        if start < 0:
+            return None
+        depth, in_str, esc = 0, False, False
+        for i, ch in enumerate(t[start:], start):
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        val = json.loads(t[start:i + 1])
+                        if isinstance(val, list):
+                            return val
+                    except json.JSONDecodeError:
+                        pass
+                    break
+        pos = start + 1
+
+
 def parse_extraction(raw: str) -> list[dict]:
     """Parse the model's JSON array defensively; drop anything malformed or off-spec."""
-    m = re.search(r"\[.*\]", raw, re.S)
-    if not m:
-        return []
-    try:
-        items = json.loads(m.group(0))
-    except json.JSONDecodeError:
+    items = first_json_array(raw)
+    if not items:
         return []
     out = []
-    for it in items if isinstance(items, list) else []:
+    for it in items:
         if not isinstance(it, dict):
             continue
         text = str(it.get("text", "")).strip()

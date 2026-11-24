@@ -629,13 +629,8 @@ def chat_extract(messages):
 
 def _looks_like_memory_array(raw):
     """True if raw contains a JSON array holding at least one object with a "text"."""
-    m = re.search(r"\[.*\]", raw or "", re.S)
-    if not m:
-        return False
-    try:
-        items = json.loads(m.group(0))
-    except json.JSONDecodeError:
-        return False
+    import memory as _mem
+    items = _mem.first_json_array(raw or "")
     return isinstance(items, list) and any(
         isinstance(i, dict) and str(i.get("text", "")).strip() for i in items)
 
