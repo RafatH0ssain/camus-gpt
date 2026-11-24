@@ -188,7 +188,7 @@ SHORT_DROP_KINDS_V9 = ("no_invented_state", "open_no_invented_state", "greeting"
 # in place after dedup and drops, so the key is the one the row had before rewriting.
 OPENBOOK_V10 = "data/drafts/openbook_v10.jsonl"
 REWRITES_V10 = "data/drafts/v10/sft_rewrites.jsonl"
-DROP_PHRASES_V10 = DROP_PHRASES_V8 + rewrite_check.BANNED
+DROP_PHRASES_V10 = tuple(dict.fromkeys(DROP_PHRASES_V8 + rewrite_check.BANNED))
 DEFECTS_MARKER = "data/drafts/DEFECTS_REVIEWED"
 DEFECTS_INPUTS = ("data/drafts/defects_recall.jsonl",
                   "data/drafts/defects_premise.jsonl",

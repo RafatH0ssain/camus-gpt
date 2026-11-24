@@ -14,7 +14,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT / "pipeline"), str(ROOT / "rag")]
 
 import camus11_draft as cd  # noqa: E402
-jz = cd.jz
 try:   # gitignored (private replies): absent on CI; the runner then uses the brief's examples only
     import dpo_behaviour_v10 as dpo10  # noqa: E402
 except ImportError:
@@ -130,7 +129,6 @@ def gen_messages(category, n, judge, probes, existing):
     max_batches = max(1, 5 * n)
     requests = 0
     multi_share = MULTI.get(category, 0.0)
-    multi_target = int(round(n * multi_share))
     while len(kept) < n and requests < max_batches:
         requests += 1
         model = MODELS[requests % len(MODELS)]
@@ -215,28 +213,6 @@ def gen_messages(category, n, judge, probes, existing):
     if len(kept) < n:
         print("warning: only %d/%d kept for %s after %d requests" % (len(kept), n, category, requests))
     return kept
-
-
-_EXTRA_EXAMPLES = None
-
-
-def _extra_examples():
-    global _EXTRA_EXAMPLES
-    if _EXTRA_EXAMPLES is not None:
-        return _EXTRA_EXAMPLES
-    lines = []
-    for kind, prior, user, chosen in getattr(dpo10, "WRITTEN", []):
-        if "square root" in (user or ""):
-            continue
-        if prior:
-            for i, t in enumerate(prior):
-                role = "user" if i % 2 == 0 else "camus"
-                lines.append("%s: %s" % (role, t))
-        lines.append("user: %s" % user)
-        lines.append("Camus: %s" % chosen)
-        lines.append("")
-    _EXTRA_EXAMPLES = "\n".join(lines)
-    return _EXTRA_EXAMPLES
 
 
 _KIND = {"distress_acute": "acute", "distress_personal": "personal",
@@ -362,10 +338,6 @@ def process(row, brief, judge, check_judge):
             "model": next_model,
         }
         return kept_row, None
-    failed2 = [r for r in rules if not bool(verdict2.get(r, False))]
-    if not cd.tells_ok(redraft):
-        if "tell" not in failed2:
-            failed2 = failed2 + ["tell"]
     if hard_drop2:
         return None, "hard_drop"
     return None, "rule_fail"
@@ -437,15 +409,6 @@ def replies(rows, brief, judge, check_judge):
         cinfo = counts.get(c, {"kept": 0, "dropped": 0, "hard_dropped": 0})
         print("%-14s %4d  %7d  %12d" % (c, cinfo["kept"], cinfo["dropped"], cinfo["hard_dropped"]))
     return counts
-
-
-# aliases for possible hidden-test names
-run_replies = replies
-process_replies = replies
-process_rows = replies
-process_all = replies
-do_replies = replies
-handle_replies = replies
 
 
 def owner_sheet(drafts, seed=11):
@@ -543,7 +506,8 @@ def main(argv=None):
     for name in ("messages", "replies"):
         sub.add_parser(name).add_argument("--only", default="", help="comma-separated categories")
     sub.add_parser("sheet")
-    sub.add_parser("rejects")
+    rej = sub.add_parser("rejects")
+    rej.add_argument("--model", default="camus10", help="Ollama model to sample for DPO rejects")
     args = parser.parse_args(argv)
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -575,7 +539,7 @@ def main(argv=None):
     if args.cmd == "rejects":
         import camus_rag as cr
         opts = dict(cr.GEN_OPTS, temperature=cr.TEMP_FACTUAL)
-        rejects(_read_jsonl(OUT / "drafts.jsonl"), lambda m: cr.chat_once(m, opts),
+        rejects(_read_jsonl(OUT / "drafts.jsonl"), lambda m: cr.chat_once(m, opts, model=args.model),
                 partial(jz.judge, max_tokens=TOKENS))
         return 0
 

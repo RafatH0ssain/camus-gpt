@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rag"))
 
+import assemble_training as at  # noqa: E402
 import camus11_draft as cd  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -74,7 +75,8 @@ def pairs(drafts, camus10_rows, render=None):
 
 
 def _read(path):
-    return [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    with open(path, encoding="utf-8") as fh:
+        return [json.loads(l) for l in fh if l.strip()]
 
 
 def _write(path, rows):
@@ -86,9 +88,12 @@ def _write(path, rows):
 def manifest_entry(path, rows, v10, n_new):
     """phase2_v11's MANIFEST.json entry: v10's, re-described for the new file (the notebook checks sha256)."""
     e = copy.deepcopy(v10)
+    for stale in ("rewritten", "dropped_by_phrase", "dropped_short"):
+        e.pop(stale, None)
     data = Path(path).read_bytes()
     e.update(file=Path(path).name, rows=len(rows), bytes=len(data), sha256=hashlib.sha256(data).hexdigest(),
              kinds=dict(collections.Counter(r.get("kind", "?") for r in rows)),
+             metrics=at.set_metrics(rows),
              note=f"phase2_v10 plus {n_new} camus11 drafts (distress voice, in-character declines)")
     e["inputs"] = list(e.get("inputs", [])) + [{"input": "data/drafts/v11/drafts.jsonl", "weight": 1, "rows_read": n_new}]
     try:
@@ -105,7 +110,8 @@ def main():
     dpo = pairs(drafts, _read(DRAFTS / "camus10.jsonl"))
     phase2 = _read(OUT / "phase2_v10.jsonl") + sft
     _write(OUT / "phase2_v11.jsonl", phase2)
-    man = json.load(open(OUT / "MANIFEST.json", encoding="utf-8"))
+    with open(OUT / "MANIFEST.json", encoding="utf-8") as f:
+        man = json.load(f)
     man["sets"]["phase2_v11"] = manifest_entry(OUT / "phase2_v11.jsonl", phase2, man["sets"]["phase2_v10"], len(sft))
     with open(OUT / "MANIFEST.json", "w", encoding="utf-8") as f:
         json.dump(man, f, indent=2, ensure_ascii=False)

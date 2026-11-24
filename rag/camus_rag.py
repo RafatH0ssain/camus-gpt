@@ -338,9 +338,9 @@ def stream_chat(messages, opts=None):
         if d.get("done"): break
     print("\n"); return full
 
-def chat_once(messages, opts=None):
+def chat_once(messages, opts=None, model=None):
     r = requests.post(f"{OLLAMA}/api/chat",
-                      json={"model":GEN_MODEL,"messages":messages,"stream":False,
+                      json={"model":model or GEN_MODEL,"messages":messages,"stream":False,
                             "options":opts or GEN_OPTS,"think":False},
                       timeout=300)
     r.raise_for_status()

@@ -57,14 +57,23 @@ class BuildV11Tests(unittest.TestCase):
         from pathlib import Path
         with tempfile.TemporaryDirectory() as td:
             f = Path(td) / "phase2_v11.jsonl"
-            rows = [{"messages": [], "kind": "v11_acute"}, {"messages": [], "kind": "conversational"}]
+            rows = [
+                {"messages": [{"role": "user", "content": "u1"}, {"role": "assistant", "content": "One two three."}],
+                 "kind": "v11_acute"},
+                {"messages": [{"role": "user", "content": "u2"}, {"role": "assistant", "content": "Four five six seven."}],
+                 "kind": "conversational"},
+            ]
             f.write_text("".join(json.dumps(r) + "\n" for r in rows))
-            v10 = {"file": "phase2_v10.jsonl", "rows": 1, "metrics": {"x": 1}, "inputs": [{"input": "a", "weight": 1}]}
+            v10 = {"file": "phase2_v10.jsonl", "rows": 1, "metrics": {"x": 1}, "rewritten": 5,
+                   "dropped_by_phrase": 2, "inputs": [{"input": "a", "weight": 1}]}
             e = b.manifest_entry(f, rows, v10, n_new=1)
             self.assertEqual(e["file"], "phase2_v11.jsonl")
             self.assertEqual(e["rows"], 2)
             self.assertEqual(e["sha256"], hashlib.sha256(f.read_bytes()).hexdigest())
             self.assertEqual(e["kinds"], {"v11_acute": 1, "conversational": 1})
+            self.assertEqual(e["metrics"]["assistant_turns"], 2)
+            self.assertNotIn("rewritten", e)
+            self.assertNotIn("dropped_by_phrase", e)
             self.assertEqual(e["inputs"][-1]["input"], "data/drafts/v11/drafts.jsonl")
             self.assertEqual(v10["file"], "phase2_v10.jsonl")   # v10's entry is not touched
 

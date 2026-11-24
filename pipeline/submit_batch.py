@@ -25,13 +25,18 @@ Usage:
 import sys
 import os
 import json
+import hashlib
 import random
 from datetime import datetime, timezone
 
-from anthropic import Anthropic
 import config as C
 
-client = Anthropic()   # reads ANTHROPIC_API_KEY from env (config loaded .env)
+
+def _safe_cid(prefix, sid):
+    raw = f"{prefix}-{sid}"
+    if len(raw) <= 64:
+        return raw
+    return f"{raw[:55]}-{hashlib.sha1(raw.encode('utf-8')).hexdigest()[:8]}"
 
 
 def _req(cid, system, user, max_tokens):
@@ -50,7 +55,9 @@ def build_sft():
         passage = C.clean_passage(c.get("text", ""))
         if len(passage) < C.MIN_PASSAGE_CHARS:
             continue
-        cid = f"sft-{sid}"[:64]
+        cid = _safe_cid("sft", sid)
+        if cid in mapping:
+            raise ValueError(f"duplicate batch custom_id {cid!r} for chunk {sid!r}")
         user = C.SFT_USER.format(source=c.get("source", "Camus"), passage=passage,
                                  n_prompts=C.PROMPTS_PER_CHUNK, n_convos=C.CONVOS_PER_CHUNK)
         requests.append(_req(cid, C.SFT_SYSTEM, user, C.MAX_TOKENS["sft"]))
@@ -100,12 +107,14 @@ BUILDERS = {"sft": build_sft, "style": build_style,
 
 def load_manifest():
     if os.path.exists(C.MANIFEST):
-        return json.load(open(C.MANIFEST, encoding="utf-8"))
+        with open(C.MANIFEST, encoding="utf-8") as fh:
+            return json.load(fh)
     return {}
 
 
 def save_manifest(m):
-    json.dump(m, open(C.MANIFEST, "w", encoding="utf-8"), indent=2)
+    with open(C.MANIFEST, "w", encoding="utf-8") as fh:
+        json.dump(m, fh, indent=2)
 
 
 def main():
@@ -127,6 +136,8 @@ def main():
 
     print(f"[{stage}] built {len(requests)} requests -> {req_path}")
     print(f"[{stage}] submitting to Anthropic Batch API ...")
+    from anthropic import Anthropic
+    client = Anthropic()
     batch = client.messages.batches.create(requests=requests)
 
     manifest = load_manifest()

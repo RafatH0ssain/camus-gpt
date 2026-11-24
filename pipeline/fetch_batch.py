@@ -29,23 +29,21 @@ import json
 import time
 import hashlib
 
-from anthropic import Anthropic
 import config as C
-
-client = Anthropic()
 
 
 def load_manifest():
     if not os.path.exists(C.MANIFEST):
         sys.exit("No manifest found. Submit a batch first with submit_batch.py.")
-    return json.load(open(C.MANIFEST, encoding="utf-8"))
+    with open(C.MANIFEST, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def load_map(path):
     return {r["custom_id"]: r for r in C.load_jsonl(path)}
 
 
-def poll(batch_id):
+def poll(client, batch_id):
     while True:
         b = client.messages.batches.retrieve(batch_id)
         rc = b.request_counts
@@ -70,7 +68,7 @@ def _err_msg(result):
     return repr(err)[:200]
 
 
-def collect(batch_id):
+def collect(client, batch_id):
     """Stream results -> list of (custom_id, text). Groups non-successes by reason."""
     out, errors = [], {}
     for entry in client.messages.batches.results(batch_id):
@@ -210,13 +208,16 @@ def main():
     batch_id = entry["batch_id"]
     print(f"[{stage}] batch {batch_id} — polling every {C.POLL_SECONDS}s ...")
 
-    poll(batch_id)
-    results = collect(batch_id)
+    from anthropic import Anthropic
+    client = Anthropic()
+    poll(client, batch_id)
+    results = collect(client, batch_id)
     rows = PARSERS[stage](results, load_map(entry["map_path"]))
     C.write_jsonl(OUTPUTS[stage], rows)
 
     entry["status"] = "done"
-    json.dump(manifest, open(C.MANIFEST, "w", encoding="utf-8"), indent=2)
+    with open(C.MANIFEST, "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2)
     print(f"[{stage}] ✅ wrote {len(rows)} rows -> {OUTPUTS[stage]}")
     if stage == "sft":
         print("[sft] next: python submit_batch.py style")
