@@ -20,6 +20,8 @@ pipeline/__pycache__/
 # Tooling state
 .claude/settings.local.json
 .cache/
+.superpowers/
+.mimocode/
 
 # Model artifacts — published on the Hub, never committed
 *.gguf
@@ -120,6 +122,7 @@ data/camus_refusals.jsonl
 data/camus_short.jsonl
 data/cloud/
 docs/archive/
+docs/superpowers/
 training/archive/
 eval/archive/
 eval/eval_history.csv

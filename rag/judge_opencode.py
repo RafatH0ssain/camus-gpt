@@ -174,18 +174,20 @@ def _post_by(deadline, *args, **kwargs):
     return box["r"]
 
 
-USAGE_LEDGER = os.path.expanduser("~/.local/share/dale/go-usage.jsonl")
+USAGE_LEDGER = os.environ.get("OPENCODE_USAGE_LEDGER") or ""
 
 
 def _record_usage(r, model):
-    """Append what Go counted for this request to Dale's usage ledger if Dale is installed
-    (its directory already exists). Best effort: never fails a judge call."""
+    """Append gateway usage allowance to OPENCODE_USAGE_LEDGER when configured. Best effort."""
+    if not USAGE_LEDGER:
+        return
     try:
-        ledger_dir = os.path.dirname(USAGE_LEDGER)
-        if not os.path.isdir(ledger_dir):
+        ledger_path = os.path.expanduser(USAGE_LEDGER)
+        ledger_dir = os.path.dirname(ledger_path)
+        if ledger_dir and not os.path.isdir(ledger_dir):
             return
         allowance = r.json()["usage"]["opencode"]["allowance"]
-        with open(USAGE_LEDGER, "a", encoding="utf-8") as f:
+        with open(ledger_path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"t": int(time.time() * 1000), "model": model, "allowance": allowance}) + "\n")
     except Exception:
         pass

@@ -52,10 +52,16 @@ while IFS= read -r path; do
     # what stops MANIFEST.json, a notebook, or any other name under build/ —
     # phase1_old/phase1_new carry published book text.
     case "$path" in
+        .env|.env*|*/.env|*/.env*)
+            emit "secret" "$path" "environment / secrets file — never commit" ;;
         archive/*)
             emit "path" "$path" "local reference material — keep it out of history" ;;
         build/*)
             emit "path" "$path" "assembled upload bundles — keep them out of history" ;;
+        batches/*)
+            emit "path" "$path" "local batch artifacts — keep them out of history" ;;
+        docs/superpowers/*|.superpowers/*)
+            emit "path" "$path" "local design notes and plans — keep them out of history" ;;
     esac
 
     case "$path" in
@@ -80,15 +86,10 @@ while IFS= read -r path; do
             emit "path" "$path" "local conversation memory — never commit" ;;
     esac
 
-    # jsonl is allowed as the tracked training corpora and as eval probe scores;
-    # everything else derived stays local.
+    # All training corpora, KB extracts, and eval score logs stay local.
     case "$path" in
         *.jsonl)
-            case "$path" in
-                data/camus_*.jsonl|eval/*.jsonl|eval/archive/*/*.jsonl|eval/archive/*/*/*.jsonl) : ;;
-                *) emit "path" "$path" \
-                        "only data/camus_*.jsonl and eval probe scores are tracked" ;;
-            esac ;;
+            emit "path" "$path" "jsonl datasets and eval logs stay local — never commit" ;;
     esac
 done <<< "$staged"
 

@@ -395,16 +395,20 @@ class DefaultsTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             jz.resolve_model("ollama", None)
 
-    def test_usage_ledger_only_writes_when_directory_exists(self):
+    def test_usage_ledger_only_writes_when_configured_and_directory_exists(self):
         resp = FakeResponse(200, {"usage": {"opencode": {"allowance": 0.01}}})
         with tempfile.TemporaryDirectory() as tmp:
-            missing_dir = os.path.join(tmp, "no_dale")
-            missing_ledger = os.path.join(missing_dir, "go-usage.jsonl")
+            missing_dir = os.path.join(tmp, "absent_dir")
+            missing_ledger = os.path.join(missing_dir, "usage.jsonl")
             with mock.patch.object(jz, "USAGE_LEDGER", missing_ledger):
                 jz._record_usage(resp, "hy4-flash-free")
             self.assertFalse(os.path.exists(missing_dir))
 
-            existing_ledger = os.path.join(tmp, "go-usage.jsonl")
+            existing_ledger = os.path.join(tmp, "usage.jsonl")
+            with mock.patch.object(jz, "USAGE_LEDGER", ""):
+                jz._record_usage(resp, "hy4-flash-free")
+            self.assertFalse(os.path.exists(existing_ledger))
+
             with mock.patch.object(jz, "USAGE_LEDGER", existing_ledger):
                 jz._record_usage(resp, "hy4-flash-free")
             with open(existing_ledger, encoding="utf-8") as fh:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-camus_client.py — programmatic access to the RAG Camus model (for Claude Code / scripts).
+camus_client.py — programmatic access to the RAG Camus model (for scripts / library use).
 
 Reuses the SAME retrieval + system-building as camus_rag.py (single source of truth),
 but returns structured data instead of streaming to a terminal, so an orchestrator can

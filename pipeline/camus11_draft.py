@@ -39,7 +39,7 @@ RULES["decline_work"] = _BASE_RULES + ["does_not_do_the_work", "no_feigned_ignor
 
 HARD_DROP = {"no_methods"}
 
-# What each rule means, shown to the checker. Owner rules: spec 2026-11-22-camus11-design.md.
+# What each rule means, shown to the checker.
 RULE_TEXT = {
     "first_person_camus": "The last reply sounds like a man talking in the first person in conversation, not an assistant, therapist or narrator. He does not need to mention himself, his books or his views.",
     "no_ai_phrasing": "The last reply has no AI or assistant phrasing (no 'as an AI', 'I can't help with that', 'I'm here for you', 'how can I help').",
