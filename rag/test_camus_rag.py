@@ -481,6 +481,7 @@ class RouteTests(unittest.TestCase):
              mock.patch.object(cr, "load_reranker", return_value=None), \
              mock.patch.object(cr, "retrieve", return_value=[]), \
              mock.patch.object(cr, "FACT_CHECK", True), \
+             mock.patch.object(cr.fact_check, "available", return_value=True), \
              mock.patch.object(cr, "chat_once", side_effect=["draft", "retry"]) as chat_mock, \
              mock.patch.object(cr.fact_check, "check_reply", return_value={"ok": False, "problem": "x", "model": "beam-free"}), \
              mock.patch("builtins.input", side_effect=["did you write The Plague?", EOFError]):
@@ -491,6 +492,33 @@ class RouteTests(unittest.TestCase):
         self.assertEqual(out.count("camus: "), 1)
         self.assertIn("retry", out)
         self.assertNotIn("draft", out)
+
+    def test_cli_streams_when_no_fact_check_key(self):
+        with mock.patch("sys.argv", ["camus_rag.py"]), \
+             mock.patch.object(cr, "load_kb", return_value=([], None)), \
+             mock.patch.object(cr, "build_bm25", return_value=None), \
+             mock.patch.object(cr, "load_reranker", return_value=None), \
+             mock.patch.object(cr, "retrieve", return_value=[]), \
+             mock.patch.object(cr, "FACT_CHECK", True), \
+             mock.patch.object(cr.fact_check, "available", return_value=False), \
+             mock.patch.object(cr, "stream_chat", return_value="streamed") as stream_mock, \
+             mock.patch.object(cr, "chat_once") as chat_mock, \
+             mock.patch("builtins.input", side_effect=["did you write The Plague?", EOFError]):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cr.main()
+        stream_mock.assert_called_once()
+        chat_mock.assert_not_called()
+
+    def test_summary_chat_keeps_gen_model_loaded_on_fallback(self):
+        with mock.patch.object(cr, "SUMMARY_MODEL", cr.GEN_MODEL), \
+             mock.patch.object(cr, "util_chat", return_value="sum") as util_mock:
+            cr.summary_chat([{"role": "user", "content": "x"}])
+        self.assertIsNone(util_mock.call_args.kwargs["keep_alive"])
+
+        with mock.patch.object(cr, "SUMMARY_MODEL", "gemma3:4b"), \
+             mock.patch.object(cr, "util_chat", return_value="sum") as util_mock:
+            cr.summary_chat([{"role": "user", "content": "x"}])
+        self.assertEqual(util_mock.call_args.kwargs["keep_alive"], 0)
 
     def test_chat_once(self):
         with mock.patch.object(cr.requests, "post", return_value=fake_response("hi")) as post:

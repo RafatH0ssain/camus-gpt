@@ -9,6 +9,13 @@ except ImportError:  # pragma: no cover - supports `import rag.fact_check`
 judge_opencode = jz
 
 CHECK_MODELS = ("beam-free", "hy4-flash-free")
+CHECK_DEADLINE = 15
+CHECK_ATTEMPTS = 1
+
+
+def available():
+    """True when the OpenCode key needed by the checker is configured."""
+    return jz.has_key()
 
 CHECK_SYSTEM = (
     "You are a fact checker for replies written as Albert Camus.\n"
@@ -31,13 +38,18 @@ def check_reply(user_msg, draft, context, judge=None):
     Returns {"ok", "problem", "model"} on success, or {"skipped": True, "error": ...}
     when every model fails or a usage cap is hit.
     """
-    if judge is None:
+    default_judge = judge is None
+    if default_judge:
         judge = jz.judge
     prompt = "CONTEXT:\n{}\n\nUSER:\n{}\n\nREPLY:\n{}".format(context, user_msg, draft)
     last_error = None
     for model in CHECK_MODELS:
         try:
-            raw = judge(model, CHECK_SYSTEM, prompt)
+            if default_judge:
+                raw = judge(model, CHECK_SYSTEM, prompt,
+                            deadline=CHECK_DEADLINE, attempts=CHECK_ATTEMPTS)
+            else:
+                raw = judge(model, CHECK_SYSTEM, prompt)
         except SystemExit as e:  # UsageCapReached, or no API key: no model can run
             return {"skipped": True, "error": str(e)}
         except Exception as e:  # noqa: BLE001 - try the next model

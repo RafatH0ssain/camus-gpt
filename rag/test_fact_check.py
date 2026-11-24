@@ -82,6 +82,14 @@ class FactCheckTests(unittest.TestCase):
         self.assertIn("draft reply", p)
         self.assertIn("ctx passage", p)
 
+    def test_default_judge_uses_live_deadline_and_single_attempt(self):
+        from unittest import mock
+        with mock.patch.object(fc.jz, "judge", return_value='{"ok": true, "problem": ""}') as j:
+            r = fc.check_reply("u", "d", "c")
+        self.assertTrue(r["ok"])
+        self.assertEqual(j.call_args.kwargs["deadline"], fc.CHECK_DEADLINE)
+        self.assertEqual(j.call_args.kwargs["attempts"], fc.CHECK_ATTEMPTS)
+
 
 if __name__ == "__main__":
     unittest.main()

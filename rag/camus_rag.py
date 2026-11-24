@@ -565,7 +565,9 @@ def summary_chat(messages):
     global SUMMARY_MODEL
     if SUMMARY_MODEL is None:
         SUMMARY_MODEL = resolve_util_model(SUMMARY_MODEL_PREF)
-    return util_chat(messages, model=SUMMARY_MODEL, keep_alive=0)   # unload right after
+    # Unload the helper model right after, but never evict GEN_MODEL when falling back to it.
+    keep = 0 if SUMMARY_MODEL != GEN_MODEL else None
+    return util_chat(messages, model=SUMMARY_MODEL, keep_alive=keep)
 
 UTIL_SYS = ("You are a data-extraction utility, not a persona. Follow the output format "
             "exactly. Never speak in character. Never add commentary.")
@@ -704,6 +706,12 @@ def main():
         print(f"[memory] on — {len(memctx.store.rows)} stored, "
               f"profile.md {'loaded' if profile else 'absent'}, session {session_id}")
 
+    check_on = FACT_CHECK and fact_check.available()
+    if check_on:
+        print("[fact-check] on (external: opencode; set FACT_CHECK=0 to stream locally)")
+    elif FACT_CHECK:
+        print("[fact-check] off (no OpenCode key — streaming locally)")
+
     # history is trimmed to HIST_WINDOW for the prompt; `pending` keeps every exchange since
     # the last memory flush, so extraction never misses turns that were evicted.
     history, pending, n_exchanges, summary = [], [], 0, ""
@@ -714,9 +722,9 @@ def main():
             if not user: continue
             turn = build_turn(user, history, facts, vecs, bm25=bm25, ce=ce,
                               debug=args.debug, memory=memctx, summary=summary)
-            if FACT_CHECK:
+            if check_on:
                 reply = checked_reply(turn, user, chat_once)
-                print(f"camus: {reply}")
+                print(f"camus: {reply}\n")
             else:
                 reply = stream_chat(turn.messages, turn.opts)
             exchange = [{"role":"user","content":user},{"role":"assistant","content":reply}]

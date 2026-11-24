@@ -326,7 +326,7 @@ Rules:
 - Nothing transient ("asked about the weather"), nothing already obvious.
 - Each item one short third-person sentence beginning "The user".
 - Give each item a "cue": a few words in the USER'S OWN first person naming how they
-  would ask about it. "The user is named Rafat." -> "my name; who I am".
+  would ask about it. "The user is named Ada." -> "my name; who I am".
   "The user is building a retrieval layer." -> "my project; what I am building".
   The cue is for matching the user's future questions, not for display.
 - If nothing qualifies, return an empty array. An empty answer is correct and common.

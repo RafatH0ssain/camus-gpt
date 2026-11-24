@@ -87,6 +87,15 @@ def load_key(auth_path=AUTH_PATH):
     return key.strip()
 
 
+def has_key(auth_path=AUTH_PATH):
+    """True if an OpenCode API key is configured in the environment or auth.json."""
+    try:
+        load_key(auth_path)
+        return True
+    except SystemExit:
+        return False
+
+
 def headers(key):
     """Zen rejects the request without any of these four."""
     return {"Authorization": f"Bearer {key}",
@@ -95,7 +104,8 @@ def headers(key):
             "Content-Type": "application/json"}
 
 
-def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0, max_tokens=None):
+def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0, max_tokens=None,
+          deadline=None, attempts=None):
     """Return the judge's reply text, once it is known to carry a complete JSON object.
 
     A reply that arrives empty, null, truncated mid-object, or not chat/completions-shaped at
@@ -113,10 +123,13 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0, m
                             {"role": "user", "content": prompt}],
                "max_tokens": max_tokens or MAX_TOKENS, "temperature": temperature}
     sent = headers(key)
-    for attempt in range(ATTEMPTS):
-        last = attempt == ATTEMPTS - 1
+    call_deadline = DEADLINE if deadline is None else deadline
+    call_attempts = ATTEMPTS if attempts is None else max(1, int(attempts))
+    call_timeout = min(TIMEOUT, call_deadline)
+    for attempt in range(call_attempts):
+        last = attempt == call_attempts - 1
         try:
-            r = _post_by(DEADLINE, ENDPOINT, headers=sent, json=payload, timeout=TIMEOUT)
+            r = _post_by(call_deadline, ENDPOINT, headers=sent, json=payload, timeout=call_timeout)
         except (requests.RequestException, TimeoutError) as e:
             raise RuntimeError(_scrub(f"opencode judge request failed: {e}", key)) from None
         if r.status_code == 429:
@@ -139,7 +152,7 @@ def judge(model, system, prompt, key=None, auth_path=AUTH_PATH, temperature=0, m
         except ValueError:
             if last:
                 raise
-    raise RuntimeError(_scrub(f"opencode judge reply unusable after {ATTEMPTS} attempts", key))
+    raise RuntimeError(_scrub(f"opencode judge reply unusable after {call_attempts} attempts", key))
 
 
 def _post_by(deadline, *args, **kwargs):
