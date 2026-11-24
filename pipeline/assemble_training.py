@@ -858,10 +858,14 @@ def readme_text(manifest):
 def assemble(repo_root, out_dir, dry_run=False):
     """Write every set, MANIFEST.json and README.txt. Returns the manifest."""
     head = git_output(["rev-parse", "HEAD"], repo_root).strip()
-    tag_commit = git_output(["rev-list", "-n", "1", CORPUS_TAG], repo_root).strip()
+    try:
+        tag_commit = git_output(["rev-list", "-n", "1", CORPUS_TAG], repo_root).strip()
+    except AssemblyError:
+        tag_commit = None
 
-    old_rows, old_inputs = build_phase1(repo_root, [f"{CORPUS_TAG}:{label}"
-                                                  for label in PHASE1_OLD_INPUTS])
+    if tag_commit is not None:
+        old_rows, old_inputs = build_phase1(repo_root, [f"{CORPUS_TAG}:{label}"
+                                                        for label in PHASE1_OLD_INPUTS])
     new_rows, new_inputs = build_phase1_new(repo_root)
     phase2_rows, phase2_inputs = build_phase2(repo_root)
     v4_phase1_rows, v4_phase1_inputs = build_phase1_v4(repo_root)
@@ -894,10 +898,12 @@ def assemble(repo_root, out_dir, dry_run=False):
             raft=RAFT_V8, openbook=OPENBOOK_V10, drop_phrases=DROP_PHRASES_V10,
             rewrites=load_rewrites(repo_root))
 
-    sets = [
-        ("phase1_old", old_rows, old_inputs, False,
-         {"note": "read from git tag %s, not the worktree" % CORPUS_TAG,
-          "corpus_tag": CORPUS_TAG, "corpus_tag_commit": tag_commit}),
+    sets = []
+    if tag_commit is not None:
+        sets.append(("phase1_old", old_rows, old_inputs, False,
+                     {"note": "read from git tag %s, not the worktree" % CORPUS_TAG,
+                      "corpus_tag": CORPUS_TAG, "corpus_tag_commit": tag_commit}))
+    sets.extend([
         ("phase1_new", new_rows, new_inputs, False,
          {"note": "contains book text (primary_rows.filtered.jsonl) — build/ only; "
                   "every input once except the curated sets, x%d "
@@ -929,7 +935,7 @@ def assemble(repo_root, out_dir, dry_run=False):
                   "biography rows" % (PHASE2_V6_WEIGHT, RAFT_V6),
           "notebook_seed": NB_SEED,
           "v4_decisions": v6_phase2_inputs["v4_decisions"]}),
-    ]
+    ])
     if have_v7:
         sets.append(("phase2_v7", v7_phase2_rows, v7_phase2_inputs, defects_included(repo_root),
                      {"note": "phase2_v6 with %s for the grounded rows, the hand-reviewed "

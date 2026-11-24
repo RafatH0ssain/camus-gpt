@@ -760,6 +760,15 @@ class AssembleTests(unittest.TestCase):
         at.assemble(repo, out, dry_run=True)
         self.assertFalse(out.exists())
 
+    def test_assemble_skips_phase1_old_when_corpus_tag_is_absent(self):
+        repo, out = self.repo_and_out()
+        subprocess.run([GIT, "tag", "-d", at.CORPUS_TAG], cwd=str(repo),
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        manifest = at.assemble(repo, out)
+        self.assertNotIn("phase1_old", manifest["sets"])
+        self.assertIn("phase1_new", manifest["sets"])
+        self.assertFalse((out / "phase1_old.jsonl").exists())
+
     def test_readme_names_the_drive_destination_and_the_sets(self):
         repo, out = self.repo_and_out()
         manifest = at.assemble(repo, out)
