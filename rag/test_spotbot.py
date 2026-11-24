@@ -107,3 +107,25 @@ class SheetSideTests(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(d, "sheet.md")))
             self.assertTrue(os.path.isfile(os.path.join(d, "key.json")))
             self.assertFalse(os.path.exists(os.path.join(d, "jury.jsonl")))
+            # Calibrating a --no-jury sheet still scores owner accuracy via pairs.jsonl.
+            ans = os.path.join(d, "answers.txt")
+            with open(ans, "w") as f:
+                f.write("1 a\n2 a\n3 a\n")
+            import contextlib, io
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                spotbot.main(["calibrate", "--dir", d, "--answers", ans])
+            out = json.loads(buf.getvalue())
+            self.assertIn("owner_correct", out)
+            self.assertFalse(out["trusted"])
+
+    def test_missing_row_ids_do_not_collapse_on_sheet(self):
+        import json, tempfile
+        rows = [{"turns": ["hey"], "answer": f"Hello {i}."} for i in range(4)]
+        refs = [{"prompt": "yo", "reply": "sup", "register": "text", "source": "x"}]
+        pairs = spotbot.make_pairs(rows, refs, n=4, seed=0)
+        with tempfile.TemporaryDirectory() as d:
+            spotbot.write_sheet(pairs, os.path.join(d, "s.md"), os.path.join(d, "k.json"))
+            with open(os.path.join(d, "k.json")) as f:
+                key = json.load(f)
+        self.assertEqual(len(key), 4)

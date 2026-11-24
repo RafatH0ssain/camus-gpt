@@ -60,14 +60,14 @@ def make_pairs(model_rows: list[dict], refs: list[dict], n: int, seed: int) -> l
     chosen = rng.sample(eligible, min(n, len(eligible))) if n > 0 else []
 
     pairs = []
-    for row in chosen:
+    for idx, row in enumerate(chosen):
         prompt = tells.last_user(row.get("turns", []))
         register = register_of(prompt)
         pool = by_register[register]
         if not pool:
             raise ValueError(f"no reference rows for register {register!r}")
         human = rng.choice(pool)
-        row_id = row.get("id", "")
+        row_id = row.get("id") or f"row{idx}"
         answer = row["answer"]
         # Each side keeps its own message: the human reply answered someone else's message,
         # and showing it under the model's prompt would make the jury judge fit, not humanness.
@@ -226,7 +226,8 @@ def agreement(key: dict, owner: dict[int, str], results: list[dict]) -> dict:
     for row in results or []:
         pid = row.get("pid")
         truth[pid] = str(row.get("machine")).lower()
-        guesses.setdefault(row.get("model"), {})[pid] = str(row.get("guess")).lower()
+        if "model" in row and "guess" in row:
+            guesses.setdefault(row.get("model"), {})[pid] = str(row.get("guess")).lower()
 
     by_model = {}
     for model, by_pid in guesses.items():
@@ -309,6 +310,10 @@ def main(argv=None):
         os.makedirs(args.out, exist_ok=True)
         write_sheet(pairs, os.path.join(args.out, "sheet.md"),
                     os.path.join(args.out, "key.json"))
+        with open(os.path.join(args.out, "pairs.jsonl"), "w", encoding="utf-8") as f:
+            for pair in pairs:
+                f.write(json.dumps({"pid": pair["pid"], "machine": pair["machine"]},
+                                   ensure_ascii=False) + "\n")
         if not args.no_jury:
             jz.load_key()
             results = run_jury(pairs, models=tuple(args.models))
@@ -318,8 +323,13 @@ def main(argv=None):
     elif args.cmd == "calibrate":
         with open(os.path.join(args.dir, "key.json"), encoding="utf-8") as f:
             key = json.load(f)
+        jury_path = os.path.join(args.dir, "jury.jsonl")
+        pairs_path = os.path.join(args.dir, "pairs.jsonl")
+        src_path = jury_path if os.path.exists(jury_path) else pairs_path
+        if not os.path.exists(src_path):
+            raise SystemExit(f"neither jury.jsonl nor pairs.jsonl found in {args.dir}")
         results = []
-        with open(os.path.join(args.dir, "jury.jsonl"), encoding="utf-8") as f:
+        with open(src_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:

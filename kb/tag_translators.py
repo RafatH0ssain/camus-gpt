@@ -46,8 +46,10 @@ def load_join():
     identical (Knopf, O'Brien), so nothing is lost, but the second file inherits
     the first's record rather than keeping its own.
     """
-    by_title = json.load(open(TRANSLATORS, encoding="utf-8"))
-    inventory = [json.loads(l) for l in open(INVENTORY, encoding="utf-8") if l.strip()]
+    with open(TRANSLATORS, encoding="utf-8") as fh:
+        by_title = json.load(fh)
+    with open(INVENTORY, encoding="utf-8") as fh:
+        inventory = [json.loads(l) for l in fh if l.strip()]
     titles_seen = Counter(row["title"] for row in inventory)
     by_file = {}
     for row in inventory:
@@ -55,7 +57,8 @@ def load_join():
         if record is not None:
             by_file[os.path.basename(row["file"])] = (record["translators"],
                                                       record["evidence"])
-    manifest = json.load(open(SOURCES, encoding="utf-8"))
+    with open(SOURCES, encoding="utf-8") as fh:
+        manifest = json.load(fh)
     join, orphan_files = {}, []
     for entry in manifest["sources"]:
         record = by_file.get(os.path.basename(entry["file"]))
@@ -69,37 +72,36 @@ def load_join():
 
 def tag(path, join, out_path=None):
     counts, unmapped = Counter(), Counter()
-    src = path if out_path is None else path
-    handle_in = open(src, encoding="utf-8")
     tmp = None
-    handle_out = handle_in
     if out_path is not None:
         tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False,
                                           dir=os.path.dirname(out_path) or ".")
-        handle_out = tmp
     try:
-        for line in handle_in:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            source = row.get("source")
-            hit = join.get(source)
-            if hit is None:
-                unmapped[source] += 1
-                row["translators"] = None
-            else:
-                row["translators"] = hit[0]
-                counts[source] += 1
-            handle_out.write(json.dumps(row, ensure_ascii=False) + "\n")
-    finally:
-        handle_in.close()
+        with open(path, encoding="utf-8") as handle_in:
+            for line in handle_in:
+                line = line.strip()
+                if not line:
+                    continue
+                row = json.loads(line)
+                source = row.get("source")
+                hit = join.get(source)
+                if hit is None:
+                    unmapped[source] += 1
+                    row["translators"] = None
+                else:
+                    row["translators"] = hit[0]
+                    counts[source] += 1
+                if tmp is not None:
+                    tmp.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except BaseException:
         if tmp is not None:
             tmp.close()
-            if out_path == path:            # in-place: swap only once complete
-                os.replace(tmp.name, path)
-            else:
-                os.replace(tmp.name, out_path)
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+        raise
+    if tmp is not None:
+        tmp.close()
+        os.replace(tmp.name, out_path)
     return counts, unmapped
 
 
@@ -119,7 +121,7 @@ def main():
     rc = 0
     for path, out_path in ((CANDIDATES, CANDIDATES), (ROWS, ROWS_TAGGED)):
         if args.dry_run:
-            counts, unmapped = tag(path, join, tempfile.mkstemp()[1])
+            counts, unmapped = tag(path, join, out_path=None)
             print(f"{path} -> (dry run) {sum(counts.values())} rows joined")
         else:
             counts, unmapped = tag(path, join, out_path)

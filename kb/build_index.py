@@ -43,11 +43,11 @@ def embed_batch(texts, prefix="search_document: "):
     raise RuntimeError(f"embed_batch failed after {RETRIES} tries: {last}")
 
 def fingerprint(rows):
-    h = hashlib.md5()
+    h = hashlib.sha256()
     h.update(str(len(rows)).encode())
-    if rows:
-        h.update(rows[0]["text"].encode("utf-8", "ignore"))
-        h.update(rows[-1]["text"].encode("utf-8", "ignore"))
+    for r in rows:
+        h.update(b"\0")
+        h.update(str(r.get("text", "")).encode("utf-8", "ignore"))
     return h.hexdigest()
 
 def main():
@@ -57,8 +57,11 @@ def main():
     ap.add_argument("--batch", type=int, default=64)
     args = ap.parse_args()
 
-    rows = [json.loads(l) for l in open(args.kb, encoding="utf-8") if l.strip()]
+    with open(args.kb, encoding="utf-8") as fh:
+        rows = [json.loads(l) for l in fh if l.strip()]
     N = len(rows)
+    if N == 0:
+        raise SystemExit(f"KB at {args.kb} is empty; nothing to index.")
     fp = fingerprint(rows)
     part = args.out + ".partial.npy"
     meta = args.out + ".partial.json"
@@ -67,7 +70,8 @@ def main():
     # resume?
     done = 0; vecs = None
     if os.path.exists(part) and os.path.exists(meta):
-        m = json.load(open(meta))
+        with open(meta, encoding="utf-8") as fh:
+            m = json.load(fh)
         if m.get("fp") == fp and m.get("N") == N:
             vecs = np.load(part); done = len(vecs)
             print(f"Resuming from cached {done}/{N} vectors.")
@@ -87,15 +91,18 @@ def main():
         # flush partial every batch (cheap insurance)
         arr = np.vstack(buf).astype(np.float32)
         np.save(part, arr)
-        json.dump({"fp": fp, "N": N}, open(meta, "w"))
+        with open(meta, "w", encoding="utf-8") as fh:
+            json.dump({"fp": fp, "N": N}, fh)
         rate = i / max(time.time() - t0, 1e-6)
         eta  = (N - i) / max(rate, 1e-6)
         print(f"  {i}/{N} ({i/N:.0%})  {rate:.1f} entries/s  ETA {eta/60:.1f} min")
 
     np.save(args.out, np.vstack(buf).astype(np.float32))
-    os.remove(part); os.remove(meta)
+    for p in (part, meta):
+        if os.path.exists(p):
+            os.remove(p)
     print(f"\n✅ saved {N} vectors -> {args.out}  in {(time.time()-t0)/60:.1f} min")
-    print("   now run: python camus_rag.py")
+    print("   now run: python rag/camus_rag.py")
 
 if __name__ == "__main__":
     main()
