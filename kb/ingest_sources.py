@@ -24,7 +24,7 @@ RUN:    python ingest_sources.py            (PDFs in ./sources/, names per manif
 import argparse, json, os, re, glob, hashlib, sys
 from collections import Counter
 try:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz  # PyMuPDF
 except ImportError:
     fitz = None
 try:
@@ -256,7 +256,7 @@ def notebook_entries(path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--manifest", default="sources_manifest.json")
+    ap.add_argument("--manifest", default="kb/sources_manifest.json")
     ap.add_argument("--src", default="./sources")
     ap.add_argument("--dir", action="append", dest="dirs", default=None, metavar="D",
                     help="extra directory to search for manifest files (repeatable); "
@@ -273,11 +273,9 @@ def main():
     ap.add_argument("--fact-words", type=int, default=220)   # tight -> focused fact extraction
     ap.add_argument("--voice-words", type=int, default=320)  # roomier -> preserve view context
     args = ap.parse_args()
-    if fitz is None:
-        raise SystemExit("PyMuPDF missing: pip install pymupdf ftfy")
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
-    man = json.load(open(args.manifest, encoding="utf-8"))["sources"]
+    with open(args.manifest, encoding="utf-8") as mf:
+        man = json.load(mf)["sources"]
     if args.only:
         wanted = set(args.only)
         unknown = sorted(wanted - {s["file"] for s in man})
@@ -288,6 +286,9 @@ def main():
                 f"error: {len(unknown)} --only file(s) not in the manifest: "
                 + ", ".join(unknown))
         man = [s for s in man if s["file"] in wanted]
+    if fitz is None:
+        raise SystemExit("PyMuPDF missing: pip install pymupdf ftfy")
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     dirs = args.dirs or [args.src]
     total, kind = 0, "chunks"
     with open(args.out, "w", encoding="utf-8") as out:

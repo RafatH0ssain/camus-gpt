@@ -559,6 +559,15 @@ class Phase2Tests(unittest.TestCase):
                          ["short 0", "short 1", "short 2"])
         self.assertEqual([p for p in prompts if p.startswith("long")], [])
 
+    def test_short_essayist_sft_rows_are_excluded_from_phase2(self):
+        files = phase2_files(n_sft_short=2, n_sft_long=0)
+        files["data/camus_sft.jsonl"].append(
+            qa("short essay", "One brief aphorism from the notebooks.",
+               type="essayist", source="Notebooks"))
+        rows, _ = at.build_phase2(make_temp_repo(self, files))
+        prompts = [row["messages"][0]["content"] for row in rows]
+        self.assertNotIn("short essay", prompts)
+
     def test_refusal_sample_is_capped_at_400(self):
         rows, inputs = self.build(n_refusals=405)
         refusal_input = next(entry for entry in inputs["inputs"]

@@ -645,7 +645,8 @@ def build_phase2(repo_root, v4=False, extras=(), extras_weight=None, raft=None, 
 
     sft = load_input("data/camus_sft.jsonl", repo_root)
     short_sft = [row for row in sft
-                 if len(row["messages"][-1]["content"].split()) <= NB_PRESERVE_MAX_WORDS]
+                 if row["kind"] == SFT_CONVERSATIONAL
+                 and len(row["messages"][-1]["content"].split()) <= NB_PRESERVE_MAX_WORDS]
     rng.shuffle(short_sft)
     add("data/camus_sft.jsonl", short_sft[:NB_PRESERVE_ROWS], 1,
         "short conversational rows only (<= %d words), seeded shuffle, first %d"
