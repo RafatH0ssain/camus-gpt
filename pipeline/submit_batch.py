@@ -112,6 +112,7 @@ def main():
     if len(sys.argv) != 2 or sys.argv[1] not in BUILDERS:
         sys.exit(f"usage: python submit_batch.py [{'|'.join(BUILDERS)}]")
     stage = sys.argv[1]
+    C.ensure_dirs()
 
     requests, mapping = BUILDERS[stage]()
     if not requests:

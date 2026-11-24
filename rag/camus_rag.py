@@ -34,6 +34,15 @@ try:
 except ImportError:  # pragma: no cover - supports `import rag.camus_rag`
     from rag import fact_check
 
+
+def _import_memory():
+    try:
+        import memory as _mem
+        return _mem
+    except ImportError:  # pragma: no cover - supports `import rag.camus_rag`
+        from rag import memory as _mem
+        return _mem
+
 OLLAMA      = "http://localhost:11434"
 GEN_MODEL   = os.environ.get("GEN_MODEL", "camus10")   # ollama model name (ollama list)
 EMBED_MODEL = "nomic-embed-text"
@@ -458,7 +467,7 @@ def build_turn(user_msg, history, facts, vecs, bm25=None, ce=None, debug=False,
     # still appended AFTER the KB prompt and never merged into it. ----
     mem_block, mems, self_ref, kb_suppressed = "", [], False, False
     if memory is not None and not task:
-        import memory as _mem
+        _mem = _import_memory()
         try:
             mems = memory.store.retrieve(user_msg) if memory.store is not None else []
         except Exception as e:
@@ -509,7 +518,7 @@ def fold_evicted(history, summary, chat_fn=None):
         return history, summary
     keep = HIST_WINDOW - 2 * EVICT_EXCHANGES
     evicted, history = history[:-keep], history[-keep:]
-    import memory as _mem
+    _mem = _import_memory()
     try:
         summary = _mem.summarise(evicted, summary, chat_fn or summary_chat)
     except Exception as e:
@@ -517,8 +526,7 @@ def fold_evicted(history, summary, chat_fn=None):
     return history, summary
 
 def _memory_summary_block(summary):
-    import memory as _mem
-    return _mem.build_summary_block(summary)
+    return _import_memory().build_summary_block(summary)
 
 # ─────────────────────────────────────────────────────── memory plumbing ────
 SUMMARY_TEMP    = 0.3     # compression, not voice
@@ -629,8 +637,7 @@ def chat_extract(messages):
 
 def _looks_like_memory_array(raw):
     """True if raw contains a JSON array holding at least one object with a "text"."""
-    import memory as _mem
-    items = _mem.first_json_array(raw or "")
+    items = _import_memory().first_json_array(raw or "")
     return isinstance(items, list) and any(
         isinstance(i, dict) and str(i.get("text", "")).strip() for i in items)
 
@@ -665,7 +672,7 @@ def main():
 
     # --- memory-only subcommands: no KB load, no chat ---
     if args.forget or args.memories or args.reindex_memory:
-        import memory as mem
+        mem = _import_memory()
         store = mem.MemoryStore(embed)
         if args.reindex_memory:
             n_cued = sum(1 for r in store.rows if r.get("cue"))
@@ -694,7 +701,7 @@ def main():
 
     memctx, mem, session_id = None, None, None
     if args.memory:
-        import memory as mem
+        mem = _import_memory()
         profile = mem.load_profile()
         memctx = MemoryCtx(store=mem.MemoryStore(embed), profile=profile, summary="")
         session_id = uuid.uuid4().hex[:8]

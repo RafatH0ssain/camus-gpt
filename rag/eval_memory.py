@@ -68,15 +68,27 @@ def load_fixtures(path=FIXTURES):
         sys.exit(f"{path} is missing required key(s): {', '.join(missing)}")
     return fx
 
-_FX     = load_fixtures()
-NAME    = _FX["name"]
-CITY    = _FX["city"]
-SEED    = _FX["seed"]
-PROFILE = _FX["profile"]
+NAME    = ""
+CITY    = ""
+SEED    = []
+PROFILE = ""
+
+
+def init_fixtures(path=FIXTURES):
+    """Load personal memory fixtures and populate PROBES placeholders."""
+    global NAME, CITY, SEED, PROFILE
+    fx = load_fixtures(path)
+    NAME    = fx["name"]
+    CITY    = fx["city"]
+    SEED    = fx["seed"]
+    PROFILE = fx["profile"]
+    PROBES[:] = _render_probes(NAME, CITY)
+    return fx
+
 
 # ── probes ──────────────────────────────────────────────────────────────────
 # seed: "full" -> SEED memories, "empty" -> none. profile: True -> PROFILE written.
-PROBES = [
+_PROBE_TEMPLATES = [
  # ---------- recall ----------
  dict(id="rc_name", family="recall", seed="full", profile=False,
       turns=["do you remember my name?"],
@@ -142,10 +154,18 @@ PROBES = [
 # The probe text above is written with {name}/{city} placeholders so no personal detail
 # lives in this file; fill them from the fixtures. Plain replace, not str.format — some
 # expectations contain literal JSON braces.
-for _p in PROBES:
-    for _k in ("expect", "forbid"):
-        if _k in _p:
-            _p[_k] = _p[_k].replace("{name}", NAME).replace("{city}", CITY)
+def _render_probes(name, city):
+    rendered = []
+    for tmpl in _PROBE_TEMPLATES:
+        p = dict(tmpl)
+        for k in ("expect", "forbid"):
+            if k in p:
+                p[k] = p[k].replace("{name}", name).replace("{city}", city)
+        rendered.append(p)
+    return rendered
+
+
+PROBES = _render_probes(NAME, CITY)
 
 JUDGE_SYS = (
 "You are a strict evaluator of a role-play AI that plays Albert Camus and has a memory of "
@@ -187,21 +207,28 @@ def run_probe(probe, tmpdir, cr, judge_fn=None):
     mem_p, vec_p, pen_p, prof_p = seed_store(tmpdir, probe["seed"], cr.embed)
     profile = ""
     if probe.get("profile"):
-        open(prof_p, "w", encoding="utf-8").write(PROFILE)
+        with open(prof_p, "w", encoding="utf-8") as fh:
+            fh.write(PROFILE)
         profile = M.load_profile(prof_p)
 
     store = M.MemoryStore(cr.embed, mem_p, vec_p, pen_p)
     ctx = cr.MemoryCtx(store=store, profile=profile, summary="")
 
+    def _generate(messages, opts):
+        r = requests.post(f"{cr.OLLAMA}/api/chat",
+                          json={"model": cr.GEN_MODEL, "messages": messages,
+                                "stream": False, "options": opts, "think": False}, timeout=300)
+        r.raise_for_status()
+        return r.json()["message"]["content"].strip()
+
     history, answer, recalled = [], "", []
     for user in probe["turns"]:
         turn = cr.build_turn(user, history, run_probe.facts, run_probe.vecs,
                              bm25=run_probe.bm25, ce=run_probe.ce, memory=ctx)
-        r = requests.post(f"{cr.OLLAMA}/api/chat",
-                          json={"model": cr.GEN_MODEL, "messages": turn.messages,
-                                "stream": False, "options": turn.opts, "think": False}, timeout=300)
-        r.raise_for_status()
-        answer = r.json()["message"]["content"].strip()
+        if hasattr(cr, "checked_reply"):
+            answer = cr.checked_reply(turn, user, _generate)
+        else:
+            answer = _generate(turn.messages, turn.opts)
         recalled = [m["text"] for m in getattr(turn, "memories", [])]
         history += [{"role": "user", "content": user},
                     {"role": "assistant", "content": answer}]
@@ -252,8 +279,11 @@ def judge_opencode(model, probe, convo, answer):
 
 
 def judge_ollama(model, probe, convo, answer, cr=None):
+    if cr is None:
+        import camus_rag as cr
     r = requests.post(f"{cr.OLLAMA}/api/chat",
-        json={"model": model, "stream": False, "think": False, "options": {"temperature": 0},
+        json={"model": model, "stream": False, "format": "json", "think": False,
+              "options": {"temperature": 0},
               "messages": [{"role": "system", "content": JUDGE_SYS},
                            {"role": "user", "content": judge_prompt(probe, convo, answer)}]},
         timeout=300)
@@ -275,6 +305,7 @@ def main():
     ap.add_argument("--family", choices=["recall", "profile", "false"])
     ap.add_argument("--out-dir", default="eval_memory")
     args = ap.parse_args()
+    init_fixtures()
     jmodel = jz.resolve_model(args.judge, args.judge_model)
     if args.judge == "opencode":
         jz.load_key()  # fail before generating answers we would have no way to score
@@ -340,7 +371,8 @@ def main():
                       f"n{s['naturalness']} — {s['rationale']}",
                       f"> Q: {r['turns'][-1][:110]}", f"> A: {r['answer'][:220]}",
                       f"> recalled: {r['recalled'] or 'nothing'}", ""]
-    open(os.path.join(args.out_dir, "memory_report.md"), "w", encoding="utf-8").write("\n".join(lines))
+    with open(os.path.join(args.out_dir, "memory_report.md"), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines))
     print(f"\nwrote {args.out_dir}/memory_scores.jsonl, memory_report.md")
 
 

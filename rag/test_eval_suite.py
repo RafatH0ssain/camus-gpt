@@ -80,13 +80,16 @@ class SuiteTests(unittest.TestCase):
 
     def test_probes_file_loads_and_rejects_incomplete_probes(self):
         import tempfile
-        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
-            fh.write(json.dumps(dict(id="x", cat="c", turns=["hi"], expect="e", forbid="f")) + "\n")
-        self.assertEqual(ec.load_probes_file(fh.name)[0]["id"], "x")
-        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
-            fh.write(json.dumps(dict(id="y", cat="c", turns=["hi"], expect="e")) + "\n")
-        with self.assertRaises(SystemExit):
-            ec.load_probes_file(fh.name)
+        with tempfile.TemporaryDirectory() as tmp:
+            good = os.path.join(tmp, "good.jsonl")
+            with open(good, "w", encoding="utf-8") as fh:
+                fh.write(json.dumps(dict(id="x", cat="c", turns=["hi"], expect="e", forbid="f")) + "\n")
+            self.assertEqual(ec.load_probes_file(good)[0]["id"], "x")
+            bad = os.path.join(tmp, "bad.jsonl")
+            with open(bad, "w", encoding="utf-8") as fh:
+                fh.write(json.dumps(dict(id="y", cat="c", turns=["hi"], expect="e")) + "\n")
+            with self.assertRaises(SystemExit):
+                ec.load_probes_file(bad)
 
 
 if __name__ == "__main__":

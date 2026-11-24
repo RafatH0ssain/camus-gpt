@@ -40,18 +40,8 @@ def load_variant(name):
 
 
 def import_eval_memory():
-    """eval_memory loads the gitignored memory_fixtures.json at import; give it the template."""
-    if "eval_memory" in sys.modules:
-        return sys.modules["eval_memory"]
-    import shutil, tempfile
-    with tempfile.TemporaryDirectory() as d:
-        shutil.copy(os.path.join(ROOT, "memory_fixtures.example.json"), os.path.join(d, "memory_fixtures.json"))
-        old = os.getcwd()
-        os.chdir(d)
-        try:
-            import eval_memory
-        finally:
-            os.chdir(old)
+    """eval_memory loads fixtures lazily in main(), so importing it touches nothing on disk."""
+    import eval_memory
     return eval_memory
 
 
@@ -223,6 +213,22 @@ class ThinkFalseTests(unittest.TestCase):
             ec.judge_ollama("judge", {}, [], "a")
         self.assertThinkFalse(post)
 
+    def test_eval_memory_run_probe_uses_checked_reply(self):
+        em = import_eval_memory()
+        checked = mock.Mock(return_value="checked")
+        fake_cr = types.SimpleNamespace(
+            OLLAMA="http://x", GEN_MODEL="m", embed=None, MemoryCtx=lambda **k: None,
+            build_turn=lambda *a, **k: types.SimpleNamespace(messages=[], opts={}, memories=[]),
+            checked_reply=checked)
+        fake_mem = types.SimpleNamespace(MemoryStore=lambda *a: None, load_profile=lambda p: "")
+        em.run_probe.facts = em.run_probe.vecs = em.run_probe.bm25 = em.run_probe.ce = None
+        probe = dict(id="p", family="f", seed="none", turns=["where were you born?"])
+        with mock.patch.dict(sys.modules, {"memory": fake_mem}), \
+             mock.patch.object(em, "seed_store", return_value=("a", "b", "c", "d")):
+            row = em.run_probe(probe, "tmp", fake_cr)
+        self.assertEqual(row["answer"], "checked")
+        checked.assert_called_once()
+
     def test_eval_memory_judge_ollama(self):
         em = import_eval_memory()
         fake_cr = types.SimpleNamespace(OLLAMA="http://x")
@@ -231,6 +237,7 @@ class ThinkFalseTests(unittest.TestCase):
              mock.patch.object(em, "judge_prompt", return_value="p"):
             em.judge_ollama("judge", {}, [], "a", cr=fake_cr)
         self.assertThinkFalse(post)
+        self.assertEqual(post.call_args.kwargs["json"].get("format"), "json")
 
 
 class HistoryTests(unittest.TestCase):

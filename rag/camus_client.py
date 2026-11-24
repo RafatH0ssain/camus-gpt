@@ -21,25 +21,30 @@ Requires the index built once:  python build_index.py
 """
 import json, sys, argparse
 import requests
-import camus_rag as cr
-from camus_rag import OLLAMA, GEN_MODEL, load_kb, build_bm25, load_reranker, build_turn, fold_evicted
+try:
+    import camus_rag as cr
+except ImportError:  # pragma: no cover - supports `from rag import camus_client`
+    from rag import camus_rag as cr
+
+build_turn = cr.build_turn
+fold_evicted = cr.fold_evicted
 
 class CamusClient:
     def __init__(self):
-        self.facts, self.vecs = load_kb()
+        self.facts, self.vecs = cr.load_kb()
         # Hybrid retrieval, same as the CLI and the eval harness. Without these the
         # client silently ran dense-only with no reranker, which is a different
         # retrieval system from the one every other entry point exercises.
-        self.bm25 = build_bm25(self.facts)
-        self.ce = load_reranker()
+        self.bm25 = cr.build_bm25(self.facts)
+        self.ce = cr.load_reranker()
         self.history, self.summary = [], ""
 
     def reset(self):
         self.history, self.summary = [], ""
 
     def _generate(self, messages, opts):
-        r = requests.post(f"{OLLAMA}/api/chat",
-                          json={"model":GEN_MODEL,"messages":messages,"stream":False,"options":opts,"think":False},
+        r = requests.post(f"{cr.OLLAMA}/api/chat",
+                          json={"model":cr.GEN_MODEL,"messages":messages,"stream":False,"options":opts,"think":False},
                           timeout=300)
         try:
             r.raise_for_status()

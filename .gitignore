@@ -61,6 +61,7 @@ data/camus_sft.jsonl
 
 # Staged upload bundles — assembled from tracked sources, never committed.
 build/
+/batches/
 
 # Local reference material and superseded run history — never published.
 # Anchored to the root: an unanchored "archive/" also matches eval/archive/ and

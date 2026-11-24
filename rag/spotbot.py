@@ -8,8 +8,12 @@ import json
 import os
 import random
 
-import tells
-import judge_opencode as jz
+try:
+    import tells
+    import judge_opencode as jz
+except ImportError:  # pragma: no cover - supports `from rag import spotbot`
+    from rag import tells
+    from rag import judge_opencode as jz
 
 REGISTERS = ("text", "call")
 _REQUIRED = ("prompt", "reply", "register", "source")

@@ -201,6 +201,7 @@ def main():
     if len(sys.argv) != 2 or sys.argv[1] not in PARSERS:
         sys.exit(f"usage: python fetch_batch.py [{'|'.join(PARSERS)}]")
     stage = sys.argv[1]
+    C.ensure_dirs()
 
     manifest = load_manifest()
     if stage not in manifest:

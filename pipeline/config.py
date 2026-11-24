@@ -28,8 +28,11 @@ load_dotenv()  # pulls ANTHROPIC_API_KEY from ./.env into the environment
 RAW_DIR   = "./raw_books"
 DATA_DIR  = "./data"
 BATCH_DIR = "./batches"
-for _d in (RAW_DIR, DATA_DIR, BATCH_DIR):
-    os.makedirs(_d, exist_ok=True)
+
+
+def ensure_dirs():
+    for _d in (RAW_DIR, DATA_DIR, BATCH_DIR):
+        os.makedirs(_d, exist_ok=True)
 
 # ── Files ───────────────────────────────────────────────────────────────────
 CHUNKS      = f"{DATA_DIR}/chunks.jsonl"                # Step 0 output (input here)

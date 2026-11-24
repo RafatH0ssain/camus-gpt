@@ -600,7 +600,8 @@ def append_history(rows, out_dir, meta):
                     round(v, 3), round(fa, 3), round(e, 3), round((v + fa + e) / 3, 3)])
 
 def load_probes_file(path):
-    probes = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+    with open(path, encoding="utf-8") as fh:
+        probes = [json.loads(l) for l in fh if l.strip()]
     for p in probes:
         missing = [k for k in ("id", "cat", "turns", "expect", "forbid") if not p.get(k)]
         if missing:
@@ -638,26 +639,25 @@ def main():
                 commit=git_commit(), gen_model=cr.GEN_MODEL,
                 judge=f"{args.judge}:{jmodel}" if args.judge != "none" else "none")
     rows = []
-    jsonl = open(os.path.join(args.out_dir, "probe_scores.jsonl"), "w", encoding="utf-8")
-    for k, p in enumerate(probes, 1):
-        t0 = time.time()
-        answer, n_hits, convo = ask(p["turns"])
-        row = dict(id=p["id"], cat=p["cat"], turns=p["turns"], answer=answer,
-                   n_hits=n_hits, commit=meta["commit"], judge=meta["judge"])
-        if args.judge != "none":
-            try:
-                fn = {"opencode": judge_opencode, "anthropic": judge_anthropic,
-                      "ollama": judge_ollama}[args.judge]
-                row["scores"] = fn(jmodel, p, convo, answer)
-            except Exception as e:
-                row["judge_error"] = str(e)[:200]
-        rows.append(row)
-        jsonl.write(json.dumps(row, ensure_ascii=False) + "\n"); jsonl.flush()
-        s = row.get("scores")
-        tag = (f"v{s['voice']}/f{s['factuality']}/e{s['engagement']}" if s
-               else ("JUDGE-ERR" if "judge_error" in row else "unscored"))
-        print(f"[{k}/{len(probes)}] {p['id']:16s} {tag:14s} {time.time()-t0:5.1f}s  {answer[:64]!r}")
-    jsonl.close()
+    with open(os.path.join(args.out_dir, "probe_scores.jsonl"), "w", encoding="utf-8") as jsonl:
+        for k, p in enumerate(probes, 1):
+            t0 = time.time()
+            answer, n_hits, convo = ask(p["turns"])
+            row = dict(id=p["id"], cat=p["cat"], turns=p["turns"], answer=answer,
+                       n_hits=n_hits, commit=meta["commit"], judge=meta["judge"])
+            if args.judge != "none":
+                try:
+                    fn = {"opencode": judge_opencode, "anthropic": judge_anthropic,
+                          "ollama": judge_ollama}[args.judge]
+                    row["scores"] = fn(jmodel, p, convo, answer)
+                except Exception as e:
+                    row["judge_error"] = str(e)[:200]
+            rows.append(row)
+            jsonl.write(json.dumps(row, ensure_ascii=False) + "\n"); jsonl.flush()
+            s = row.get("scores")
+            tag = (f"v{s['voice']}/f{s['factuality']}/e{s['engagement']}" if s
+                   else ("JUDGE-ERR" if "judge_error" in row else "unscored"))
+            print(f"[{k}/{len(probes)}] {p['id']:16s} {tag:14s} {time.time()-t0:5.1f}s  {answer[:64]!r}")
     write_report(rows, args.out_dir, meta)
     append_history(rows, args.out_dir, meta)
     errs = sum(1 for r in rows if "judge_error" in r)
