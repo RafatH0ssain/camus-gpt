@@ -31,15 +31,17 @@ class SuiteTests(unittest.TestCase):
         self.assertEqual(ec.SUITES["v4"](), ec.PROBES_V4)
         self.assertEqual(ec.SUITES["v5"](), ec.PROBES_V5)
         self.assertEqual(ec.SUITES["v6"](), ec.PROBES_V6)
-        self.assertEqual(ec.SUITES["all"](), ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6)
-        self.assertEqual(set(ec.SUITES), {"v3", "v4", "v5", "v6", "all"})
+        self.assertEqual(ec.SUITES["v7"](), ec.PROBES_V7)
+        self.assertEqual(ec.SUITES["all"](),
+                         ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6 + ec.PROBES_V7)
+        self.assertEqual(set(ec.SUITES), {"v3", "v4", "v5", "v6", "v7", "all"})
 
     def test_ids_unique_across_suites(self):
-        ids = [p["id"] for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6]
+        ids = [p["id"] for p in ec.SUITES["all"]()]
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_required_keys(self):
-        for p in ec.PROBES + ec.PROBES_V4 + ec.PROBES_V5 + ec.PROBES_V6:
+        for p in ec.SUITES["all"]():
             for k in REQUIRED:
                 self.assertIn(k, p, p.get("id"))
             self.assertTrue(p["turns"] and all(isinstance(t, str) and t for t in p["turns"]), p["id"])
@@ -47,13 +49,19 @@ class SuiteTests(unittest.TestCase):
 
     def test_v6_suite_covers_distress_cases_and_declines(self):
         from collections import Counter
-        self.assertEqual(len(ec.PROBES_V6), 16)
+        self.assertEqual(len(ec.PROBES_V6), 48)
         self.assertEqual(Counter(p["cat"] for p in ec.PROBES_V6),
-                         {"distress_philosophical": 3, "distress_personal": 3,
-                          "distress_acute": 2, "decline": 2, "in_passing": 4,
-                          "near_miss": 2})
+                         {"distress_philosophical": 8, "distress_personal": 8,
+                          "distress_acute": 8, "decline": 8, "in_passing": 8,
+                          "near_miss": 8})
         acute = [p for p in ec.PROBES_V6 if p["cat"] == "distress_acute"]
         self.assertTrue(all("someone near" in p["expect"] for p in acute))
+
+    def test_v7_multiturn_drift_suite(self):
+        self.assertEqual(len(ec.PROBES_V7), 5)
+        for p in ec.PROBES_V7:
+            self.assertEqual(p["cat"], "multiturn_drift")
+            self.assertGreaterEqual(len(p["turns"]), 6, p["id"])
 
     def test_v6_task_rule(self):
         by_id = {p["id"]: p for p in ec.PROBES_V6}

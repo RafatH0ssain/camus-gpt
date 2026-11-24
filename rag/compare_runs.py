@@ -18,6 +18,8 @@ import tells  # noqa: E402
 
 AXES = ("voice", "factuality", "engagement")
 GUARD_AXES = ("voice", "factuality", "composite")
+MEM_AXES = ("voice", "memory", "naturalness")
+MEM_GUARD_AXES = ("memory", "naturalness", "composite")
 FOOL_MIN_RISE = 0.05
 
 
@@ -30,29 +32,38 @@ def _load_all(paths):
     return rows
 
 
-def _means(paths):
+def _means_for(paths, axes):
     n = 0
-    sums = {k: 0.0 for k in AXES}
+    sums = {k: 0.0 for k in axes}
     composite = 0.0
     for row in _load_all(paths):
         scores = row.get("scores") if isinstance(row, dict) else None
         if not isinstance(scores, dict):
             continue
         try:
-            vals = {k: float(scores[k]) for k in AXES}
+            vals = {k: float(scores[k]) for k in axes}
         except (KeyError, TypeError, ValueError):
             continue
         n += 1
         for k, v in vals.items():
             sums[k] += v
-        composite += sum(vals.values()) / len(AXES)
-    means = {k: (sums[k] / n if n else 0.0) for k in AXES}
+        composite += sum(vals.values()) / len(axes)
+    means = {k: (sums[k] / n if n else 0.0) for k in axes}
     means["composite"] = (composite / n if n else 0.0)
     return means, n
 
 
+def _means(paths):
+    return _means_for(paths, AXES)
+
+
 def judge_means(paths):
     means, _ = _means(paths)
+    return means
+
+
+def memory_means(paths):
+    means, _ = _means_for(paths, MEM_AXES)
     return means
 
 
@@ -76,6 +87,18 @@ def verdict(base, cand, noise=0.1):
         if round(drop, 9) > noise:
             guard_ok = False
             reasons.append(f"{axis} fell {drop:.3f} (> {noise})")
+
+    bm = base.get("memory") if isinstance(base, dict) else None
+    cm = cand.get("memory") if isinstance(cand, dict) else None
+    if isinstance(bm, dict) and isinstance(cm, dict) and bm and cm:
+        for axis in MEM_GUARD_AXES:
+            try:
+                drop = float(bm.get(axis, 0.0)) - float(cm.get(axis, 0.0))
+            except (TypeError, ValueError):
+                drop = 0.0
+            if round(drop, 9) > noise:
+                guard_ok = False
+                reasons.append(f"memory {axis} fell {drop:.3f} (> {noise})")
 
     base_tells = _tell_mean(base.get("tells") if isinstance(base, dict) else None)
     cand_tells = _tell_mean(cand.get("tells") if isinstance(cand, dict) else None)
@@ -132,6 +155,10 @@ def main(argv=None):
                     help="base fool rate (number or fool_rate.json)")
     ap.add_argument("--cand-fool", default=None, metavar="F",
                     help="candidate fool rate (number or fool_rate.json)")
+    ap.add_argument("--base-memory", nargs="+", default=None, metavar="F",
+                    help="memory_scores.jsonl file(s) for the base run")
+    ap.add_argument("--cand-memory", nargs="+", default=None, metavar="F",
+                    help="memory_scores.jsonl file(s) for the candidate run")
     args = ap.parse_args(argv)
 
     base_judge, base_n = _means(args.base)
@@ -140,15 +167,23 @@ def main(argv=None):
     cand_tells = tells.report(_load_all(args.cand))
     base_fool = fool_value(args.base_fool)
     cand_fool = fool_value(args.cand_fool)
+    base_mem, base_mem_n = _means_for(args.base_memory, MEM_AXES) if args.base_memory else (None, 0)
+    cand_mem, cand_mem_n = _means_for(args.cand_memory, MEM_AXES) if args.cand_memory else (None, 0)
 
     print(f"{'metric':<12} {'base':>8} {'cand':>8} {'delta':>8}")
     for axis in AXES + ("composite",):
         print(_table_row(axis, base_judge[axis], cand_judge[axis]))
     print(_table_row("tell_mean", _tell_mean(base_tells), _tell_mean(cand_tells)))
     print(_table_row("fool", base_fool, cand_fool))
+    if base_mem and cand_mem and base_mem_n and cand_mem_n:
+        labels = {"voice": "mem_voice", "memory": "mem_recall", "naturalness": "mem_nat", "composite": "mem_comp"}
+        for axis in MEM_AXES + ("composite",):
+            print(_table_row(labels[axis], base_mem[axis], cand_mem[axis]))
 
-    v = verdict({"judge": base_judge, "tells": base_tells, "fool": base_fool},
-                {"judge": cand_judge, "tells": cand_tells, "fool": cand_fool})
+    v = verdict({"judge": base_judge, "tells": base_tells, "fool": base_fool,
+                 "memory": base_mem if base_mem_n else None},
+                {"judge": cand_judge, "tells": cand_tells, "fool": cand_fool,
+                 "memory": cand_mem if cand_mem_n else None})
     print()
     print(f"scored rows: base {base_n}, cand {cand_n}")
     print(f"guard_ok: {v['guard_ok']}")
