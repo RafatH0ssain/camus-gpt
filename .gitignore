@@ -93,6 +93,7 @@ eval/archive/*
 /memory_vectors.npy
 /memory_pending.jsonl
 /profile.md
+data/live_flags.jsonl
 # Human A/B evaluation sessions — real conversations, never published.
 /eval_human/
 # Probe fixtures: a real name, city, and project. memory_fixtures.example.json

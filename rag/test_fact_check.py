@@ -90,6 +90,27 @@ class FactCheckTests(unittest.TestCase):
         self.assertEqual(j.call_args.kwargs["deadline"], fc.CHECK_DEADLINE)
         self.assertEqual(j.call_args.kwargs["attempts"], fc.CHECK_ATTEMPTS)
 
+    def test_claim_gate_skips_banter_and_catches_factual_claims(self):
+        from unittest import mock
+        with mock.patch.object(fc, "CHECK_ALWAYS", False):
+            # Pure banter / reflection: skip
+            self.assertFalse(fc.needs_fact_check("how are you today?", "Tired, mostly. The light is good."))
+            self.assertFalse(fc.needs_fact_check("rough week at work", "Then sit down and catch your breath."))
+            self.assertFalse(fc.needs_fact_check("what did I say my work was?", "Baking, and the four o'clock start."))
+            # Biographical / attribution / dates / proper nouns / curated facts: check
+            self.assertTrue(fc.needs_fact_check("name your posthumous works", "A Happy Death and The First Man."))
+            self.assertTrue(fc.needs_fact_check("You never kept animals, did you?", "No, I didn't keep any."))
+            self.assertTrue(fc.needs_fact_check("tell me about him", "I met Sartre in 1943."))
+            self.assertTrue(fc.needs_fact_check("is this yours?", "No, that line is not mine."))
+            self.assertTrue(fc.needs_fact_check(
+                "did you say this?", "I do not think so.",
+                hits=[{"type": "fact", "source": "curated (verified)", "score": 0.70, "text": "misattributed"}]))
+
+    def test_claim_gate_always_override(self):
+        from unittest import mock
+        with mock.patch.object(fc, "CHECK_ALWAYS", True):
+            self.assertTrue(fc.needs_fact_check("how are you?", "Fine."))
+
 
 if __name__ == "__main__":
     unittest.main()

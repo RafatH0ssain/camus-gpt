@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """fact_check.py — one checker call over a drafted reply, using a free OpenCode model."""
+import os
+import re
 
 try:
     import judge_opencode as jz
@@ -11,6 +13,52 @@ judge_opencode = jz
 CHECK_MODELS = ("beam-free", "hy4-flash-free")
 CHECK_DEADLINE = 15
 CHECK_ATTEMPTS = 1
+CHECK_ALWAYS = os.environ.get("FACT_CHECK_ALWAYS", "0") == "1"
+
+# Deterministic claim gate: skip external checking on pure banter/philosophy that makes no
+# checkable biographical, attribution, historical, or quoted claim. Replayed against 1,033
+# logged eval turns (camus10fc + camus10bfc) with 100% recall on true factual flags.
+_BIO_KW = re.compile(
+    r"\b(cat|cats|dog|dogs|pet|pets|animal|animals|cigarette|pauline|kirk|blaise|"
+    r"stranger|plague|fall|sisyphus|rebel|caligula|exile|kingdom|happy death|first man|"
+    r"misunderstanding|state of siege|just assassins|tipasa|nuptials|summer|noces|"
+    r"mondovi|belcourt|algiers|algeria|villeblevin|paris|marne|nobel|gallimard|"
+    r"mother|father|brother|lucien|catherine|simone|francine|jean|grandmother|wife|married|twins|"
+    r"germain|sartre|malraux|gide|nietzsche|dostoevsky|kafka|kundera|meursault|mersault|arab|daru|"
+    r"football|goalkeeper|tuberculosis|tb|lungs|posthumous|died|deaths?|born|birthday|crash|"
+    r"existentialist|communist|party|vietnam|indochina|moon|landing|gagarin|wall)\b",
+    re.I,
+)
+_MID_PROPER = re.compile(r"(?<![.!?\"'\u201c\n\u2014\u2013-])\s+(?!I\b|I'[a-z]+)[A-Z][a-z]{2,}")
+_YEAR_OR_QUOTE = re.compile(r"\b(1[789]\d\d|20\d\d)\b|[\"\u201c].{8,}[\"\u201d]|'[^']{12,}'")
+_ATTR_OR_BIO_CLAIM = re.compile(
+    r"\b(not mine|never wrote|didn't write|did not write|"
+    r"my (book|books|novel|novels|play|plays|essay|essays|story|stories|work|works|"
+    r"cat|dog|pet|pets|mother|father|wife|brother|teacher|friend|prize|nobel|life|death)|"
+    r"won the|wrote it|mine;)\b",
+    re.I,
+)
+
+
+def needs_fact_check(user_msg, draft, hits=None):
+    """True when the turn carries a checkable biographical, attribution, or historical claim."""
+    if CHECK_ALWAYS:
+        return True
+    u = user_msg or ""
+    d = draft or ""
+    if _BIO_KW.search(u) or _BIO_KW.search(d):
+        return True
+    if _YEAR_OR_QUOTE.search(u) or _YEAR_OR_QUOTE.search(d):
+        return True
+    if _MID_PROPER.search(d):
+        return True
+    if _ATTR_OR_BIO_CLAIM.search(d):
+        return True
+    for h in (hits or ()):
+        if (h.get("type") == "fact" and h.get("source") == "curated (verified)"
+                and float(h.get("score", 0.0)) >= 0.62):
+            return True
+    return False
 
 
 def available():

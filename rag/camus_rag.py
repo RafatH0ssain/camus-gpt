@@ -71,6 +71,7 @@ TEMP_TASK    = float(os.environ.get("TEMP_TASK", "0.6"))      # analysis / long-
 FACT_CHECK = os.environ.get("FACT_CHECK", "1") != "0"
 FACT_CHECK_LOG = os.environ.get("FACT_CHECK_LOG") or None
 RETRY_TEMP = 0.25
+LIVE_FLAGS_PATH = os.environ.get("LIVE_FLAGS_PATH", os.path.join("data", "live_flags.jsonl"))
 
 # The behavioural prose comes in two variants; the identity card below is shared verbatim by
 # both. CORE_VARIANT=lean selects the shortened prose — see docs/corpus_analysis.md and the
@@ -354,7 +355,7 @@ def _is_greeting_msg(user_msg):
     return ("?" not in t) and len(t.split()) <= 3
 
 
-def checked_reply(turn, user_msg, generate, check=None):
+def checked_reply(turn, user_msg, generate, check=None, meta_out=None):
     if check is None:
         check = fact_check.check_reply
 
@@ -362,6 +363,18 @@ def checked_reply(turn, user_msg, generate, check=None):
 
     skip = (not FACT_CHECK) or bool(getattr(turn, "task", False)) or _is_greeting_msg(user_msg)
     if skip:
+        if meta_out is not None:
+            meta_out.update(checked=False, gate_skipped=False, retried=False)
+        return draft
+
+    if not fact_check.needs_fact_check(user_msg, draft, getattr(turn, "hits", None)):
+        if meta_out is not None:
+            meta_out.update(checked=False, gate_skipped=True, retried=False)
+        if FACT_CHECK_LOG:
+            log = {"user": user_msg, "draft": draft, "check_s": 0.0,
+                   "gate_skipped": True, "retried": False, "final": draft}
+            with open(FACT_CHECK_LOG, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(log) + "\n")
         return draft
 
     # The checker sees the identity card and retrieved FACTS only: views are opinions, and
@@ -393,6 +406,13 @@ def checked_reply(turn, user_msg, generate, check=None):
         else:
             final = draft
             retried = False
+
+    if meta_out is not None:
+        meta_out.update(
+            checked=True, gate_skipped=False, retried=retried,
+            ok=result.get("ok"), problem=result.get("problem", ""),
+            model=result.get("model", ""), skipped=bool(result.get("skipped")),
+        )
 
     if FACT_CHECK_LOG:
         log = {"user": user_msg, "draft": draft, "check_s": check_s}
@@ -657,6 +677,85 @@ def _flush_memories(mem, memctx, history, session_id, reason):
     except Exception as e:
         print(f"[memory] extraction failed ({e}) — session not saved to memory")
 
+def append_live_flag(record, path=None):
+    """Append a live-chat flagged turn record to JSONL for later KB/eval/training triage."""
+    target = path or LIVE_FLAGS_PATH
+    parent = os.path.dirname(target)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(target, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return target
+
+
+def _pending_memory_count(memctx):
+    if memctx is None or getattr(memctx, "store", None) is None:
+        return 0
+    pending_path = getattr(memctx.store, "pending_path", None)
+    if not pending_path or not os.path.exists(pending_path):
+        return 0
+    try:
+        with open(pending_path, encoding="utf-8") as fh:
+            return sum(1 for l in fh if l.strip())
+    except OSError:
+        return 0
+
+
+def handle_slash_command(line, last_turn_info, memctx=None, flags_path=None):
+    """Handle interactive CLI commands (/flag, /mem, /forget, /help).
+
+    Returns (handled: bool, output: str). Unknown strings are returned unhandled so
+    normal chat input is untouched.
+    """
+    text = (line or "").strip()
+    if not text.startswith("/"):
+        return False, ""
+    parts = text.split(None, 1)
+    cmd = parts[0].lower()
+    arg = parts[1].strip() if len(parts) > 1 else ""
+
+    if cmd == "/help":
+        return True, (
+            "Commands:\n"
+            "  /flag [note]        save the last turn to data/live_flags.jsonl for review\n"
+            "  /mem                list stored memories and pending count (requires --memory)\n"
+            "  /forget <substring> delete matching stored/pending memories (requires --memory)\n"
+            "  /help               show this help"
+        )
+
+    if cmd == "/flag":
+        if not last_turn_info:
+            return True, "[flag] no previous turn to flag yet"
+        rec = dict(last_turn_info)
+        rec["ts"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        rec["model"] = GEN_MODEL
+        rec["note"] = arg
+        saved = append_live_flag(rec, path=flags_path)
+        note_suffix = f" ({arg})" if arg else ""
+        return True, f"[flag] saved last turn to {saved}{note_suffix}"
+
+    if cmd == "/mem":
+        if memctx is None:
+            return True, "[memory] off — start with --memory to use /mem"
+        rows = memctx.store.rows
+        n_pend = _pending_memory_count(memctx)
+        lines = [f"[memory] {len(rows)} stored, {n_pend} pending"]
+        for r in rows:
+            lines.append(f"  [{r.get('kind','?'):10s}] hits={r.get('hits',0):<3d} {r['text']}")
+        return True, "\n".join(lines)
+
+    if cmd == "/forget":
+        if memctx is None:
+            return True, "[memory] off — start with --memory to use /forget"
+        if not arg:
+            return True, "[memory] usage: /forget <substring>"
+        n = memctx.store.forget(arg)
+        memctx.store.save()
+        return True, f"[memory] forgot {n} memor{'y' if n == 1 else 'ies'} matching {arg!r}"
+
+    return False, ""
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--debug", action="store_true")
@@ -710,25 +809,42 @@ def main():
 
     check_on = FACT_CHECK and fact_check.available()
     if check_on:
-        print("[fact-check] on (external: opencode; set FACT_CHECK=0 to stream locally)")
+        print("[fact-check] on (claim-gated external: opencode; set FACT_CHECK=0 to stream all locally)")
     elif FACT_CHECK:
         print("[fact-check] off (no OpenCode key — streaming locally)")
 
     # history is trimmed to HIST_WINDOW for the prompt; `pending` keeps every exchange since
     # the last memory flush, so extraction never misses turns that were evicted.
     history, pending, n_exchanges, summary = [], [], 0, ""
-    print("\nCamus is here. Type and press enter; Ctrl-C to leave.\n")
+    last_turn_info = None
+    print("\nCamus is here. Type and press enter; /help for commands; Ctrl-C to leave.\n")
     try:
         while True:
             user = input("you: ").strip()
             if not user: continue
+            handled, cmd_out = handle_slash_command(user, last_turn_info, memctx=memctx)
+            if handled:
+                print(cmd_out + "\n")
+                continue
             turn = build_turn(user, history, facts, vecs, bm25=bm25, ce=ce,
                               debug=args.debug, memory=memctx, summary=summary)
-            if check_on:
-                reply = checked_reply(turn, user, chat_once)
+            check_meta = {}
+            if check_on and not turn.task and not _is_greeting_msg(user):
+                reply = checked_reply(turn, user, chat_once, meta_out=check_meta)
                 print(f"camus: {reply}\n")
             else:
                 reply = stream_chat(turn.messages, turn.opts)
+            last_turn_info = {
+                "user": user,
+                "reply": reply,
+                "task": bool(turn.task),
+                "hits": [{"type": h.get("type"), "source": h.get("source"),
+                          "score": round(float(h.get("score", 0.0)), 4),
+                          "text": (h.get("text") or "")[:200]} for h in (turn.hits or [])],
+                "memories": [m.get("text", "") for m in (turn.memories or [])],
+                "fact_check": check_meta,
+                "history_tail": history[-4:],
+            }
             exchange = [{"role":"user","content":user},{"role":"assistant","content":reply}]
             history += exchange
             n_exchanges += 1

@@ -343,11 +343,11 @@ class CheckedReplyTests(unittest.TestCase):
 
     def test_ok_returns_draft(self):
         turn = self._turn()
-        gen = self._gen("draft")
+        gen = self._gen("I wrote The Plague in 1947.")
         check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
         with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
-            out = cr.checked_reply(turn, "how are you?", gen, check=check)
-        self.assertEqual(out, "draft")
+            out = cr.checked_reply(turn, "when did you write The Plague?", gen, check=check)
+        self.assertEqual(out, "I wrote The Plague in 1947.")
         self.assertEqual(len(gen.calls), 1)
         self.assertEqual(check.call_count, 1)
 
@@ -357,7 +357,8 @@ class CheckedReplyTests(unittest.TestCase):
                              {"type": "view", "text": "Happiness is the aim.", "score": 0.9}])
         check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
         with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
-            cr.checked_reply(turn, "is happiness the point?", self._gen("draft"), check=check)
+            cr.checked_reply(turn, "when did Exile and the Kingdom come out?",
+                             self._gen("Exile and the Kingdom came out in 1957."), check=check)
         ctx = check.call_args.args[2]
         self.assertIn("Exile and the Kingdom came out in 1957.", ctx)
         self.assertNotIn("Happiness is the aim.", ctx)
@@ -365,10 +366,10 @@ class CheckedReplyTests(unittest.TestCase):
 
     def test_flag_regenerates_once(self):
         turn = self._turn()
-        gen = self._gen(["draft", "retry text"])
+        gen = self._gen(["I wrote The Plague in 1950.", "retry text"])
         check = mock.Mock(return_value={"ok": False, "problem": "X is wrong", "model": "beam-free"})
         with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
-            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+            out = cr.checked_reply(turn, "when did you write The Plague?", gen, check=check)
         self.assertEqual(out, "retry text")
         self.assertEqual(len(gen.calls), 2)
         second_msgs, second_opts = gen.calls[1]
@@ -378,19 +379,19 @@ class CheckedReplyTests(unittest.TestCase):
 
     def test_empty_retry_keeps_draft(self):
         turn = self._turn()
-        gen = self._gen(["draft", "  "])
+        gen = self._gen(["I wrote The Plague in 1950.", "  "])
         check = mock.Mock(return_value={"ok": False, "problem": "X is wrong", "model": "beam-free"})
         with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
-            out = cr.checked_reply(turn, "how are you?", gen, check=check)
-        self.assertEqual(out, "draft")
+            out = cr.checked_reply(turn, "when did you write The Plague?", gen, check=check)
+        self.assertEqual(out, "I wrote The Plague in 1950.")
 
     def test_skipped_returns_draft(self):
         turn = self._turn()
-        gen = self._gen("draft")
+        gen = self._gen("I wrote The Plague in 1947.")
         check = mock.Mock(return_value={"skipped": True, "error": "x"})
         with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
-            out = cr.checked_reply(turn, "how are you?", gen, check=check)
-        self.assertEqual(out, "draft")
+            out = cr.checked_reply(turn, "when did you write The Plague?", gen, check=check)
+        self.assertEqual(out, "I wrote The Plague in 1947.")
         self.assertEqual(len(gen.calls), 1)
 
     def test_task_and_greeting_skip_check(self):
@@ -410,32 +411,40 @@ class CheckedReplyTests(unittest.TestCase):
             cr.checked_reply(turn2, "hey there", gen2, check=check2)
         self.assertEqual(check2.call_count, 0)
 
-        # normal question is checked
+        # pure banter skips check via claim gate
         turn3 = self._turn()
-        gen3 = self._gen("draft")
+        gen3 = self._gen("Tired, mostly. The light is good.")
         check3 = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
         with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
             cr.checked_reply(turn3, "how are you?", gen3, check=check3)
-        self.assertEqual(check3.call_count, 1)
+        self.assertEqual(check3.call_count, 0)
+
+        # factual question is checked
+        turn4 = self._turn()
+        gen4 = self._gen("I wrote The Plague in 1947.")
+        check4 = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
+        with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", None):
+            cr.checked_reply(turn4, "when did you write The Plague?", gen4, check=check4)
+        self.assertEqual(check4.call_count, 1)
 
     def test_env_off(self):
         turn = self._turn()
         gen = self._gen("draft")
         check = mock.Mock(return_value={"ok": True, "problem": "", "model": "beam-free"})
         with mock.patch.object(cr, "FACT_CHECK", False), mock.patch.object(cr, "FACT_CHECK_LOG", None):
-            out = cr.checked_reply(turn, "how are you?", gen, check=check)
+            out = cr.checked_reply(turn, "when did you write The Plague?", gen, check=check)
         self.assertEqual(out, "draft")
         self.assertEqual(check.call_count, 0)
 
     def test_log_written(self):
         turn = self._turn()
-        gen = self._gen(["draft", "retry text"])
+        gen = self._gen(["I wrote The Plague in 1950.", "retry text"])
         check = mock.Mock(return_value={"ok": False, "problem": "X is wrong", "model": "beam-free"})
         fd, path = tempfile.mkstemp()
         os.close(fd)
         try:
             with mock.patch.object(cr, "FACT_CHECK", True), mock.patch.object(cr, "FACT_CHECK_LOG", path):
-                cr.checked_reply(turn, "how are you?", gen, check=check)
+                cr.checked_reply(turn, "when did you write The Plague?", gen, check=check)
             with open(path, encoding="utf-8") as fh:
                 lines = [l for l in fh.read().splitlines() if l.strip()]
             self.assertEqual(len(lines), 1)
@@ -534,6 +543,70 @@ class RouteTests(unittest.TestCase):
         self.assertIs(body.get("think"), False)
         self.assertEqual(body.get("stream"), False)
         self.assertEqual(body.get("options"), {"temperature": 0.1})
+
+    def test_cli_streams_greeting_even_when_fact_check_on(self):
+        with mock.patch("sys.argv", ["camus_rag.py"]), \
+             mock.patch.object(cr, "load_kb", return_value=([], None)), \
+             mock.patch.object(cr, "build_bm25", return_value=None), \
+             mock.patch.object(cr, "load_reranker", return_value=None), \
+             mock.patch.object(cr, "retrieve", return_value=[]), \
+             mock.patch.object(cr, "FACT_CHECK", True), \
+             mock.patch.object(cr.fact_check, "available", return_value=True), \
+             mock.patch.object(cr, "stream_chat", return_value="Hello.") as stream_mock, \
+             mock.patch.object(cr, "chat_once") as chat_mock, \
+             mock.patch("builtins.input", side_effect=["hey there", EOFError]):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cr.main()
+        stream_mock.assert_called_once()
+        chat_mock.assert_not_called()
+
+    def test_slash_commands_flag_mem_forget_help(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            fpath = os.path.join(tmp, "live_flags.jsonl")
+            # /flag with no prior turn
+            handled, out = cr.handle_slash_command("/flag too stiff", None, flags_path=fpath)
+            self.assertTrue(handled)
+            self.assertIn("no previous turn", out)
+            self.assertFalse(os.path.exists(fpath))
+
+            # /flag with prior turn writes jsonl
+            last = {"user": "hi", "reply": "hello", "hits": [], "memories": [], "fact_check": {}}
+            handled, out = cr.handle_slash_command("/flag too therapist", last, flags_path=fpath)
+            self.assertTrue(handled)
+            self.assertIn("saved", out)
+            with open(fpath, encoding="utf-8") as fh:
+                rows = [json.loads(l) for l in fh if l.strip()]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["note"], "too therapist")
+            self.assertEqual(rows[0]["reply"], "hello")
+
+            # /mem and /forget when memory is off
+            handled, out = cr.handle_slash_command("/mem", last, memctx=None)
+            self.assertTrue(handled); self.assertIn("off", out)
+            handled, out = cr.handle_slash_command("/forget dog", last, memctx=None)
+            self.assertTrue(handled); self.assertIn("off", out)
+
+            # /mem and /forget with mock memory context
+            store = mock.Mock()
+            store.rows = [{"kind": "fact", "hits": 2, "text": "User lives in Halifax."}]
+            store.pending_path = os.path.join(tmp, "pending.jsonl")
+            with open(store.pending_path, "w", encoding="utf-8") as fh:
+                fh.write('{"text": "pending"}\n')
+            store.forget.return_value = 1
+            memctx = cr.MemoryCtx(store=store)
+            handled, out = cr.handle_slash_command("/mem", last, memctx=memctx)
+            self.assertTrue(handled); self.assertIn("1 stored, 1 pending", out); self.assertIn("Halifax", out)
+            handled, out = cr.handle_slash_command("/forget Halifax", last, memctx=memctx)
+            self.assertTrue(handled); self.assertIn("forgot 1 memory", out)
+            store.forget.assert_called_once_with("Halifax")
+            store.save.assert_called_once()
+
+            # /help and unhandled normal input
+            handled, out = cr.handle_slash_command("/help", last)
+            self.assertTrue(handled); self.assertIn("/flag", out)
+            self.assertEqual(cr.handle_slash_command("hello", last), (False, ""))
+            self.assertEqual(cr.handle_slash_command("/unknown", last), (False, ""))
 
 
 if __name__ == "__main__":
