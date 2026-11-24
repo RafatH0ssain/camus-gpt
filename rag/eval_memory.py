@@ -21,7 +21,7 @@ memory.jsonl / profile.md are never read or written.
 
 Run from repo root:
   python rag/eval_memory.py                          # opencode judge (default)
-  python rag/eval_memory.py --judge-model space-bunny-free
+  python rag/eval_memory.py --judge-model hy4-flash-free
   python rag/eval_memory.py --judge anthropic
   python rag/eval_memory.py --judge ollama --judge-model gemma3:12b
   python rag/eval_memory.py --family false --judge none   # inspect answers only

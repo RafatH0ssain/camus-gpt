@@ -21,7 +21,7 @@ except ImportError:
     dpo10 = None
 import judge_opencode as jz  # noqa: E402
 
-MODELS = ("beam-free", "hy4-flash-free", "longcat-2.5-free")
+MODELS = ("beam-free", "hy4-flash-free")
 CHECKERS = None  # models for rule checks; None = rotate through MODELS, never the drafter
 TOKENS = 16000   # reasoning models (hy4) think 2-4k tokens first; the eval's 4000 cuts batches off
 # Seeds for variety: at temperature 0 the first run asked the same batch over and over (166 duplicates).
@@ -290,22 +290,26 @@ def _convo(row, reply):
     return msgs
 
 
-def _model_for_row(row, offset=0):
-    idx_str = ""
+def _row_idx(row):
     rid = row.get("id", "")
     if isinstance(rid, str):
         parts = rid.rsplit("_", 1)
         if len(parts) == 2 and parts[1].isdigit():
-            idx_str = parts[1]
-    try:
-        idx = int(idx_str) + offset
-    except ValueError:
-        idx = offset
-    return MODELS[idx % len(MODELS)]
+            return int(parts[1])
+    return 0
 
 
-def _checker(row):
-    return CHECKERS[0] if CHECKERS else _model_for_row(row, 2)
+def _model_for_row(row, offset=0):
+    return MODELS[(_row_idx(row) + offset) % len(MODELS)]
+
+
+def _checker(row, drafter=None):
+    if CHECKERS:
+        pool = [m for m in CHECKERS if m != drafter] or list(CHECKERS)
+        return pool[_row_idx(row) % len(pool)]
+    if drafter in MODELS and len(MODELS) > 1:
+        return MODELS[(MODELS.index(drafter) + 1) % len(MODELS)]
+    return _model_for_row(row, 1)
 
 
 def process(row, brief, judge, check_judge):
@@ -313,7 +317,7 @@ def process(row, brief, judge, check_judge):
     rules = cd.RULES.get(category, [])
     model = _model_for_row(row, 0)
     draft = draft_reply(row, brief, judge, model)
-    verdict = cd.rule_check(category, _convo(row, draft), judge=check_judge, model=_checker(row))
+    verdict = cd.rule_check(category, _convo(row, draft), judge=check_judge, model=_checker(row, model))
     ok, hard_drop = cd.passes(category, draft, verdict)
     if ok:
         kept_row = {
@@ -345,7 +349,7 @@ def process(row, brief, judge, check_judge):
     # redraft once
     next_model = _model_for_row(row, 1)
     redraft = draft_reply(row, brief, judge, next_model, note="The last draft broke: " + ", ".join(failed))
-    verdict2 = cd.rule_check(category, _convo(row, redraft), judge=check_judge, model=_checker(row))
+    verdict2 = cd.rule_check(category, _convo(row, redraft), judge=check_judge, model=_checker(row, next_model))
     ok2, hard_drop2 = cd.passes(category, redraft, verdict2)
     if ok2:
         kept_row = {

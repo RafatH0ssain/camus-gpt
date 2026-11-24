@@ -41,7 +41,7 @@ except ImportError:  # tests mock jz.requests.post; a stub keeps them runnable b
     requests = _RequestsStub()
 
 ENDPOINT      = "https://opencode.ai/zen/go/v1/chat/completions"
-DEFAULT_MODEL = "space-bunny-free"
+DEFAULT_MODEL = "hy4-flash-free"
 USER_AGENT    = "camus-gpt-eval/1.0"
 TIMEOUT       = 120
 DEADLINE      = 300     # whole-call cap: TIMEOUT only bounds the gap between bytes, so a trickling reply could hang forever
@@ -165,12 +165,14 @@ USAGE_LEDGER = os.path.expanduser("~/.local/share/dale/go-usage.jsonl")
 
 
 def _record_usage(r, model):
-    """Append what Go counted for this request to Dale's usage ledger (Dale's usage bars read it;
-    direct API calls never reach MiMo's database). Best effort: never fails a judge call."""
+    """Append what Go counted for this request to Dale's usage ledger if Dale is installed
+    (its directory already exists). Best effort: never fails a judge call."""
     try:
+        ledger_dir = os.path.dirname(USAGE_LEDGER)
+        if not os.path.isdir(ledger_dir):
+            return
         allowance = r.json()["usage"]["opencode"]["allowance"]
-        os.makedirs(os.path.dirname(USAGE_LEDGER), exist_ok=True)
-        with open(USAGE_LEDGER, "a") as f:
+        with open(USAGE_LEDGER, "a", encoding="utf-8") as f:
             f.write(json.dumps({"t": int(time.time() * 1000), "model": model, "allowance": allowance}) + "\n")
     except Exception:
         pass

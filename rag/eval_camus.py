@@ -14,7 +14,7 @@ per-probe expectations. Writes:
 Judges (pick one):
   --judge opencode     (default; OpenCode Zen gateway — key from $OPENCODE_API_KEY or
                         ~/.local/share/opencode/auth.json; model via --judge-model,
-                        default space-bunny-free)
+                        default hy4-flash-free)
   --judge anthropic    (needs ANTHROPIC_API_KEY env; model via --judge-model)
   --judge ollama       (local; --judge-model e.g. llama3.1:8b — do NOT judge camus with camus)
   --judge none         (generate answers only; judge later by re-running on the jsonl? no —
@@ -25,7 +25,7 @@ unreliably; any other judge failure is recorded on that row as judge_error and t
 
 Run from repo root:
   python rag/eval_camus.py                       # full suite, opencode judge
-  python rag/eval_camus.py --judge-model space-bunny-free
+  python rag/eval_camus.py --judge-model hy4-flash-free
   python rag/eval_camus.py --judge anthropic
   python rag/eval_camus.py --category identity_pets --judge ollama --judge-model llama3.1:8b
   python rag/eval_camus.py --limit 5 --judge none
