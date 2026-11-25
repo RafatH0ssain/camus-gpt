@@ -207,6 +207,9 @@ class Camus11RunTests(unittest.TestCase):
             self.assertIn("rough week at the depot", prompts[0])
 
     def test_process_checks_with_a_different_model_than_the_drafter(self):
+        from unittest import mock
+        mock.patch.object(run, "MODELS", ("model-a", "model-b")).start()
+        self.addCleanup(mock.patch.stopall)
         drafters, checkers = [], []
         def fake_judge(model, system, prompt):
             drafters.append(model)

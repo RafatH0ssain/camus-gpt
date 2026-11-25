@@ -5,6 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import judge_opencode as jz
 import fact_check as fc
+from unittest import mock
+TWO = ("first-model", "hy4-flash-free")   # fallback tests need a backup model
 
 
 class FactCheckTests(unittest.TestCase):
@@ -13,7 +15,7 @@ class FactCheckTests(unittest.TestCase):
             return '{"ok": true, "problem": ""}'
         r = fc.check_reply("u", "d", "c", judge=fake)
         self.assertTrue(r["ok"])
-        self.assertEqual(r["model"], "beam-free")
+        self.assertEqual(r["model"], "hy4-flash-free")
 
     def test_flag_parsed(self):
         def fake(model, system, prompt):
@@ -22,12 +24,13 @@ class FactCheckTests(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertIn("Nuptials", r["problem"])
 
+    @mock.patch.object(fc, "CHECK_MODELS", TWO)
     def test_unparseable_falls_to_backup(self):
         calls = []
 
         def fake(model, system, prompt):
             calls.append(model)
-            if model == "beam-free":
+            if model == "first-model":
                 return "looks fine"
             return '{"ok": true, "problem": ""}'
 
@@ -35,9 +38,10 @@ class FactCheckTests(unittest.TestCase):
         self.assertEqual(r["model"], "hy4-flash-free")
         self.assertEqual(calls, list(fc.CHECK_MODELS))
 
+    @mock.patch.object(fc, "CHECK_MODELS", TWO)
     def test_non_bool_ok_falls_to_backup(self):
         def fake(model, system, prompt):
-            return '{"problem": "x"}' if model == "beam-free" else '{"ok": "false", "problem": ""}'
+            return '{"problem": "x"}' if model == "first-model" else '{"ok": "false", "problem": ""}'
         r = fc.check_reply("u", "d", "c", judge=fake)
         self.assertTrue(r["skipped"])
 

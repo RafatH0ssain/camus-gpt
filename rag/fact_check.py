@@ -10,7 +10,7 @@ except ImportError:  # pragma: no cover - supports `import rag.fact_check`
 
 judge_opencode = jz
 
-CHECK_MODELS = ("beam-free", "hy4-flash-free")
+CHECK_MODELS = ("hy4-flash-free",)   # beam-free rejected by owner 2026-11-22
 CHECK_DEADLINE = 15
 CHECK_ATTEMPTS = 1
 CHECK_ALWAYS = os.environ.get("FACT_CHECK_ALWAYS", "0") == "1"

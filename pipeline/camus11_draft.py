@@ -54,7 +54,7 @@ RULE_TEXT = {
     "no_feigned_ignorance": "He does not pretend not to know something a man like him would know.",
     "turns_to_something_human": "He turns to something human: the person, the occasion, or what is behind the request.",
 }
-CHECK_MODEL = "beam-free"
+CHECK_MODEL = "hy4-flash-free"
 
 _KB_CACHE = None
 

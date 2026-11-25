@@ -79,7 +79,7 @@ def make_pairs(model_rows: list[dict], refs: list[dict], n: int, seed: int) -> l
     return pairs
 
 
-JURY_MODELS = ("beam-free", "hy4-flash-free")
+JURY_MODELS = ("hy4-flash-free",)   # beam-free rejected by owner 2026-11-22
 
 JURY_SYS = """You will see two short exchanges, A and B. In each, someone sent a message and got a reply.
 One of the two replies was written by a person; the other was written by an AI imitating a

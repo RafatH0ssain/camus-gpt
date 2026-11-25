@@ -20,7 +20,7 @@ except ImportError:
     dpo10 = None
 import judge_opencode as jz  # noqa: E402
 
-MODELS = ("beam-free", "hy4-flash-free")
+MODELS = ("hy4-flash-free",)   # beam-free rejected by owner 2026-11-22
 CHECKERS = None  # models for rule checks; None = rotate through MODELS, never the drafter
 TOKENS = 16000   # reasoning models (hy4) think 2-4k tokens first; the eval's 4000 cuts batches off
 # Seeds for variety: at temperature 0 the first run asked the same batch over and over (166 duplicates).
