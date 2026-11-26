@@ -165,7 +165,7 @@ class TestV3Notebooks(unittest.TestCase):
             # each Phase 2 set writes its own guardrail adapter, so a retrain never
             # overwrites the adapter behind an earlier model
             self.assertIn('{"phase2": "", "phase2_v4": "_v4", "phase2_v5": "_v5", "phase2_v6": "_v6", "phase2_v7": "_v7", "phase2_v8": "_v8", "phase2_v9": "_v9", "phase2_v10": "_v10", "phase2_v11": "_v11", "phase2_v12": "_v12"}[PHASE2_SET]', p2)
-            self.assertIn("LORA_R = 32", p2)
+            self.assertIn("LORA_R = 16", p2)
             self.assertIn("CHECK 2b", p2)
             self.assertLess(p2.index("model.save_pretrained(GUARD_ADAPTER)"), p2.index("CHECK 2b"))
             self.assertLess(p2.index("CHECK 2b"), p2.index("PatchDPOTrainer()"))
